@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="RemoteTargetsManager">
+    <targets>
+      <target name="WSL - Ubuntu" type="wsl" uuid="43bd20c3-f34a-4f5a-8347-91957b538434">
+        <config>
+          <option name="distributionMsId" value="Ubuntu" />
+          <option name="projectRootOnTarget" value="{exitCode=0, timeout=false, cancelled=false, stdout=/tmp/tmp.oEayqLi2dL&#10;, stderr=}/calli-glyph" />
+        </config>
+        <ContributedStateBase type="RsLanguageRuntime">
+          <config>
+            <option name="cargoPath" value="/home/victorbp/.cargo/bin/cargo" />
+            <option name="cargoVersion" value="1.84.0 (66221abde 2024-11-19)" />
+            <option name="rustcPath" value="/home/victorbp/.cargo/bin/rustc" />
+            <option name="rustcVersion" value="1.84.0 (9fc6b4312 2025-01-07)" />
+          </config>
+        </ContributedStateBase>
+      </target>
+    </targets>
+  </component>
+</project>
