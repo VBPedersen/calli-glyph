@@ -1,31 +1,54 @@
-use std::{fs, process};
+use std::{fs};
+use std::fs::File;
+use std::time::{Instant, Duration};
 use color_eyre::Result;
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind};
 use ratatui::{
 
     DefaultTerminal
 };
 
-use crate::ui;
 use crate::ui::{ui};
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct App {
     /// Is the application running?
     running: bool,
-    active_area: ActiveArea,
-    pub(crate) editor_content: String,
-    command_input: String,
-    file_path: Option<String>
-
+    pub(crate) active_area: ActiveArea,
+    pub(crate) editor_content: Vec<String>,
+    pub(crate) command_input: String,
+    file_path: Option<String>,
+    pub(crate) cursor_x: u16,
+    pub(crate) cursor_y: u16,
+    pub(crate) cursor_visible: bool,
+    last_tick: Instant,
+    pub(crate) scroll_offset: u16,
 }
 
 #[derive(PartialEq, Debug, Default)]
-enum ActiveArea {
+pub(crate) enum ActiveArea {
     #[default]
     Editor,
     CommandLine,
 }
+
+impl Default for App {
+    fn default() -> Self {
+        Self {
+            running: Default::default(),
+            active_area: Default::default(),
+            editor_content: vec!(String::new()),
+            command_input: String::new(),
+            file_path: None,
+            cursor_x: 0,
+            cursor_y: 0,
+            last_tick: Instant::now(),
+            cursor_visible: true,
+            scroll_offset: 0,
+        }
+    }
+}
+
 
 impl App {
     /// Construct a new instance of [`App`].
@@ -35,24 +58,46 @@ impl App {
 
     /// Run the application's main loop.
     pub fn run(mut self, mut terminal: DefaultTerminal, file_path: Option<String>) -> Result<()> {
+
+
+        //SETUP
+
         self.running = true;
         self.active_area = ActiveArea::Editor;
         self.file_path = file_path;
 
-
-
         // Read file contents if a file path is provided
         self.editor_content = if let Some(ref path) = self.file_path {
             match fs::read_to_string(&path) {
-                Ok(contents) => contents,
-                Err(err) => {
-                    eprintln!("Failed to read file '{}': {}", path, err);
-                    process::exit(1); // Exit with an error if the file can't be read
+                Ok(contents) => vec!(contents),
+                Err(err) => { //if file not found create new
+                    match File::create(path) { //create file, if ok then return else quit and panic
+                        Ok(_) => {
+                            vec!(String::new()) // Return an empty string as the content
+                        }
+                        Err(create_err) => {
+                            self.running = false;
+                            panic!(
+                                "Failed to create file '{}': {}",
+                                path, create_err
+                            );
+                        }
+                    }
                 }
             }
         } else {
-            String::new() // Start with an empty editor if no file is provided
+            vec!(String::new()) // Start with an empty editor if no file is provided
         };
+
+
+        //LOGIC
+
+        // Handle cursor blinking (toggle cursor visibility every 500ms)
+        if self.last_tick.elapsed() >= Duration::from_millis(500) {
+            self.cursor_visible = !self.cursor_visible;
+            self.last_tick = Instant::now();
+            self.command_input.push('x');
+        }
 
 
         while self.running {
@@ -64,38 +109,6 @@ impl App {
 
 
 
-    /*
-    /// Renders the user interface.
-    ///
-    /// This is where you add new widgets. See the following resources for more information:
-    /// - <https://docs.rs/ratatui/latest/ratatui/widgets/index.html>
-    /// - <https://github.com/ratatui/ratatui/tree/master/examples>
-    fn draw(&mut self, frame: &mut Frame) {
-        /*let title = Line::from("Ratatui Simple Template")
-            .bold()
-            .blue()
-            .centered();*/
-        /*let text = "Hello, Ratatui!\n\n\
-            Created using https://github.com/ratatui/templates\n\
-            Press `Esc`, `Ctrl-C` or `q` to stop running.";*/
-        let layout = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints(vec![
-                Constraint::Percentage(90),
-                Constraint::Percentage(10),
-            ])
-            .split(frame.area());
-
-        frame.render_widget(
-            Block::new().title("TextEditor").borders(Borders::ALL),
-            layout[0],
-        );
-        frame.render_widget(
-            Block::new().title("CommandLine").borders(Borders::ALL),
-            layout[1],
-        );
-    }*/
-
     /// Reads the crossterm events and updates the state of [`App`].
     ///
     /// If your application needs to perform work in between handling events, you can use the
@@ -104,33 +117,80 @@ impl App {
         match event::read()? {
             // it's important to check KeyEventKind::Press to avoid handling key release events
             Event::Key(key) if key.kind == KeyEventKind::Press => self.on_key_event(key),
-            Event::Mouse(_) => {}
+            Event::Mouse(mouse) if (mouse.kind == MouseEventKind::ScrollDown) |
+                (mouse.kind == MouseEventKind::ScrollUp) => {self.on_scroll_events(mouse)}
             Event::Resize(_, _) => {}
             _ => {}
         }
         Ok(())
     }
 
-    /// Handles the key events and updates the state of [`App`].
-    fn on_key_event(&mut self, key: KeyEvent) {
-        match (key.modifiers, key.code) {
-            (_, KeyCode::Esc | KeyCode::Char('q'))
-            | (KeyModifiers::CONTROL, KeyCode::Char('c') | KeyCode::Char('C')) => self.quit(),
-            (KeyModifiers::SHIFT, KeyCode::Char(':')) =>  self.toggle_active_area(),
+    fn on_scroll_events(&mut self, mouse: MouseEvent) {
+        match self.active_area {
+            ActiveArea::Editor => {
+                match mouse.kind {
+                    MouseEventKind::ScrollDown => { self.scroll_offset += 1},
+                    MouseEventKind::ScrollUp => {
+                        if self.scroll_offset != 0 {
+                            self.scroll_offset -= 1;
+                        }
+                    },
+                    _ => {}
+                }
+            },
             _ => {}
         }
     }
 
-    fn toggle_active_area(&mut self) {
+    /// Handles the key events and updates the state of [`App`].
+    fn on_key_event(&mut self, key: KeyEvent) {
         match self.active_area {
-            ActiveArea::Editor =>  self.active_area = ActiveArea::CommandLine,
-            ActiveArea::CommandLine => self.active_area = ActiveArea::Editor,
-
+            ActiveArea::Editor => match (key.modifiers, key.code) {
+                (_, KeyCode::Esc) | (KeyModifiers::SHIFT, KeyCode::Char(':')) => self.toggle_active_area(),
+                (_, KeyCode::Char(c)) => {
+                    self.editor_content.push(String::from(c));
+                    self.cursor_x += 1;
+                },
+                (_, KeyCode::Backspace) => {
+                    self.editor_content.pop();
+                    self.cursor_x -= 1;
+                },
+                _ => {}
+            },
+            ActiveArea::CommandLine => match (key.modifiers, key.code) {
+                (_, KeyCode::Tab | KeyCode::Esc) => self.toggle_active_area(),
+                (KeyModifiers::CONTROL, KeyCode::Char('c')) => self.quit(),
+                (_, KeyCode::Char(c)) => {
+                    self.command_input.push(c);
+                    self.cursor_x += 1;
+                },
+                (_, KeyCode::Backspace) => {
+                    self.command_input.pop();
+                    self.cursor_x -= 1;
+                },
+                _ => {}
+            },
         }
-        println!("test");
+
     }
 
-    /// Set running to false to quit the application.
+    fn toggle_active_area(&mut self) {
+        match self.active_area {
+            ActiveArea::Editor =>  {
+                self.active_area = ActiveArea::CommandLine;
+                self.cursor_x = 0;
+                self.cursor_y = 0;
+            },
+            ActiveArea::CommandLine => {
+                self.active_area = ActiveArea::Editor;
+                self.cursor_x = 0;
+                self.cursor_y = 0;
+            },
+
+        }
+    }
+
+    /// Set running to false, to quit the application.
     fn quit(&mut self) {
         self.running = false;
     }

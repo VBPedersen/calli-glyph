@@ -1,12 +1,16 @@
 
 use ratatui::{ layout::{Constraint, Direction, Layout}, widgets::{Block, Borders, }, Frame, };
+use ratatui::layout::Position;
 use ratatui::style::{Color, Style};
 use ratatui::widgets::{BorderType, Paragraph};
-use crate::app::App;
+use crate::app::{ActiveArea, App};
 
 
 pub fn ui(frame: &mut Frame, app: &App) {
-    let editor_content:String = (&app.editor_content).to_string();
+    let editor_content: String = (&app.editor_content).to_vec().join("\n");
+    let command_input:String = (&app.command_input).to_string();
+
+
 
     let layout = Layout::default()
         .direction(Direction::Vertical)
@@ -17,24 +21,52 @@ pub fn ui(frame: &mut Frame, app: &App) {
         .split(frame.area());
 
     frame.render_widget(
-        read_file_to_editor(editor_content),
+        editor(editor_content,app.scroll_offset),
         layout[0],
     );
     frame.render_widget(
-        Block::new().title("CommandLine").borders(Borders::ALL),
+        command_line(command_input),
         layout[1],
     );
 
+    //set cursor with position if it should be visiblie (determined by app logic)
+    if app.cursor_visible {
+        match app.active_area {
+            ActiveArea::Editor => {
+                let x = layout[0].x + app.cursor_x + 1;
+                let y = layout[0].y + app.cursor_y + 1;
+                let pos: Position = Position { x, y };
+                frame.set_cursor_position(pos);
+            },
+            ActiveArea::CommandLine => {
+                let x = layout[1].x + app.cursor_x + 1;
+                let y = layout[1].y + app.cursor_y + 1;
+                let pos: Position = Position { x, y };
+                frame.set_cursor_position(pos);
+            },
+        }
+
+    }
 }
 
-fn read_file_to_editor<'a>(editor_content: String) -> Paragraph<'a> {
-    let block = Block::new().title("TextEditor").borders(Borders::ALL);
+fn editor<'a>(editor_content: String, scroll_offset: u16) -> Paragraph<'a> {
     Paragraph::new(editor_content)
         .style(Style::default().fg(Color::White))
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .title("Title")
+                .title("Editor")
+                .border_type(BorderType::Rounded)
+        ).scroll((scroll_offset, 0))
+}
+
+fn command_line<'a>(command_input: String) -> Paragraph<'a> {
+    Paragraph::new(command_input)
+        .style(Style::default().fg(Color::White))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Command Line")
                 .border_type(BorderType::Rounded)
         )
 }
