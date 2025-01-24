@@ -7,7 +7,7 @@ use crate::app::{ActiveArea, App};
 
 
 pub fn ui(frame: &mut Frame, app: &App) {
-    let editor_content: String = (&app.editor_content).to_vec().join("\n");
+    let editor_content: String = app.editor_content.join("\n");
     let command_input:String = (&app.command_input).to_string();
 
 
@@ -33,14 +33,14 @@ pub fn ui(frame: &mut Frame, app: &App) {
     if app.cursor_visible {
         match app.active_area {
             ActiveArea::Editor => {
-                let x = layout[0].x + app.cursor_x + 1;
-                let y = layout[0].y + app.cursor_y + 1;
+                let x = layout[0].x + app.cursor_x as u16 + 1;
+                let y = layout[0].y + app.cursor_y as u16 + 1;
                 let pos: Position = Position { x, y };
                 frame.set_cursor_position(pos);
             },
             ActiveArea::CommandLine => {
-                let x = layout[1].x + app.cursor_x + 1;
-                let y = layout[1].y + app.cursor_y + 1;
+                let x = layout[1].x + app.cursor_x as u16 + 1;
+                let y = layout[1].y + app.cursor_y as u16 + 1;
                 let pos: Position = Position { x, y };
                 frame.set_cursor_position(pos);
             },

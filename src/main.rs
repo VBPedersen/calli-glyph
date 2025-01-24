@@ -2,6 +2,7 @@ pub use app::App;
 
 pub mod app;
 mod ui;
+mod input;
 
 use ratatui::crossterm::event::EnableMouseCapture;
 use ratatui::crossterm::execute;

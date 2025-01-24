@@ -2,13 +2,14 @@ use std::{fs};
 use std::fs::File;
 use std::time::{Instant, Duration};
 use color_eyre::Result;
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind};
 use ratatui::{
 
     DefaultTerminal
 };
 
 use crate::ui::{ui};
+use crate::input::{handle_input};
+
 
 #[derive(Debug)]
 pub struct App {
@@ -18,8 +19,8 @@ pub struct App {
     pub(crate) editor_content: Vec<String>,
     pub(crate) command_input: String,
     file_path: Option<String>,
-    pub(crate) cursor_x: u16,
-    pub(crate) cursor_y: u16,
+    pub(crate) cursor_x: i16,
+    pub(crate) cursor_y: i16,
     pub(crate) cursor_visible: bool,
     last_tick: Instant,
     pub(crate) scroll_offset: u16,
@@ -70,7 +71,7 @@ impl App {
         self.editor_content = if let Some(ref path) = self.file_path {
             match fs::read_to_string(&path) {
                 Ok(contents) => vec!(contents),
-                Err(err) => { //if file not found create new
+                Err(_err) => { //if file not found create new
                     match File::create(path) { //create file, if ok then return else quit and panic
                         Ok(_) => {
                             vec!(String::new()) // Return an empty string as the content
@@ -83,6 +84,7 @@ impl App {
                             );
                         }
                     }
+
                 }
             }
         } else {
@@ -102,79 +104,61 @@ impl App {
 
         while self.running {
             terminal.draw(|frame| ui(frame, &self))?;
-            self.handle_crossterm_events()?;
+            handle_input(&mut self)?;
         }
         Ok(())
     }
 
+    //TEXT OPERATIONS
 
-
-    /// Reads the crossterm events and updates the state of [`App`].
-    ///
-    /// If your application needs to perform work in between handling events, you can use the
-    /// [`event::poll`] function to check if there are any events available with a timeout.
-    fn handle_crossterm_events(&mut self) -> Result<()> {
-        match event::read()? {
-            // it's important to check KeyEventKind::Press to avoid handling key release events
-            Event::Key(key) if key.kind == KeyEventKind::Press => self.on_key_event(key),
-            Event::Mouse(mouse) if (mouse.kind == MouseEventKind::ScrollDown) |
-                (mouse.kind == MouseEventKind::ScrollUp) => {self.on_scroll_events(mouse)}
-            Event::Resize(_, _) => {}
-            _ => {}
-        }
-        Ok(())
-    }
-
-    fn on_scroll_events(&mut self, mouse: MouseEvent) {
-        match self.active_area {
-            ActiveArea::Editor => {
-                match mouse.kind {
-                    MouseEventKind::ScrollDown => { self.scroll_offset += 1},
-                    MouseEventKind::ScrollUp => {
-                        if self.scroll_offset != 0 {
-                            self.scroll_offset -= 1;
-                        }
-                    },
-                    _ => {}
-                }
-            },
-            _ => {}
-        }
-    }
-
-    /// Handles the key events and updates the state of [`App`].
-    fn on_key_event(&mut self, key: KeyEvent) {
-        match self.active_area {
-            ActiveArea::Editor => match (key.modifiers, key.code) {
-                (_, KeyCode::Esc) | (KeyModifiers::SHIFT, KeyCode::Char(':')) => self.toggle_active_area(),
-                (_, KeyCode::Char(c)) => {
-                    self.editor_content.push(String::from(c));
-                    self.cursor_x += 1;
-                },
-                (_, KeyCode::Backspace) => {
-                    self.editor_content.pop();
-                    self.cursor_x -= 1;
-                },
-                _ => {}
-            },
-            ActiveArea::CommandLine => match (key.modifiers, key.code) {
-                (_, KeyCode::Tab | KeyCode::Esc) => self.toggle_active_area(),
-                (KeyModifiers::CONTROL, KeyCode::Char('c')) => self.quit(),
-                (_, KeyCode::Char(c)) => {
-                    self.command_input.push(c);
-                    self.cursor_x += 1;
-                },
-                (_, KeyCode::Backspace) => {
-                    self.command_input.pop();
-                    self.cursor_x -= 1;
-                },
-                _ => {}
-            },
+    ///writes char to y position line, with x position
+    pub(crate) fn write_char_to_editor(&mut self, c: char) {
+        while self.editor_content.len() <= self.cursor_y as usize {
+            self.editor_content.push(String::new());
         }
 
+        let line = &mut self.editor_content[self.cursor_y as usize];
+
+        if line.len() < self.cursor_x as usize {
+            self.cursor_x = line.len() as i16;
+        }
+
+        line.insert(self.cursor_x as usize, c);
+        self.move_cursor(1,0);
     }
 
-    fn toggle_active_area(&mut self) {
+    pub(crate) fn backpace(&mut self) {
+        if self.cursor_x > 0 {
+            let line = &mut self.editor_content[self.cursor_y as usize];
+            line.remove(self.cursor_x as usize -1);
+            self.move_cursor(-1,0);
+        } else if self.cursor_y > 0 {
+            let line = &mut self.editor_content.remove(self.cursor_y as usize);
+            let new_x_value = self.editor_content[(self.cursor_y -1) as usize].len() as i16;
+            self.move_cursor(new_x_value,-1);
+            self.editor_content[self.cursor_y as usize].push_str(&line);
+        }
+        
+        
+    }
+
+
+    //CURSOR
+    ///moves cursor by x and y amounts
+    pub(crate) fn move_cursor(&mut self, x: i16, y: i16) {
+        self.cursor_x = (self.cursor_x + x).clamp(0, i16::MAX);
+        self.cursor_y = (self.cursor_y + y).clamp(0, i16::MAX);
+    }
+
+
+
+
+
+
+
+    //PANEL HANDLING
+
+    pub(crate) fn toggle_active_area(&mut self) {
         match self.active_area {
             ActiveArea::Editor =>  {
                 self.active_area = ActiveArea::CommandLine;
@@ -190,8 +174,11 @@ impl App {
         }
     }
 
+
+    //Basic Commands
+
     /// Set running to false, to quit the application.
-    fn quit(&mut self) {
+    pub(crate) fn quit(&mut self) {
         self.running = false;
     }
 }
