@@ -3,7 +3,8 @@ use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, Mou
 use crate::App;
 use crate::app::ActiveArea;
 
-
+//COMMAND BINDS
+const COMMAND_EXIT_DONT_SAVE:&str = ":q";
 
 /// Reads the crossterm events and updates the state of [`App`].
 ///
@@ -38,28 +39,31 @@ fn on_scroll_events(app: &mut App, mouse: MouseEvent) {
 fn on_key_event(app: &mut App, key: KeyEvent) {
     match app.active_area {
         ActiveArea::Editor => match (key.modifiers, key.code) {
-            (_, KeyCode::Up) => app.move_cursor(0,-1),
-            (_, KeyCode::Down) => app.move_cursor(0,1),
-            (_, KeyCode::Left) => app.move_cursor(-1,0),
-            (_, KeyCode::Right) => app.move_cursor(1,0),
+            (_, KeyCode::Up) => app.move_cursor_in_editor(0, -1),
+            (_, KeyCode::Down) => app.move_cursor_in_editor(0, 1),
+            (_, KeyCode::Left) => app.move_cursor_in_editor(-1, 0),
+            (_, KeyCode::Right) => app.move_cursor_in_editor(1, 0),
             (_, KeyCode::Esc) | (KeyModifiers::SHIFT, KeyCode::Char(':')) => app.toggle_active_area(),
             (_, KeyCode::Char(c)) =>  app.write_char_to_editor(c) ,
-            (_, KeyCode::Backspace) => { app.backpace() },
+            (_, KeyCode::Backspace) => { app.backpace_on_editor() },
             _ => {}
         },
         ActiveArea::CommandLine => match (key.modifiers, key.code) {
+            (_, KeyCode::Left) => app.move_cursor_in_editor(-1, 0),
+            (_, KeyCode::Right) => app.move_cursor_in_editor(1, 0),
             (_, KeyCode::Tab | KeyCode::Esc) => app.toggle_active_area(),
             (KeyModifiers::CONTROL, KeyCode::Char('c')) => app.quit(),
-            (_, KeyCode::Char(c)) => {
-                app.command_input.push(c);
-                app.cursor_x += 1;
-            },
-            (_, KeyCode::Backspace) => {
-                app.command_input.pop();
-                app.cursor_x -= 1;
-            },
+            (_, KeyCode::Char(c)) => { app.write_char_to_command_line(c) },
+            (_, KeyCode::Backspace) => { app.backpace_on_command_line() },
+            (_, KeyCode::Enter) => { on_command_enter(app); },
             _ => {}
         },
     }
+}
 
+fn on_command_enter(app: &mut App) {
+    match app.command_input.as_str(){
+        COMMAND_EXIT_DONT_SAVE => {app.quit()},
+        _ => {}
+    }
 }

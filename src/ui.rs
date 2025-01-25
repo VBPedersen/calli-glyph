@@ -1,10 +1,8 @@
-use std::fmt::Debug;
-use color_eyre::owo_colors::OwoColorize;
-use ratatui::{layout::{Constraint, Direction, Layout}, widgets::{Block, Borders, }, Frame, };
+use ratatui::{layout::{Constraint, Direction, Layout}, widgets::{Block}, Frame, };
 use ratatui::layout::{Alignment, Position};
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{BorderType, Paragraph};
+use ratatui::widgets::{Paragraph};
 use crate::app::{ActiveArea, App};
 
 
@@ -90,7 +88,7 @@ fn editor<'a>(editor_content: String, scroll_offset: u16) -> Paragraph<'a> {
 
 fn command_line<'a>(command_input: String) -> Paragraph<'a> {
     Paragraph::new(command_input)
-        .style(Style::default().fg(Color::White))
+        .style(Style::default().fg(Color::White).bg(Color::Cyan))
         .block(
             Block::default()
                 //.borders(Borders::ALL)

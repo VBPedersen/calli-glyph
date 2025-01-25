@@ -110,40 +110,65 @@ impl App {
 
     ///writes char to y position line, with x position
     pub(crate) fn write_char_to_editor(&mut self, c: char) {
+        //creating lines until y position of cursor
         while self.editor_content.len() <= self.cursor_y as usize {
             self.editor_content.push(String::new());
         }
 
         let line = &mut self.editor_content[self.cursor_y as usize];
 
+        //position cursor to line end
         if line.len() < self.cursor_x as usize {
             self.cursor_x = line.len() as i16;
         }
 
         line.insert(self.cursor_x as usize, c);
-        self.move_cursor(1,0);
+        self.move_cursor_in_editor(1, 0);
     }
 
-    pub(crate) fn backpace(&mut self) {
-        if self.cursor_x > 0 {
+    pub(crate) fn write_char_to_command_line(&mut self, c: char) {
+        let line = &mut self.command_input;
+        if line.len() < self.cursor_x as usize {
+            self.cursor_x = line.len() as i16;
+        }
+        line.insert(self.cursor_x as usize, c);
+        self.move_cursor_in_editor(1, 0);
+    }
+
+    pub(crate) fn backpace_on_editor(&mut self) {
+        if self.cursor_x > 0 && self.cursor_x <= self.editor_content[self.cursor_y as usize].len() as i16 {
             let line = &mut self.editor_content[self.cursor_y as usize];
             line.remove(self.cursor_x as usize -1);
-            self.move_cursor(-1,0);
+            self.move_cursor_in_editor(-1, 0);
         } else if self.cursor_y > 0 {
             let line = &mut self.editor_content.remove(self.cursor_y as usize);
             let new_x_value = self.editor_content[(self.cursor_y -1) as usize].len() as i16;
-            self.move_cursor(new_x_value,-1);
+            self.move_cursor_in_editor(new_x_value, -1);
             self.editor_content[self.cursor_y as usize].push_str(&line);
         }
-        
-        
     }
+
+    pub(crate) fn backpace_on_command_line(&mut self) {
+        let line = &mut self.command_input;
+        if self.cursor_x > 0 && self.cursor_x <= line.len() as i16 {
+            line.remove(self.cursor_x as usize -1);
+            self.move_cursor_in_editor(-1, 0);
+        }
+    }
+
 
 
     //CURSOR
     ///moves cursor by x and y amounts
-    pub(crate) fn move_cursor(&mut self, x: i16, y: i16) {
-        self.cursor_x = (self.cursor_x + x).clamp(0, i16::MAX);
+    pub(crate) fn move_cursor_in_editor(&mut self, x: i16, y: i16) {
+        //make more lines if less lines than cursor future y
+        while self.editor_content.len() <= (self.cursor_y + y) as usize {
+            self.editor_content.push(String::new());
+        }
+
+        let max_x_pos:i16 = self.editor_content[(self.cursor_y + y) as usize].len() as i16;
+
+        self.cursor_x = (self.cursor_x + x).clamp(0, max_x_pos);
         self.cursor_y = (self.cursor_y + y).clamp(0, i16::MAX);
 
         let (top, bottom) = self.is_cursor_top_or_bottom();
@@ -153,8 +178,6 @@ impl App {
             self.scroll_offset = (self.scroll_offset + y).clamp(0, i16::MAX);
             return;
         }
-        
-
     }
 
 
@@ -176,7 +199,7 @@ impl App {
             return;
         }
 
-        self.move_cursor(0,offset);
+        self.move_cursor_in_editor(0, offset);
     }
 
 
