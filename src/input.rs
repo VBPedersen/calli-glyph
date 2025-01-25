@@ -49,8 +49,8 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
             _ => {}
         },
         ActiveArea::CommandLine => match (key.modifiers, key.code) {
-            (_, KeyCode::Left) => app.move_cursor_in_editor(-1, 0),
-            (_, KeyCode::Right) => app.move_cursor_in_editor(1, 0),
+            (_, KeyCode::Left) => app.move_cursor_in_command_line(-1),
+            (_, KeyCode::Right) => app.move_cursor_in_command_line(1),
             (_, KeyCode::Tab | KeyCode::Esc) => app.toggle_active_area(),
             (KeyModifiers::CONTROL, KeyCode::Char('c')) => app.quit(),
             (_, KeyCode::Char(c)) => { app.write_char_to_command_line(c) },

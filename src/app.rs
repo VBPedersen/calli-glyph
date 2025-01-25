@@ -132,7 +132,7 @@ impl App {
             self.cursor_x = line.len() as i16;
         }
         line.insert(self.cursor_x as usize, c);
-        self.move_cursor_in_editor(1, 0);
+        self.move_cursor_in_command_line(1);
     }
 
     pub(crate) fn backpace_on_editor(&mut self) {
@@ -152,14 +152,14 @@ impl App {
         let line = &mut self.command_input;
         if self.cursor_x > 0 && self.cursor_x <= line.len() as i16 {
             line.remove(self.cursor_x as usize -1);
-            self.move_cursor_in_editor(-1, 0);
+            self.move_cursor_in_command_line(-1);
         }
     }
 
 
 
     //CURSOR
-    ///moves cursor by x and y amounts
+    ///moves cursor by x and y amounts in editor
     pub(crate) fn move_cursor_in_editor(&mut self, x: i16, y: i16) {
         //make more lines if less lines than cursor future y
         while self.editor_content.len() <= (self.cursor_y + y) as usize {
@@ -178,6 +178,14 @@ impl App {
             self.scroll_offset = (self.scroll_offset + y).clamp(0, i16::MAX);
             return;
         }
+    }
+
+    ///moves cursor by x and y amounts in commandline
+    pub(crate) fn move_cursor_in_command_line(&mut self, x: i16) {
+
+        let max_x_pos:i16 = self.command_input.len() as i16;
+        self.cursor_x = (self.cursor_x + x).clamp(0, max_x_pos);
+
     }
 
 
