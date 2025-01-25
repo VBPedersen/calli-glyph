@@ -18,12 +18,13 @@ pub struct App {
     pub(crate) active_area: ActiveArea,
     pub(crate) editor_content: Vec<String>,
     pub(crate) command_input: String,
-    file_path: Option<String>,
+    pub(crate) file_path: Option<String>,
     pub(crate) cursor_x: i16,
     pub(crate) cursor_y: i16,
     pub(crate) cursor_visible: bool,
     last_tick: Instant,
-    pub(crate) scroll_offset: u16,
+    pub(crate) scroll_offset: i16,
+    pub(crate) terminal_height: i16,
 }
 
 #[derive(PartialEq, Debug, Default)]
@@ -46,6 +47,7 @@ impl Default for App {
             last_tick: Instant::now(),
             cursor_visible: true,
             scroll_offset: 0,
+            terminal_height: 0,
         }
     }
 }
@@ -59,8 +61,6 @@ impl App {
 
     /// Run the application's main loop.
     pub fn run(mut self, mut terminal: DefaultTerminal, file_path: Option<String>) -> Result<()> {
-
-
         //SETUP
 
         self.running = true;
@@ -91,19 +91,16 @@ impl App {
             vec!(String::new()) // Start with an empty editor if no file is provided
         };
 
-
         //LOGIC
 
         // Handle cursor blinking (toggle cursor visibility every 500ms)
         if self.last_tick.elapsed() >= Duration::from_millis(500) {
             self.cursor_visible = !self.cursor_visible;
             self.last_tick = Instant::now();
-            self.command_input.push('x');
         }
 
-
         while self.running {
-            terminal.draw(|frame| ui(frame, &self))?;
+            terminal.draw(|frame| ui(frame, &mut self))?;
             handle_input(&mut self)?;
         }
         Ok(())
@@ -148,9 +145,39 @@ impl App {
     pub(crate) fn move_cursor(&mut self, x: i16, y: i16) {
         self.cursor_x = (self.cursor_x + x).clamp(0, i16::MAX);
         self.cursor_y = (self.cursor_y + y).clamp(0, i16::MAX);
+
+        let (top, bottom) = self.is_cursor_top_or_bottom();
+
+        //if on way down and at bottom, move scroll
+        if (y == 1 && bottom) || (y == -1 && top) {
+            self.scroll_offset = (self.scroll_offset + y).clamp(0, i16::MAX);
+            return;
+        }
+        
+
     }
 
 
+    fn is_cursor_top_or_bottom(&self) -> (bool,bool) {
+        let top = self.cursor_y == self.scroll_offset;
+        let bottom =  self.cursor_y == self.scroll_offset + (self.terminal_height -2);
+        (top,bottom)
+    }
+
+
+    //SCROLL
+
+    pub(crate) fn move_scroll_offset(&mut self, offset: i16) {
+        let (top, bottom) = self.is_cursor_top_or_bottom();
+
+        //if on way down and at bottom, move scroll
+        if (offset == 1 && bottom) || (offset == -1 && top) {
+            self.scroll_offset = (self.scroll_offset + offset).clamp(0, i16::MAX);
+            return;
+        }
+
+        self.move_cursor(0,offset);
+    }
 
 
 

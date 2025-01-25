@@ -25,12 +25,8 @@ fn on_scroll_events(app: &mut App, mouse: MouseEvent) {
     match app.active_area {
         ActiveArea::Editor => {
             match mouse.kind {
-                MouseEventKind::ScrollDown => { app.scroll_offset += 1},
-                MouseEventKind::ScrollUp => {
-                    if app.scroll_offset != 0 {
-                        app.scroll_offset -= 1;
-                    }
-                },
+                MouseEventKind::ScrollDown => { app.move_scroll_offset(1) },
+                MouseEventKind::ScrollUp => { app.move_scroll_offset(-1) },
                 _ => {}
             }
         },
