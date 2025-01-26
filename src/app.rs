@@ -124,7 +124,7 @@ impl App {
         //IN EDITOR
 
     ///writes char to y position line, with x position
-    pub(crate) fn write_char_to_editor(&mut self, c: char) {
+    pub(crate) fn write_char_in_editor(&mut self, c: char) {
         //creating lines until y position of cursor
         while self.editor_content.len() <= self.cursor_y as usize {
             self.editor_content.push(String::new());
@@ -142,7 +142,7 @@ impl App {
     }
 
     ///handles backspace in editor, removes char at y line x position and sets new cursor position
-    pub(crate) fn backspace_on_editor(&mut self) {
+    pub(crate) fn backspace_in_editor(&mut self) {
         if self.cursor_x > 0 && self.cursor_x <= self.editor_content[self.cursor_y as usize].len() as i16 {
             let line = &mut self.editor_content[self.cursor_y as usize];
             line.remove(self.cursor_x as usize -1);
@@ -152,6 +152,21 @@ impl App {
             let new_x_value = self.editor_content[(self.cursor_y -1) as usize].len() as i16;
             self.move_cursor_in_editor(new_x_value, -1);
             self.editor_content[self.cursor_y as usize].push_str(&line);
+        }
+    }
+
+    ///handles DELETE action, of deleting char in editor at x +1 posistion
+    pub(crate) fn delete_in_editor(&mut self) {
+        let current_line_len = self.editor_content[self.cursor_y as usize].len() as i16;
+
+        if current_line_len == 0 { return; }
+        //if at line end, move line below up,  else if current line length is bigger than current cursor x pos, remove char
+        if self.cursor_x >= current_line_len -1 && self.editor_content.len() > (self.cursor_y +1) as usize {
+            let line = &mut self.editor_content.remove((self.cursor_y +1) as usize);
+            self.editor_content[self.cursor_y as usize].push_str(&line);
+        } else if current_line_len > (self.cursor_x+1) {
+            let line = &mut self.editor_content[self.cursor_y as usize];
+            line.remove((self.cursor_x+1) as usize);
         }
     }
 

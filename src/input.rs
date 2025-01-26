@@ -45,10 +45,11 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
             (_, KeyCode::Left) => app.move_cursor_in_editor(-1, 0),
             (_, KeyCode::Right) => app.move_cursor_in_editor(1, 0),
             (_, KeyCode::Esc) => app.toggle_active_area(),
-            (_, KeyCode::Char(c)) =>  app.write_char_to_editor(c) ,
-            (_, KeyCode::Backspace) => { app.backspace_on_editor() },
+            (_, KeyCode::Char(c)) =>  app.write_char_in_editor(c) ,
+            (_, KeyCode::Backspace) => { app.backspace_in_editor() },
             (_, KeyCode::Tab) => { app.tab_in_editor() },
             (_, KeyCode::Enter) => { app.enter_in_editor(); },
+            (_, KeyCode::Delete) => { app.delete_in_editor(); },
             _ => {}
         },
         ActiveArea::CommandLine => match (key.modifiers, key.code) {
