@@ -1,5 +1,6 @@
 use std::{fs};
-use std::fs::File;
+use std::fs::{File, OpenOptions};
+use std::io::{BufReader, BufWriter, Read, Write};
 use std::time::{Instant, Duration};
 use color_eyre::Result;
 use ratatui::{
@@ -69,9 +70,22 @@ impl App {
 
         // Read file contents if a file path is provided
         self.editor_content = if let Some(ref path) = self.file_path {
-            match fs::read_to_string(&path) {
-                Ok(contents) => contents.lines().map(String::from).collect(),
-                Err(_err) => { //if file not found create new
+            match File::open(path) {
+                Ok(f) => {
+                    let mut buff_read_file = BufReader::new(f);
+                    let mut contents = String::new();
+                    match buff_read_file.read_to_string(&mut contents) {
+                        Ok(_size) => contents.lines().map(String::from).collect(),
+                        Err(err) => { //if file not found create new
+                            self.running = false;
+                            panic!(
+                                "Failed to create file '{}': {}",
+                                path, err
+                            );
+                        }
+                    }
+                },
+                Err(err) => {
                     match File::create(path) { //create file, if ok then return else quit and panic
                         Ok(_) => {
                             vec!(String::new()) // Return an empty string as the content
@@ -84,7 +98,6 @@ impl App {
                             );
                         }
                     }
-
                 }
             }
         } else {
@@ -270,4 +283,51 @@ impl App {
     pub(crate) fn quit(&mut self) {
         self.running = false;
     }
+
+    ///saves contents to file
+    pub(crate) fn save(&self) -> Result<()> {
+        let mut path;
+        let mut has_changes:bool;
+
+        let new_content = self.editor_content.join("\n");
+        if self.file_path.is_some() {
+            path = self.file_path.clone().unwrap();
+            has_changes = self.file_has_changes(new_content.clone(),path.clone())?;
+        }else {
+            path = "untitled".to_string();
+            has_changes = new_content.len() > 0;
+        }
+
+        if has_changes {
+            let file = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(path)?;
+            let mut buff_write_file = BufWriter::new(file);
+            buff_write_file.write_all(new_content.as_bytes())?;
+            buff_write_file.flush()?;
+            Ok(())
+        }else {
+            Ok(())
+        }
+    }
+
+
+    //HELPER FUNCTIONS FOR BASIC COMMANDS
+    pub(crate) fn file_has_changes(&self,editor_content:String,file_path:String) -> Result<bool> {
+
+        let file = File::open(file_path)?;
+        let mut buff_read_file = BufReader::new(file);
+        let mut read_file_contents = String::new();
+
+        buff_read_file.read_to_string(&mut read_file_contents).expect("TODO: panic message");
+        //if has changes, return true else return false
+        if !read_file_contents.eq(&editor_content) {
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
 }
