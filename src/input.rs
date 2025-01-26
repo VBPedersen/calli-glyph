@@ -45,7 +45,9 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
             (_, KeyCode::Right) => app.move_cursor_in_editor(1, 0),
             (_, KeyCode::Esc) | (KeyModifiers::SHIFT, KeyCode::Char(':')) => app.toggle_active_area(),
             (_, KeyCode::Char(c)) =>  app.write_char_to_editor(c) ,
-            (_, KeyCode::Backspace) => { app.backpace_on_editor() },
+            (_, KeyCode::Backspace) => { app.backspace_on_editor() },
+            (_, KeyCode::Tab) => { app.tab_in_editor() },
+            (_, KeyCode::Enter) => { app.enter_in_editor(); },
             _ => {}
         },
         ActiveArea::CommandLine => match (key.modifiers, key.code) {
@@ -54,7 +56,7 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
             (_, KeyCode::Tab | KeyCode::Esc) => app.toggle_active_area(),
             (KeyModifiers::CONTROL, KeyCode::Char('c')) => app.quit(),
             (_, KeyCode::Char(c)) => { app.write_char_to_command_line(c) },
-            (_, KeyCode::Backspace) => { app.backpace_on_command_line() },
+            (_, KeyCode::Backspace) => { app.backspace_on_command_line() },
             (_, KeyCode::Enter) => { on_command_enter(app); },
             _ => {}
         },

@@ -108,6 +108,8 @@ impl App {
 
     //TEXT OPERATIONS
 
+        //IN EDITOR
+
     ///writes char to y position line, with x position
     pub(crate) fn write_char_to_editor(&mut self, c: char) {
         //creating lines until y position of cursor
@@ -126,16 +128,8 @@ impl App {
         self.move_cursor_in_editor(1, 0);
     }
 
-    pub(crate) fn write_char_to_command_line(&mut self, c: char) {
-        let line = &mut self.command_input;
-        if line.len() < self.cursor_x as usize {
-            self.cursor_x = line.len() as i16;
-        }
-        line.insert(self.cursor_x as usize, c);
-        self.move_cursor_in_command_line(1);
-    }
-
-    pub(crate) fn backpace_on_editor(&mut self) {
+    ///handles backspace in editor, removes char at y line x position and sets new cursor position
+    pub(crate) fn backspace_on_editor(&mut self) {
         if self.cursor_x > 0 && self.cursor_x <= self.editor_content[self.cursor_y as usize].len() as i16 {
             let line = &mut self.editor_content[self.cursor_y as usize];
             line.remove(self.cursor_x as usize -1);
@@ -148,7 +142,40 @@ impl App {
         }
     }
 
-    pub(crate) fn backpace_on_command_line(&mut self) {
+    pub(crate) fn tab_in_editor(&mut self) {
+        //TODO
+    }
+
+    ///handles enter new line, with possible move of text
+    pub(crate) fn enter_in_editor(&mut self) {
+        let line = &mut self.editor_content[self.cursor_y as usize];
+        //if at end of line len, then just move cursor and make new line, else move text too
+        if self.cursor_x >= line.len() as i16 {
+            self.move_cursor_in_editor(0,1);
+            self.editor_content.insert(self.cursor_y as usize,String::new());
+        } else {
+            let line_to_move = &mut line.split_off(self.cursor_x as usize);
+            self.move_cursor_in_editor(0,1);
+            self.editor_content.insert(self.cursor_y as usize,String::new());
+            self.editor_content[self.cursor_y as usize].insert_str(0,line_to_move);
+            self.cursor_x = 0;
+
+        }
+    }
+
+        //IN COMMANDLINE
+
+    /// writes char to the commandline content at x position, and moves cursor
+    pub(crate) fn write_char_to_command_line(&mut self, c: char) {
+        let line = &mut self.command_input;
+        if line.len() < self.cursor_x as usize {
+            self.cursor_x = line.len() as i16;
+        }
+        line.insert(self.cursor_x as usize, c);
+        self.move_cursor_in_command_line(1);
+    }
+
+    pub(crate) fn backspace_on_command_line(&mut self) {
         let line = &mut self.command_input;
         if self.cursor_x > 0 && self.cursor_x <= line.len() as i16 {
             line.remove(self.cursor_x as usize -1);
@@ -157,8 +184,9 @@ impl App {
     }
 
 
-
     //CURSOR
+
+        //IN EDITOR
     ///moves cursor by x and y amounts in editor
     pub(crate) fn move_cursor_in_editor(&mut self, x: i16, y: i16) {
         //make more lines if less lines than cursor future y
@@ -180,6 +208,14 @@ impl App {
         }
     }
 
+
+    fn is_cursor_top_or_bottom(&self) -> (bool,bool) {
+        let top = self.cursor_y == self.scroll_offset;
+        let bottom =  self.cursor_y == self.scroll_offset + (self.terminal_height -2);
+        (top,bottom)
+    }
+
+        //IN COMMAND LINE
     ///moves cursor by x and y amounts in commandline
     pub(crate) fn move_cursor_in_command_line(&mut self, x: i16) {
 
@@ -189,11 +225,6 @@ impl App {
     }
 
 
-    fn is_cursor_top_or_bottom(&self) -> (bool,bool) {
-        let top = self.cursor_y == self.scroll_offset;
-        let bottom =  self.cursor_y == self.scroll_offset + (self.terminal_height -2);
-        (top,bottom)
-    }
 
 
     //SCROLL
@@ -235,7 +266,7 @@ impl App {
 
     //Basic Commands
 
-    /// Set running to false, to quit the application.
+    /// Set running == false, to quit the application.
     pub(crate) fn quit(&mut self) {
         self.running = false;
     }
