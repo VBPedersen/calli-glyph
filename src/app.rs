@@ -70,7 +70,7 @@ impl App {
         // Read file contents if a file path is provided
         self.editor_content = if let Some(ref path) = self.file_path {
             match fs::read_to_string(&path) {
-                Ok(contents) => vec!(contents),
+                Ok(contents) => contents.lines().map(String::from).collect(),
                 Err(_err) => { //if file not found create new
                     match File::create(path) { //create file, if ok then return else quit and panic
                         Ok(_) => {

@@ -43,7 +43,7 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
             (_, KeyCode::Down) => app.move_cursor_in_editor(0, 1),
             (_, KeyCode::Left) => app.move_cursor_in_editor(-1, 0),
             (_, KeyCode::Right) => app.move_cursor_in_editor(1, 0),
-            (_, KeyCode::Esc) | (KeyModifiers::SHIFT, KeyCode::Char(':')) => app.toggle_active_area(),
+            (_, KeyCode::Esc) => app.toggle_active_area(),
             (_, KeyCode::Char(c)) =>  app.write_char_to_editor(c) ,
             (_, KeyCode::Backspace) => { app.backspace_on_editor() },
             (_, KeyCode::Tab) => { app.tab_in_editor() },
