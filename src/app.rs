@@ -1,4 +1,3 @@
-use std::{fs};
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::time::{Instant, Duration};
@@ -85,7 +84,7 @@ impl App {
                         }
                     }
                 },
-                Err(err) => {
+                Err(_err) => {
                     match File::create(path) { //create file, if ok then return else quit and panic
                         Ok(_) => {
                             vec!(String::new()) // Return an empty string as the content
@@ -217,6 +216,7 @@ impl App {
         //IN EDITOR
     ///moves cursor by x and y amounts in editor
     pub(crate) fn move_cursor_in_editor(&mut self, x: i16, y: i16) {
+        if self.cursor_y == 0 && y == -1 { return; }
         //make more lines if less lines than cursor future y
         while self.editor_content.len() <= (self.cursor_y + y) as usize {
             self.editor_content.push(String::new());
@@ -301,8 +301,8 @@ impl App {
 
     ///saves contents to file
     pub(crate) fn save(&self) -> Result<()> {
-        let mut path;
-        let mut has_changes:bool;
+        let path;
+        let has_changes:bool;
 
         let new_content = self.editor_content.join("\n");
         if self.file_path.is_some() {
