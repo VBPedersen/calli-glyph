@@ -160,7 +160,7 @@ impl App {
             self.move_cursor_in_editor(-1, 0);
         } else if self.cursor_y > 0 {
             let line = &mut self.editor_content.remove(self.cursor_y as usize);
-            let new_x_value = self.editor_content[(self.cursor_y -1) as usize].len() as i16;
+            let new_x_value = self.editor_content[(self.cursor_y -1) as usize].chars().count() as i16;
             self.move_cursor_in_editor(new_x_value, -1);
             self.editor_content[self.cursor_y as usize].push_str(&line);
         }
@@ -238,6 +238,21 @@ impl App {
         while self.editor_content.len() <= (self.cursor_y + y) as usize {
             self.editor_content.push(String::new());
         }
+
+        //if at end of line x position, and moving right, then move to next line at 0 x
+        if x == 1 && self.cursor_x >= self.editor_content[self.cursor_y as usize].chars().count() as i16
+              && self.editor_content.len() > self.cursor_y as usize +1{
+            self.cursor_y = (self.cursor_y + 1).clamp(0, i16::MAX);
+            self.cursor_x = 0;
+            return;
+        }
+        //if at start of line x position, and moving left, then move to previous line at max x
+        if self.cursor_x == 0 && x == -1 && self.cursor_y != 0 {
+            self.cursor_y = (self.cursor_y + x).clamp(0, i16::MAX);
+            self.cursor_x = self.editor_content[self.cursor_y as usize].chars().count() as i16;
+            return;
+        }
+
 
         let max_x_pos:i16 = self.editor_content[(self.cursor_y + y) as usize].chars().count() as i16;
 
