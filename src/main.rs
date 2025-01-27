@@ -12,6 +12,8 @@ use crossterm::event::DisableMouseCapture;
 use crossterm::terminal::LeaveAlternateScreen;
 
 fn main() -> color_eyre::Result<()> {
+    env::set_var("RUST_BACKTRACE", "1"); //more verbose error codes
+
     let args: Vec<String> = env::args().collect();
 
     let file_path = if args.len() > 1 {

@@ -131,20 +131,32 @@ impl App {
 
         let line = &mut self.editor_content[self.cursor_y as usize];
 
-        //position cursor to line end
-        if line.len() < self.cursor_x as usize {
-            self.cursor_x = line.len() as i16;
+        let char_count = line.chars().count();
+        //position cursor to line end in chars count
+        if char_count < self.cursor_x as usize {
+            self.cursor_x = char_count as i16;
         }
 
-        line.insert(self.cursor_x as usize, c);
+        let mut line_chars_vec:Vec<char> = line.chars().collect();
+
+        line_chars_vec.insert(self.cursor_x as usize, c);
+
+        *line = line_chars_vec.into_iter().collect();
+        //line.insert(self.cursor_x as usize, c);
         self.move_cursor_in_editor(1, 0);
     }
 
     ///handles backspace in editor, removes char at y line x position and sets new cursor position
     pub(crate) fn backspace_in_editor(&mut self) {
-        if self.cursor_x > 0 && self.cursor_x <= self.editor_content[self.cursor_y as usize].len() as i16 {
+        let line_char_count = self.editor_content[self.cursor_y as usize].chars().count() as i16;
+        if self.cursor_x > 0 && self.cursor_x <= line_char_count {
             let line = &mut self.editor_content[self.cursor_y as usize];
-            line.remove(self.cursor_x as usize -1);
+            let mut line_chars_vec:Vec<char> = line.chars().collect();
+
+            line_chars_vec.remove(self.cursor_x as usize -1);
+
+            *line = line_chars_vec.into_iter().collect();
+            //line.remove(self.cursor_x as usize -1);
             self.move_cursor_in_editor(-1, 0);
         } else if self.cursor_y > 0 {
             let line = &mut self.editor_content.remove(self.cursor_y as usize);
@@ -156,7 +168,7 @@ impl App {
 
     ///handles DELETE action, of deleting char in editor at x +1 posistion
     pub(crate) fn delete_in_editor(&mut self) {
-        let current_line_len = self.editor_content[self.cursor_y as usize].len() as i16;
+        let current_line_len = self.editor_content[self.cursor_y as usize].chars().count() as i16;
 
         if current_line_len == 0 { return; }
         //if at line end, move line below up,  else if current line length is bigger than current cursor x pos, remove char
@@ -177,14 +189,19 @@ impl App {
     pub(crate) fn enter_in_editor(&mut self) {
         let line = &mut self.editor_content[self.cursor_y as usize];
         //if at end of line len, then just move cursor and make new line, else move text too
-        if self.cursor_x >= line.len() as i16 {
+        if self.cursor_x >= line.chars().count() as i16 {
             self.move_cursor_in_editor(0,1);
             self.editor_content.insert(self.cursor_y as usize,String::new());
         } else {
-            let line_to_move = &mut line.split_off(self.cursor_x as usize);
+            //split current line and remove split part
+            let mut line_chars_vec:Vec<char> = line.chars().collect();
+            let line_end = line_chars_vec.split_off(self.cursor_x as usize);
+            *line = line_chars_vec.into_iter().collect();
+
+            //move down and insert split line to next line
             self.move_cursor_in_editor(0,1);
             self.editor_content.insert(self.cursor_y as usize,String::new());
-            self.editor_content[self.cursor_y as usize].insert_str(0,line_to_move);
+            self.editor_content[self.cursor_y as usize] = line_end.into_iter().collect();
             self.cursor_x = 0;
 
         }
@@ -222,7 +239,7 @@ impl App {
             self.editor_content.push(String::new());
         }
 
-        let max_x_pos:i16 = self.editor_content[(self.cursor_y + y) as usize].len() as i16;
+        let max_x_pos:i16 = self.editor_content[(self.cursor_y + y) as usize].chars().count() as i16;
 
         self.cursor_x = (self.cursor_x + x).clamp(0, max_x_pos);
         self.cursor_y = (self.cursor_y + y).clamp(0, i16::MAX);
