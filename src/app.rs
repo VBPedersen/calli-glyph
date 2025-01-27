@@ -177,7 +177,12 @@ impl App {
             self.editor_content[self.cursor_y as usize].push_str(&line);
         } else if current_line_len > (self.cursor_x+1) {
             let line = &mut self.editor_content[self.cursor_y as usize];
-            line.remove((self.cursor_x+1) as usize);
+            let mut line_chars_vec:Vec<char> = line.chars().collect();
+
+            line_chars_vec.remove(self.cursor_x as usize +1);
+
+            *line = line_chars_vec.into_iter().collect();
+            //line.remove((self.cursor_x+1) as usize);
         }
     }
 
