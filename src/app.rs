@@ -21,6 +21,8 @@ pub struct App {
     pub(crate) file_path: Option<String>,
     pub(crate) cursor_x: i16,
     pub(crate) cursor_y: i16,
+    pub(crate) editor_cursor_x: i16, //to save position in editor, when toggling area
+    pub(crate) editor_cursor_y: i16, //to save position in editor, when toggling are
     pub(crate) cursor_visible: bool,
     last_tick: Instant,
     pub(crate) scroll_offset: i16,
@@ -44,6 +46,8 @@ impl Default for App {
             file_path: None,
             cursor_x: 0,
             cursor_y: 0,
+            editor_cursor_x: 0,
+            editor_cursor_y: 0,
             last_tick: Instant::now(),
             cursor_visible: true,
             scroll_offset: 0,
@@ -315,14 +319,16 @@ impl App {
     pub(crate) fn toggle_active_area(&mut self) {
         match self.active_area {
             ActiveArea::Editor =>  {
+                self.editor_cursor_x = self.cursor_x;
+                self.editor_cursor_y = self.cursor_y;
                 self.active_area = ActiveArea::CommandLine;
                 self.cursor_x = 0;
                 self.cursor_y = 0;
             },
             ActiveArea::CommandLine => {
                 self.active_area = ActiveArea::Editor;
-                self.cursor_x = 0;
-                self.cursor_y = 0;
+                self.cursor_x = self.editor_cursor_x;
+                self.cursor_y = self.editor_cursor_y;
             },
 
         }
