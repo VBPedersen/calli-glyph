@@ -7,6 +7,8 @@ use ratatui::{
     DefaultTerminal
 };
 
+
+
 use crate::ui::{ui};
 use crate::input::{handle_input};
 
@@ -165,12 +167,13 @@ impl App {
         } else if self.cursor_y > 0 {
             let line = &mut self.editor_content.remove(self.cursor_y as usize);
             let new_x_value = self.editor_content[(self.cursor_y -1) as usize].chars().count() as i16;
-            self.move_cursor_in_editor(new_x_value, -1);
+            self.move_cursor_in_editor(0, -1);
+            self.cursor_x = new_x_value;
             self.editor_content[self.cursor_y as usize].push_str(&line);
         }
     }
 
-    ///handles DELETE action, of deleting char in editor at x +1 posistion
+    ///handles DELETE action, of deleting char in editor at x +1 position
     pub(crate) fn delete_in_editor(&mut self) {
         let current_line_len = self.editor_content[self.cursor_y as usize].chars().count() as i16;
 
@@ -199,8 +202,8 @@ impl App {
         let line = &mut self.editor_content[self.cursor_y as usize];
         //if at end of line len, then just move cursor and make new line, else move text too
         if self.cursor_x >= line.chars().count() as i16 {
+            self.editor_content.insert(self.cursor_y as usize +1,String::new());
             self.move_cursor_in_editor(0,1);
-            self.editor_content.insert(self.cursor_y as usize,String::new());
         } else {
             //split current line and remove split part
             let mut line_chars_vec:Vec<char> = line.chars().collect();
@@ -249,7 +252,7 @@ impl App {
         }
 
         //if at end of line x position, and moving right, then move to next line at 0 x
-        if x == 1 && self.cursor_x >= self.editor_content[self.cursor_y as usize].chars().count() as i16
+        if  x == 1 && self.cursor_x >= self.editor_content[self.cursor_y as usize].chars().count() as i16
               && self.editor_content.len() > self.cursor_y as usize +1{
             self.cursor_y = (self.cursor_y + 1).clamp(0, i16::MAX);
             self.cursor_x = 0;

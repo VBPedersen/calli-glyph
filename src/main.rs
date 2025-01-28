@@ -1,8 +1,10 @@
 pub use app::App;
 
-pub mod app;
-mod ui;
-mod input;
+pub mod app; //expose app module
+pub mod ui; //expose ui module
+pub mod input; //expose input module
+#[cfg(test)]
+mod tests;
 
 use ratatui::crossterm::event::EnableMouseCapture;
 use ratatui::crossterm::execute;
