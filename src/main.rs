@@ -5,6 +5,7 @@ pub mod ui; //expose ui module
 pub mod input; //expose input module
 #[cfg(test)]
 mod tests;
+mod config;
 
 use ratatui::crossterm::event::EnableMouseCapture;
 use ratatui::crossterm::execute;

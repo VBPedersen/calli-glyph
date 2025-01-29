@@ -2,10 +2,8 @@ use crossterm::event;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind};
 use crate::App;
 use crate::app::ActiveArea;
+use crate::config::command_binds;
 
-//COMMAND BINDS
-const COMMAND_EXIT_DONT_SAVE:&str = ":q";
-const COMMAND_SAVE_DONT_EXIT:&str = ":w";
 
 /// Reads the crossterm events and updates the state of [`App`].
 ///
@@ -67,8 +65,8 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
 
 fn on_command_enter(app: &mut App) {
     match app.command_input.as_str(){
-        COMMAND_EXIT_DONT_SAVE => {app.quit()},
-        COMMAND_SAVE_DONT_EXIT => {app.save();},
+        command_binds::COMMAND_EXIT_DONT_SAVE => {app.quit()},
+        command_binds::COMMAND_SAVE_DONT_EXIT => { app.save().expect("TODO: panic message");},
         _ => {}
     }
 }

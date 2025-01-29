@@ -11,7 +11,7 @@ use ratatui::{
 
 use crate::ui::{ui};
 use crate::input::{handle_input};
-
+use crate::config::editor_settings;
 
 #[derive(Debug)]
 pub struct App {
@@ -22,7 +22,8 @@ pub struct App {
     pub(crate) command_input: String,
     pub(crate) file_path: Option<String>,
     pub(crate) cursor_x: i16,
-    pub(crate) cursor_y: i16,
+    pub(crate) cursor_y: i16,    
+    pub(crate) visual_cursor_x: i16,
     pub(crate) editor_cursor_x: i16, //to save position in editor, when toggling area
     pub(crate) editor_cursor_y: i16, //to save position in editor, when toggling are
     pub(crate) cursor_visible: bool,
@@ -48,6 +49,7 @@ impl Default for App {
             file_path: None,
             cursor_x: 0,
             cursor_y: 0,
+            visual_cursor_x: 0,
             editor_cursor_x: 0,
             editor_cursor_y: 0,
             last_tick: Instant::now(),
@@ -148,7 +150,7 @@ impl App {
         line_chars_vec.insert(self.cursor_x as usize, c);
 
         *line = line_chars_vec.into_iter().collect();
-        //line.insert(self.cursor_x as usize, c);
+
         self.move_cursor_in_editor(1, 0);
     }
 
@@ -167,7 +169,7 @@ impl App {
         } else if self.cursor_y > 0 {
             let line = &mut self.editor_content.remove(self.cursor_y as usize);
             let new_x_value = self.editor_content[(self.cursor_y -1) as usize].chars().count() as i16;
-            self.move_cursor_in_editor(0, -1);
+            self.cursor_y -= 1;
             self.cursor_x = new_x_value;
             self.editor_content[self.cursor_y as usize].push_str(&line);
         }
@@ -194,7 +196,16 @@ impl App {
     }
 
     pub(crate) fn tab_in_editor(&mut self) {
-        //TODO
+
+        let line = &mut self.editor_content[self.cursor_y as usize];
+
+        let mut line_chars_vec:Vec<char> = line.chars().collect();
+
+        line_chars_vec.insert(self.cursor_x as usize, '\t');
+
+        *line = line_chars_vec.into_iter().collect();
+
+        self.move_cursor_in_editor(1,0)
     }
 
     ///handles enter new line, with possible move of text
@@ -242,43 +253,119 @@ impl App {
 
     //CURSOR
 
-        //IN EDITOR
-    ///moves cursor by x and y amounts in editor
-    pub(crate) fn move_cursor_in_editor(&mut self, x: i16, y: i16) {
-        if self.cursor_y == 0 && y == -1 { return; }
-        //make more lines if less lines than cursor future y
-        while self.editor_content.len() <= (self.cursor_y + y) as usize {
-            self.editor_content.push(String::new());
+    fn calculate_visual_x(line: &str, cursor_x: usize) -> usize {
+        let tab_width = editor_settings::TAB_WIDTH as usize;
+        let mut visual_x = 0;
+
+        for (i, c) in line.chars().enumerate() {
+            if i == cursor_x {
+                break;
+            }
+
+            if c == '\t' {
+                visual_x += tab_width - (visual_x % tab_width);
+            } else {
+                visual_x += 1;
+            }
         }
 
-        //if at end of line x position, and moving right, then move to next line at 0 x
-        if  x == 1 && self.cursor_x >= self.editor_content[self.cursor_y as usize].chars().count() as i16
-              && self.editor_content.len() > self.cursor_y as usize +1{
-            self.cursor_y = (self.cursor_y + 1).clamp(0, i16::MAX);
-            self.cursor_x = 0;
-            return;
-        }
-        //if at start of line x position, and moving left, then move to previous line at max x
-        if self.cursor_x == 0 && x == -1 && self.cursor_y != 0 {
-            self.cursor_y = (self.cursor_y + x).clamp(0, i16::MAX);
-            self.cursor_x = self.editor_content[self.cursor_y as usize].chars().count() as i16;
-            return;
-        }
-
-
-        let max_x_pos:i16 = self.editor_content[(self.cursor_y + y) as usize].chars().count() as i16;
-
-        self.cursor_x = (self.cursor_x + x).clamp(0, max_x_pos);
-        self.cursor_y = (self.cursor_y + y).clamp(0, i16::MAX);
-
-        let (top, bottom) = self.is_cursor_top_or_bottom();
-
-        //if on way down and at bottom, move scroll
-        if (y == 1 && bottom) || (y == -1 && top) {
-            self.scroll_offset = (self.scroll_offset + y).clamp(0, i16::MAX);
-            return;
-        }
+        visual_x
     }
+        //IN EDITOR
+        pub(crate) fn move_cursor_in_editor(&mut self, x: i16, y: i16) {
+        let tab_width = editor_settings::TAB_WIDTH as i16;
+            if self.cursor_y == 0 && y == -1 {
+                return;
+            }
+
+            while self.editor_content.len() <= (self.cursor_y + y) as usize {
+                self.editor_content.push(String::new());
+            }
+            //let max_x_pos = Self::calculate_visual_length(&self.editor_content[(self.cursor_y + y) as usize]) as i16;
+            let max_x_pos = self.editor_content[(self.cursor_y + y) as usize].chars().count() as i16;
+
+            let current_line = &self.editor_content[self.cursor_y as usize];
+            let chars: Vec<char> = current_line.chars().collect();
+
+            // Moving Right →
+            if x > 0 && self.cursor_x < max_x_pos {
+                if chars.get(self.cursor_x as usize) == Some(&'\t') {
+                    self.cursor_x += tab_width - (self.cursor_x % tab_width);
+                } else {
+                    self.cursor_x += x;
+                }
+            }else if  x == 1 && self.cursor_x >= self.editor_content[self.cursor_y as usize].chars().count() as i16
+                && self.editor_content.len() > self.cursor_y as usize +1{
+                self.cursor_y += 1;
+                self.cursor_x = 0;
+                return;
+            }
+
+            // Moving Left ←
+            if x < 0 && self.cursor_x > 0 {
+                let new_x = self.cursor_x - x;
+                if chars.get(new_x as usize) == Some(&'\t') {
+                    self.cursor_x -= (self.cursor_x % tab_width).max(1);
+                } else {
+                    self.cursor_x += x;
+                }
+            } else if self.cursor_x == 0 && x == -1 && self.cursor_y != 0 {
+                self.cursor_y -= 1;
+                self.cursor_x = self.editor_content[self.cursor_y as usize].chars().count() as i16;
+                return;
+            }
+
+
+            let (top, bottom) = self.is_cursor_top_or_bottom();
+            //to offset scroll
+            if (y == 1 && bottom) || (y == -1 && top) {
+                self.scroll_offset = (self.scroll_offset + y).clamp(0, i16::MAX);
+                return;
+            }
+
+            self.cursor_x = self.cursor_x.clamp(0, max_x_pos);
+            self.cursor_y = (self.cursor_y + y).clamp(0, i16::MAX);
+
+            self.visual_cursor_x = Self::calculate_visual_x(current_line, self.cursor_x as usize) as i16;
+        }
+
+    /*
+///moves cursor by x and y amounts in editor
+pub(crate) fn move_cursor_in_editor(&mut self, x: i16, y: i16) {
+    if self.cursor_y == 0 && y == -1 { return; }
+    //make more lines if less lines than cursor future y
+    while self.editor_content.len() <= (self.cursor_y + y) as usize {
+        self.editor_content.push(String::new());
+    }
+
+    //if at end of line x position, and moving right, then move to next line at 0 x
+    if  x == 1 && self.cursor_x >= self.editor_content[self.cursor_y as usize].chars().count() as i16
+          && self.editor_content.len() > self.cursor_y as usize +1{
+        self.cursor_y = (self.cursor_y + 1).clamp(0, i16::MAX);
+        self.cursor_x = 0;
+        return;
+    }
+    //if at start of line x position, and moving left, then move to previous line at max x
+    if self.cursor_x == 0 && x == -1 && self.cursor_y != 0 {
+        self.cursor_y = (self.cursor_y + x).clamp(0, i16::MAX);
+        self.cursor_x = self.editor_content[self.cursor_y as usize].chars().count() as i16;
+        return;
+    }
+
+
+    let max_x_pos:i16 = self.editor_content[(self.cursor_y + y) as usize].chars().count() as i16;
+
+    self.cursor_x = (self.cursor_x + x).clamp(0, max_x_pos);
+    self.cursor_y = (self.cursor_y + y).clamp(0, i16::MAX);
+
+    let (top, bottom) = self.is_cursor_top_or_bottom();
+
+    //if on way down and at bottom, move scroll
+    if (y == 1 && bottom) || (y == -1 && top) {
+        self.scroll_offset = (self.scroll_offset + y).clamp(0, i16::MAX);
+        return;
+    }
+}*/
 
 
     fn is_cursor_top_or_bottom(&self) -> (bool,bool) {
