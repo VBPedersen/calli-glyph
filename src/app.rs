@@ -289,11 +289,8 @@ impl App {
 
             // Moving Right →
             if x > 0 && self.cursor_x < max_x_pos {
-                if chars.get(self.cursor_x as usize) == Some(&'\t') {
-                    self.cursor_x += tab_width - (self.cursor_x % tab_width);
-                } else {
+                
                     self.cursor_x += x;
-                }
             }else if  x == 1 && self.cursor_x >= self.editor_content[self.cursor_y as usize].chars().count() as i16
                 && self.editor_content.len() > self.cursor_y as usize +1{
                 self.cursor_y += 1;
@@ -304,11 +301,8 @@ impl App {
             // Moving Left ←
             if x < 0 && self.cursor_x > 0 {
                 let new_x = self.cursor_x - x;
-                if chars.get(new_x as usize) == Some(&'\t') {
-                    self.cursor_x -= (self.cursor_x % tab_width).max(1);
-                } else {
-                    self.cursor_x += x;
-                }
+                self.cursor_x += x;
+
             } else if self.cursor_x == 0 && x == -1 && self.cursor_y != 0 {
                 self.cursor_y -= 1;
                 self.cursor_x = self.editor_content[self.cursor_y as usize].chars().count() as i16;
