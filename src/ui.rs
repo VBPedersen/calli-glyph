@@ -11,7 +11,7 @@ use crate::config::editor_settings;
 pub fn ui(frame: &mut Frame, app: &mut App) {
     app.terminal_height = frame.area().height as i16;
 
-    let editor_content: String = handle_editor_content(app,app.editor_content.clone());
+    let editor_content: String = handle_editor_content(app.editor_content.clone());
     let command_input:String = app.command_input.to_string();
     let file_name_optional:Option<String> = app.file_path.clone();
     let file_to_use: String;
@@ -104,86 +104,37 @@ fn command_line<'a>(command_input: String) -> Paragraph<'a> {
 
 //HELPER FUNCTIONS
 
-fn handle_editor_content(app: &mut App, vec: Vec<String>) -> String {
+///manipulates how the editor content is rendered, specifically how certain characters in the
+/// content is interpreted visually
+fn handle_editor_content(vec: Vec<String>) -> String {
     let mut editor_vec: Vec<String> = Vec::new();
 
-    for (i, s) in vec.into_iter().enumerate() {
-        let (processed_string, cursor_offset) = handle_tab_rendering(app, s);
-
-        if i == app.cursor_y as usize {
-            //app.visual_cursor_x += cursor_offset; // Adjust cursor based on tab expansion
-        }
-
+    for s in vec.into_iter() {
+        let processed_string = handle_tab_rendering(s);
         editor_vec.push(processed_string);
     }
-
     editor_vec.join("\n")
 }
 
-/*
-///manipulates how the editor content is rendered
-fn handle_editor_content(app: &mut App,vec: Vec<String>) -> String{
-    let mut editor_vec:Vec<String> = Vec::new();
-    for s in vec {
-        let mut temp_string = s.chars().collect();
 
-        temp_string = handle_tab_rendering(app,temp_string);
-
-        editor_vec.push(temp_string);
-    }
-
-    editor_vec.join("\n")
-}*/
-
-fn handle_tab_rendering(app: &mut App, s: String) -> (String, i16) {
+///manipulates how the editor content \t character is rendered visually
+fn handle_tab_rendering(s: String) -> String {
     let mut temp_string: Vec<char> = s.chars().collect();
     let tab_width = editor_settings::TAB_WIDTH;
 
     let mut i = 0;
-    let mut cursor_offset = 0;
 
     while i < temp_string.len() {
         if temp_string[i] == '\t' {
-            let spaces_needed = tab_width as usize - ((i as i16 + cursor_offset) as usize % tab_width as usize);
+            let spaces_needed = tab_width as usize - ((i as i16) as usize % tab_width as usize);
 
             temp_string.remove(i);
             temp_string.splice(i..i, std::iter::repeat(' ').take(spaces_needed));
-
-            /*
-            if app.cursor_x == i as i16 {
-                cursor_offset += spaces_needed as i16 - 1;
-            }*/
 
             i += spaces_needed - 1; // Adjust index for added spaces
         }
         i += 1;
     }
 
-    (temp_string.into_iter().collect(), cursor_offset)
+    temp_string.into_iter().collect()
 }
-
-/*
-///manipulates how the editor content \t character is rendered
-fn handle_tab_rendering(app: &mut App,s: String) -> String{
-    let mut temp_string:Vec<_> = s.chars().collect();
-    let tab_width = editor_settings::TAB_WIDTH;
-    let mut amount_of_spaces= 0;
-    let mut i = 0;
-    while i < temp_string.len() {
-        if temp_string[i] == '\t' {
-            let spaces_needed = tab_width as i16 - (app.cursor_x % tab_width as i16);
-
-            temp_string.remove(i);
-            temp_string.splice(i..i, std::iter::repeat(' ').take(spaces_needed as usize));
-
-            if app.cursor_x == i as i16 {
-                app.move_cursor_in_editor(spaces_needed as i16, 0);
-            }
-
-            i += spaces_needed as usize - 1; // Adjust index to account for added spaces
-        }
-        i += 1;
-    }
-
-    String::from(temp_string.iter().collect::<String>())
-}*/

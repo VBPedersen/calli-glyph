@@ -164,13 +164,51 @@ mod app_editor_tests {
 
     //TAB in editor
     #[test]
-    fn test_tab_in_editor() {
+    fn test_tab_in_editor_start_of_empty_line() {
         let mut app = create_app_with_editor_content(vec!["".to_string()]);
         app.tab_in_editor();
 
         assert_eq!(app.cursor_y, 0); // Cursor should stay on line
         assert_eq!(app.editor_content.len(), 1); // New line added
-        assert_eq!(app.visual_cursor_x, editor_settings::TAB_WIDTH as i16); // New line should be empty
+        assert_eq!(app.visual_cursor_x, editor_settings::TAB_WIDTH as i16);
+    }
+
+    #[test]
+    fn test_tab_in_editor_start_of_line() {
+        let mut app = create_app_with_editor_content(vec!["HELLO WORLD".to_string()]);
+        app.tab_in_editor();
+
+        assert_eq!(app.cursor_y, 0); // Cursor should stay on line
+        assert_eq!(app.editor_content.len(), 1); // New line added
+        assert_eq!(app.visual_cursor_x, editor_settings::TAB_WIDTH as i16);
+    }
+
+    #[test]
+    fn test_tab_in_editor_mid_of_line_normal_characters() {
+        let mut app = create_app_with_editor_content(vec!["1234".to_string()]);
+        app.cursor_x = 2;
+        app.tab_in_editor();
+
+        assert_eq!(app.cursor_y, 0); // Cursor should stay on line
+        assert_eq!(app.editor_content.len(), 1); // New line added
+        assert_eq!(app.visual_cursor_x, 4);
+        app.move_cursor_in_editor(10,0); //move to end
+        assert_eq!(app.editor_content[0].chars().count(), 5); //should contain special plus \t char
+        assert_eq!(app.visual_cursor_x, 6); //at end of line should be 6
+    }
+
+    #[test]
+    fn test_tab_in_editor_mid_of_line_special_characters() {
+        let mut app = create_app_with_editor_content(vec!["ᚠΩ₿😎".to_string()]);
+        app.cursor_x = 2;
+        app.tab_in_editor();
+
+        assert_eq!(app.cursor_y, 0); // Cursor should stay on line
+        assert_eq!(app.editor_content.len(), 1); // New line added
+        assert_eq!(app.visual_cursor_x, 4);
+        app.move_cursor_in_editor(10,0); //move to end
+        assert_eq!(app.editor_content[0].chars().count(), 5); //should contain special plus \t char
+        assert_eq!(app.visual_cursor_x, 6); //at end of line should be 6
     }
 
 

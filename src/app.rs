@@ -271,96 +271,53 @@ impl App {
 
         visual_x
     }
-        //IN EDITOR
-        pub(crate) fn move_cursor_in_editor(&mut self, x: i16, y: i16) {
-        let tab_width = editor_settings::TAB_WIDTH as i16;
-            if self.cursor_y == 0 && y == -1 {
-                return;
-            }
-
-            while self.editor_content.len() <= (self.cursor_y + y) as usize {
-                self.editor_content.push(String::new());
-            }
-            //let max_x_pos = Self::calculate_visual_length(&self.editor_content[(self.cursor_y + y) as usize]) as i16;
-            let max_x_pos = self.editor_content[(self.cursor_y + y) as usize].chars().count() as i16;
-
-            let current_line = &self.editor_content[self.cursor_y as usize];
-            let chars: Vec<char> = current_line.chars().collect();
-
-            // Moving Right →
-            if x > 0 && self.cursor_x < max_x_pos {
-                
-                    self.cursor_x += x;
-            }else if  x == 1 && self.cursor_x >= self.editor_content[self.cursor_y as usize].chars().count() as i16
-                && self.editor_content.len() > self.cursor_y as usize +1{
-                self.cursor_y += 1;
-                self.cursor_x = 0;
-                return;
-            }
-
-            // Moving Left ←
-            if x < 0 && self.cursor_x > 0 {
-                let new_x = self.cursor_x - x;
-                self.cursor_x += x;
-
-            } else if self.cursor_x == 0 && x == -1 && self.cursor_y != 0 {
-                self.cursor_y -= 1;
-                self.cursor_x = self.editor_content[self.cursor_y as usize].chars().count() as i16;
-                return;
-            }
-
-
-            let (top, bottom) = self.is_cursor_top_or_bottom();
-            //to offset scroll
-            if (y == 1 && bottom) || (y == -1 && top) {
-                self.scroll_offset = (self.scroll_offset + y).clamp(0, i16::MAX);
-                return;
-            }
-
-            self.cursor_x = self.cursor_x.clamp(0, max_x_pos);
-            self.cursor_y = (self.cursor_y + y).clamp(0, i16::MAX);
-
-            self.visual_cursor_x = Self::calculate_visual_x(current_line, self.cursor_x as usize) as i16;
+    //IN EDITOR
+    pub(crate) fn move_cursor_in_editor(&mut self, x: i16, y: i16) {
+        if self.cursor_y == 0 && y == -1 {
+            return;
         }
 
-    /*
-///moves cursor by x and y amounts in editor
-pub(crate) fn move_cursor_in_editor(&mut self, x: i16, y: i16) {
-    if self.cursor_y == 0 && y == -1 { return; }
-    //make more lines if less lines than cursor future y
-    while self.editor_content.len() <= (self.cursor_y + y) as usize {
-        self.editor_content.push(String::new());
+        while self.editor_content.len() <= (self.cursor_y + y) as usize {
+            self.editor_content.push(String::new());
+        }
+        //let max_x_pos = Self::calculate_visual_length(&self.editor_content[(self.cursor_y + y) as usize]) as i16;
+        let max_x_pos = self.editor_content[(self.cursor_y + y) as usize].chars().count() as i16;
+
+        let current_line = &self.editor_content[self.cursor_y as usize];
+        //let chars: Vec<char> = current_line.chars().collect();
+
+        // Moving Right →
+        if x > 0 && self.cursor_x < max_x_pos {
+            self.cursor_x += x;
+        }else if  x == 1 && self.cursor_x >= self.editor_content[self.cursor_y as usize].chars().count() as i16
+            && self.editor_content.len() > self.cursor_y as usize +1{
+            self.cursor_y += 1;
+            self.cursor_x = 0;
+            return;
+        }
+
+        // Moving Left ←
+        if x < 0 && self.cursor_x > 0 {
+            self.cursor_x += x;
+        } else if self.cursor_x == 0 && x == -1 && self.cursor_y != 0 {
+            self.cursor_y -= 1;
+            self.cursor_x = self.editor_content[self.cursor_y as usize].chars().count() as i16;
+            return;
+        }
+
+
+        let (top, bottom) = self.is_cursor_top_or_bottom();
+        //to offset scroll
+        if (y == 1 && bottom) || (y == -1 && top) {
+            self.scroll_offset = (self.scroll_offset + y).clamp(0, i16::MAX);
+            return;
+        }
+
+        self.cursor_x = self.cursor_x.clamp(0, max_x_pos);
+        self.cursor_y = (self.cursor_y + y).clamp(0, i16::MAX);
+
+        self.visual_cursor_x = Self::calculate_visual_x(current_line, self.cursor_x as usize) as i16;
     }
-
-    //if at end of line x position, and moving right, then move to next line at 0 x
-    if  x == 1 && self.cursor_x >= self.editor_content[self.cursor_y as usize].chars().count() as i16
-          && self.editor_content.len() > self.cursor_y as usize +1{
-        self.cursor_y = (self.cursor_y + 1).clamp(0, i16::MAX);
-        self.cursor_x = 0;
-        return;
-    }
-    //if at start of line x position, and moving left, then move to previous line at max x
-    if self.cursor_x == 0 && x == -1 && self.cursor_y != 0 {
-        self.cursor_y = (self.cursor_y + x).clamp(0, i16::MAX);
-        self.cursor_x = self.editor_content[self.cursor_y as usize].chars().count() as i16;
-        return;
-    }
-
-
-    let max_x_pos:i16 = self.editor_content[(self.cursor_y + y) as usize].chars().count() as i16;
-
-    self.cursor_x = (self.cursor_x + x).clamp(0, max_x_pos);
-    self.cursor_y = (self.cursor_y + y).clamp(0, i16::MAX);
-
-    let (top, bottom) = self.is_cursor_top_or_bottom();
-
-    //if on way down and at bottom, move scroll
-    if (y == 1 && bottom) || (y == -1 && top) {
-        self.scroll_offset = (self.scroll_offset + y).clamp(0, i16::MAX);
-        return;
-    }
-}*/
-
 
     fn is_cursor_top_or_bottom(&self) -> (bool,bool) {
         let top = self.cursor_y == self.scroll_offset;
@@ -371,13 +328,10 @@ pub(crate) fn move_cursor_in_editor(&mut self, x: i16, y: i16) {
         //IN COMMAND LINE
     ///moves cursor by x and y amounts in commandline
     pub(crate) fn move_cursor_in_command_line(&mut self, x: i16) {
-
         let max_x_pos:i16 = self.command_input.len() as i16;
         self.cursor_x = (self.cursor_x + x).clamp(0, max_x_pos);
 
     }
-
-
 
 
     //SCROLL
