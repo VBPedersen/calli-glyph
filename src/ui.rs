@@ -1,17 +1,20 @@
+use std::default::Default;
 use std::vec;
 use ratatui::{layout::{Constraint, Direction, Layout}, widgets::{Block}, Frame, };
 use ratatui::layout::{Alignment, Position};
-use ratatui::style::{Color, Style};
-use ratatui::text::{Line, Span};
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Paragraph};
-use crate::app::{ActiveArea, App};
+use crate::app::{ActiveArea, App, CursorPosition};
 
 use crate::config::editor_settings;
 
 pub fn ui(frame: &mut Frame, app: &mut App) {
     app.terminal_height = frame.area().height as i16;
 
-    let editor_content: String = handle_editor_content(app.editor_content.clone());
+    let editor_content: Text = handle_editor_content(app.editor_content.clone(), app.text_selection_start, app.text_selection_end);
+
+
     let command_input:String = app.command_input.to_string();
     let file_name_optional:Option<String> = app.file_path.clone();
     let file_to_use: String;
@@ -32,7 +35,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
 
 
     frame.render_widget(
-        info_bar(file_to_use, app.cursor_x, app.cursor_y, app.visual_cursor_x),
+        info_bar(file_to_use, app.cursor_x, app.cursor_y, app.visual_cursor_x,app.text_selection_start,app.text_selection_end),
         layout[0],
     );
     frame.render_widget(
@@ -66,11 +69,22 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
 
 
 //COMPONENTS
-fn info_bar<'a>(file_name:String, cursor_x: i16, cursor_y:i16,visual_x:i16) -> Paragraph<'a> {
+fn info_bar<'a>(file_name:String, cursor_x: i16, cursor_y:i16,visual_x:i16,selection_start:Option<CursorPosition>,selection_end:Option<CursorPosition>) -> Paragraph<'a> {
+    let mut start_x:usize = 0;
+    let mut start_y:usize = 0;
+    let mut end_x:usize = 0;
+    let mut end_y:usize = 0;
+    if selection_start.is_some() && selection_end.is_some() {
+        start_x = selection_start.unwrap().x;
+        start_y = selection_start.unwrap().y;
+        end_x = selection_end.unwrap().x;
+        end_y = selection_end.unwrap().y;
+    }
     let line = Line::from(vec![
         Span::styled(file_name, Style::default().fg(Color::LightCyan)),
         Span::raw(" - "), // Separator
-        Span::styled(format!("Cursor: ({}, {})   Visual X Cursor ({})", cursor_x, cursor_y, visual_x), Style::default().fg(Color::Magenta)),
+        Span::styled(format!("Cursor: ({}, {})   Visual X Cursor ({})  Selection Cursor ({},{}) ({},{})",
+                             cursor_x, cursor_y, visual_x,start_x,start_y,end_x,end_y), Style::default().fg(Color::Magenta)),
     ]);
     Paragraph::new("")
         .block(
@@ -81,7 +95,7 @@ fn info_bar<'a>(file_name:String, cursor_x: i16, cursor_y:i16,visual_x:i16) -> P
         )
 }
 
-fn editor<'a>(editor_content: String, scroll_offset: u16) -> Paragraph<'a> {
+fn editor(editor_content: Text, scroll_offset: u16) -> Paragraph {
     Paragraph::new(editor_content)
         .style(Style::default().fg(Color::White))
         .block(
@@ -104,16 +118,32 @@ fn command_line<'a>(command_input: String) -> Paragraph<'a> {
 
 //HELPER FUNCTIONS
 
+
+
 ///manipulates how the editor content is rendered, specifically how certain characters in the
 /// content is interpreted visually
-fn handle_editor_content(vec: Vec<String>) -> String {
+fn handle_editor_content<'a>(vec: Vec<String>, selection_start:Option<CursorPosition>, selection_end:Option<CursorPosition>) -> Text<'a> {
     let mut editor_vec: Vec<String> = Vec::new();
-
     for s in vec.into_iter() {
         let processed_string = handle_tab_rendering(s);
         editor_vec.push(processed_string);
     }
-    editor_vec.join("\n")
+
+
+    let mut editor_text:Text= Text::default();
+
+    //if some text is selected, calculate highlight
+    if selection_start.is_some() {
+        editor_text = highlight_text(editor_vec, selection_start, selection_end);
+    } else {
+        for s in editor_vec.iter() {
+
+            let line:Line = Line::from(s.to_string());
+            editor_text.push_line(line);
+        }
+    }
+
+    editor_text
 }
 
 
@@ -137,4 +167,38 @@ fn handle_tab_rendering(s: String) -> String {
     }
 
     temp_string.into_iter().collect()
+}
+
+
+
+//TEXT HIGHLIGTHING
+
+fn highlight_text<'a>(text: Vec<String>, start: Option<CursorPosition>, end: Option<CursorPosition>) -> Text<'a> {
+    let mut highlighted_lines = Vec::new();
+
+    for (i, line) in text.iter().enumerate() {
+        let mut spans = Vec::new();
+
+        if i < start.unwrap().y || i > end.unwrap().y {
+            spans.push(Span::raw(line.clone())); // No selection on this line
+        } else {
+            let start_col = if i == start.unwrap().y { start.unwrap().x } else { 0 };
+            let end_col = if i == end.unwrap().y { end.unwrap().x } else { line.len() };
+
+            // Ensure selection is within valid bounds
+            let start_col = start_col.min(line.len());
+            let end_col = end_col.min(line.len());
+
+            spans.push(Span::raw(line[..start_col].to_string())); // Before selection
+            spans.push(Span::styled(
+                line[start_col..end_col].to_string(), // Highlighted text
+                Style::default().bg(Color::White).fg(Color::Black).add_modifier(Modifier::BOLD),
+            ));
+            spans.push(Span::raw(line[end_col..].to_string())); // After selection
+        }
+
+        highlighted_lines.push(Line::from(spans));
+    }
+
+    Text::from(highlighted_lines)
 }

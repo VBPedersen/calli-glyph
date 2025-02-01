@@ -297,6 +297,112 @@ mod app_editor_tests {
     }
 
 
+    //SELECTION CURSOR
+
+    #[test]
+    fn test_selection_cursor_move_up_should_stay() {
+        let mut app = create_app_with_editor_content(vec![]);
+        app.move_selection_cursor(0, -1);
+
+        assert_eq!(app.text_selection_start.unwrap().x, 0);
+        assert_eq!(app.text_selection_start.unwrap().y, 0);
+        assert_eq!(app.text_selection_end.unwrap().x, 0);
+        assert_eq!(app.text_selection_end.unwrap().y, 0);
+    }
+
+    #[test]
+    fn test_selection_cursor_move_down_go_down() {
+        let mut app = create_app_with_editor_content(vec![]);
+        app.move_selection_cursor(0, 1);
+
+        assert_eq!(app.text_selection_start.unwrap().x, 0);
+        assert_eq!(app.text_selection_start.unwrap().y, 0);
+        assert_eq!(app.text_selection_end.unwrap().x, 0);
+        assert_eq!(app.text_selection_end.unwrap().y, 1);
+    }
+
+    #[test]
+    fn test_selection_cursor_move_left_should_stay() {
+        let mut app = create_app_with_editor_content(vec![]);
+        app.move_selection_cursor(-1, 0);
+
+        assert_eq!(app.text_selection_start.unwrap().x, 0);
+        assert_eq!(app.text_selection_start.unwrap().y, 0);
+        assert_eq!(app.text_selection_end.unwrap().x, 0);
+        assert_eq!(app.text_selection_end.unwrap().y, 0);
+    }
+
+    #[test]
+    fn test_selection_cursor_move_right_should_stay() {
+        let mut app = create_app_with_editor_content(vec![]);
+        app.move_selection_cursor(1, 0);
+
+        assert_eq!(app.text_selection_start.unwrap().x, 0);
+        assert_eq!(app.text_selection_start.unwrap().y, 0);
+        assert_eq!(app.text_selection_end.unwrap().x, 0);
+        assert_eq!(app.text_selection_end.unwrap().y, 0);
+    }
+
+    #[test]
+    fn test_selection_cursor_move_up_should_go_up() {
+        let mut app = create_app_with_editor_content(vec!["First".to_string(),"Second".to_string()]);
+        app.cursor_y = 1;
+        app.move_selection_cursor(0, -1);
+
+        assert_eq!(app.text_selection_start.unwrap().x, 0);
+        assert_eq!(app.text_selection_start.unwrap().y, 0);
+        assert_eq!(app.text_selection_end.unwrap().x, 0);
+        assert_eq!(app.text_selection_end.unwrap().y, 1);
+    }
+
+    #[test]
+    fn test_selection_cursor_move_down_should_go_down() {
+        let mut app = create_app_with_editor_content(vec!["First".to_string(),"Second".to_string()]);
+        app.move_selection_cursor(0, 1);
+
+        assert_eq!(app.text_selection_start.unwrap().x, 0);
+        assert_eq!(app.text_selection_start.unwrap().y, 0);
+        assert_eq!(app.text_selection_end.unwrap().x, 0);
+        assert_eq!(app.text_selection_end.unwrap().y, 1);
+    }
+
+    #[test]
+    fn test_selection_cursor_move_left_should_go_left() {
+        let mut app = create_app_with_editor_content(vec!["First".to_string()]);
+        app.cursor_x = 1;
+        app.move_selection_cursor(-1, 0);
+
+        assert_eq!(app.text_selection_start.unwrap().x, 0);
+        assert_eq!(app.text_selection_start.unwrap().y, 0);
+        assert_eq!(app.text_selection_end.unwrap().x, 1);
+        assert_eq!(app.text_selection_end.unwrap().y, 0);
+    }
+
+    #[test]
+    fn test_selection_cursor_move_right_should_go_right() {
+        let mut app = create_app_with_editor_content(vec!["First".to_string()]);
+        app.move_selection_cursor(1, 0);
+
+        assert_eq!(app.text_selection_start.unwrap().x, 0);
+        assert_eq!(app.text_selection_start.unwrap().y, 0);
+        assert_eq!(app.text_selection_end.unwrap().x, 1);
+        assert_eq!(app.text_selection_end.unwrap().y, 0);
+    }
+
+    #[test]
+    fn test_selection_cursor_move_right_thrice_should_go_right() {
+        let mut app = create_app_with_editor_content(vec!["First".to_string()]);
+        app.move_selection_cursor(1, 0);
+        app.move_selection_cursor(1, 0);
+        app.move_selection_cursor(1, 0);
+
+        assert_eq!(app.text_selection_start.unwrap().x, 0);
+        assert_eq!(app.text_selection_start.unwrap().y, 0);
+        assert_eq!(app.text_selection_end.unwrap().x, 3);
+        assert_eq!(app.text_selection_end.unwrap().y, 0);
+    }
+
+
 }
 
 
