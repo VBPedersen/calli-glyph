@@ -144,7 +144,61 @@ impl App {
 
     //TEXT OPERATIONS
 
+    fn is_text_selected(&self) -> bool {
+        if self.text_selection_start.is_some() && self.text_selection_end.is_some() {
+            true
+        } else {
+            false
+        }
+    }
+
+
         //IN EDITOR
+    ///wrapper function to either call write char with selected text or function write char,
+    /// where text isn't selected
+    pub(crate) fn write_all_char_in_editor(&mut self, c: char){
+        if self.is_text_selected() {
+            self.write_char_in_editor_text_is_selected(c)
+        } else {
+            self.write_char_in_editor(c)
+        }
+    }
+
+    ///replaces all selected text with char to y position line, with x position
+    fn write_char_in_editor_text_is_selected(&mut self, c: char){
+        let start =self.text_selection_start.clone().unwrap();
+        let end =self.text_selection_end.clone().unwrap();
+        let mut lines = &mut self.editor_content[start.y..=end.y];
+
+        if lines.len() > 1 {
+            for (y,line) in lines.iter_mut().enumerate() {
+                let mut line_chars_vec:Vec<char> = line.chars().collect();
+
+                if y == end.y {
+                    line_chars_vec.drain(0..end.x);
+                } else {
+                    line_chars_vec.drain(start.x..line.chars().count());
+                }
+
+
+                if y == start.y {
+                    line_chars_vec.insert(start.x,c);
+                }
+
+                *line = line_chars_vec.into_iter().collect();
+            }
+        } else {
+            let mut line = &mut self.editor_content[start.y];
+            let mut line_chars_vec:Vec<char> = line.chars().collect();
+            line_chars_vec.drain(start.x..end.x);
+            line_chars_vec.insert(start.x,c);
+            *line = line_chars_vec.into_iter().collect();
+        }
+
+        self.text_selection_start = None;
+        self.text_selection_end = None;
+        self.move_cursor_in_editor(1, 0);
+    }
 
     ///writes char to y position line, with x position
     pub(crate) fn write_char_in_editor(&mut self, c: char) {
@@ -269,7 +323,7 @@ impl App {
 
 
     //CURSOR
-
+        //IN EDITOR
     ///calculates the visual position of the cursor
     fn calculate_visual_x(line: &str, cursor_x: usize) -> usize {
         let tab_width = editor_settings::TAB_WIDTH as usize;
@@ -289,7 +343,7 @@ impl App {
 
         visual_x
     }
-        //IN EDITOR
+
 
     pub(crate) fn move_all_cursor_editor(&mut self, x: i16, y: i16, shift_held:bool) {
 

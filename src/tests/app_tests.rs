@@ -99,6 +99,41 @@ mod app_editor_tests {
         assert_eq!(app.cursor_x, 1);
     }
 
+    //Write char to editor with selected text
+    #[test]
+    fn test_write_char_in_editor_with_selected_text() {
+        let mut app = create_app_with_editor_content(vec!["Hello Denmark".to_string()]);
+        app.text_selection_start = Option::Some(CursorPosition{ x: 6, y: 0 });
+        app.text_selection_end = Option::Some(CursorPosition{ x: 13, y: 0 });
+        app.cursor_x = 6;
+        app.write_all_char_in_editor('W');
+        assert_eq!(app.editor_content[0], "Hello W");
+        assert_eq!(app.cursor_x, 7);
+    }
+
+    #[test]
+    fn test_write_char_in_editor_with_selected_text_multiple_lines() {
+        let mut app = create_app_with_editor_content(vec!["Hello Denmark".to_string(), "Hello Sudetenland".to_string()]);
+        app.text_selection_start = Option::Some(CursorPosition{ x: 6, y: 0 });
+        app.text_selection_end = Option::Some(CursorPosition{ x: 13, y: 1 });
+        app.cursor_x = 6;
+        app.write_all_char_in_editor('W');
+        assert_eq!(app.editor_content[0], "Hello W");
+        assert_eq!(app.editor_content[1], "land");
+        assert_eq!(app.cursor_x, 7);
+    }
+
+    #[test]
+    fn test_write_char_in_editor_with_selected_text_special_characters() {
+        let mut app = create_app_with_editor_content(vec!["ᚠΩ₿😎".to_string()]);
+        app.text_selection_start = Option::Some(CursorPosition{ x: 1, y: 0 });
+        app.text_selection_end = Option::Some(CursorPosition{ x: 2, y: 0 });
+        app.cursor_x = 1;
+
+        app.write_all_char_in_editor('a');
+        assert_eq!(app.editor_content[0], "ᚠa₿😎");
+        assert_eq!(app.cursor_x, 2);
+    }
 
     //BACKSPACE IN EDITOR
     #[test]
