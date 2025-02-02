@@ -30,6 +30,20 @@ pub struct App {
     last_tick: Instant,
     pub(crate) scroll_offset: i16,
     pub(crate) terminal_height: i16,
+    pub(crate) text_selection_start: Option<CursorPosition>,
+    pub(crate) text_selection_end: Option<CursorPosition>,
+}
+
+#[derive(Debug,Copy,Clone)]
+pub struct CursorPosition {
+    pub(crate) x: usize,
+    pub(crate) y: usize,
+}
+
+impl Default for CursorPosition {
+    fn default() -> CursorPosition {
+        CursorPosition { x: 0, y: 0 }
+    }
 }
 
 #[derive(PartialEq, Debug, Default)]
@@ -56,6 +70,8 @@ impl Default for App {
             cursor_visible: true,
             scroll_offset: 0,
             terminal_height: 0,
+            text_selection_start: Default::default(),
+            text_selection_end: Default::default(),
         }
     }
 }
@@ -128,7 +144,61 @@ impl App {
 
     //TEXT OPERATIONS
 
+    fn is_text_selected(&self) -> bool {
+        if self.text_selection_start.is_some() && self.text_selection_end.is_some() {
+            true
+        } else {
+            false
+        }
+    }
+
+
         //IN EDITOR
+    ///wrapper function to either call write char with selected text or function write char,
+    /// where text isn't selected
+    pub(crate) fn write_all_char_in_editor(&mut self, c: char){
+        if self.is_text_selected() {
+            self.write_char_in_editor_text_is_selected(c)
+        } else {
+            self.write_char_in_editor(c)
+        }
+    }
+
+    ///replaces all selected text with char to y position line, with x position
+    fn write_char_in_editor_text_is_selected(&mut self, c: char){
+        let start =self.text_selection_start.clone().unwrap();
+        let end =self.text_selection_end.clone().unwrap();
+        let mut lines = &mut self.editor_content[start.y..=end.y];
+
+        if lines.len() > 1 {
+            for (y,line) in lines.iter_mut().enumerate() {
+                let mut line_chars_vec:Vec<char> = line.chars().collect();
+
+                if y == end.y {
+                    line_chars_vec.drain(0..end.x);
+                } else {
+                    line_chars_vec.drain(start.x..line.chars().count());
+                }
+
+
+                if y == start.y {
+                    line_chars_vec.insert(start.x,c);
+                }
+
+                *line = line_chars_vec.into_iter().collect();
+            }
+        } else {
+            let mut line = &mut self.editor_content[start.y];
+            let mut line_chars_vec:Vec<char> = line.chars().collect();
+            line_chars_vec.drain(start.x..end.x);
+            line_chars_vec.insert(start.x,c);
+            *line = line_chars_vec.into_iter().collect();
+        }
+
+        self.text_selection_start = None;
+        self.text_selection_end = None;
+        self.move_cursor_in_editor(1, 0);
+    }
 
     ///writes char to y position line, with x position
     pub(crate) fn write_char_in_editor(&mut self, c: char) {
@@ -195,6 +265,7 @@ impl App {
         }
     }
 
+    ///handles TAB action in editor, by writing \t to editor content.
     pub(crate) fn tab_in_editor(&mut self) {
 
         let line = &mut self.editor_content[self.cursor_y as usize];
@@ -252,7 +323,8 @@ impl App {
 
 
     //CURSOR
-
+        //IN EDITOR
+    ///calculates the visual position of the cursor
     fn calculate_visual_x(line: &str, cursor_x: usize) -> usize {
         let tab_width = editor_settings::TAB_WIDTH as usize;
         let mut visual_x = 0;
@@ -271,7 +343,22 @@ impl App {
 
         visual_x
     }
-    //IN EDITOR
+
+
+    pub(crate) fn move_all_cursor_editor(&mut self, x: i16, y: i16, shift_held:bool) {
+
+        if shift_held {
+            self.move_selection_cursor(x,y);
+        }else {
+            self.move_cursor_in_editor(x,y);
+            self.text_selection_start = None;
+            self.text_selection_end = None;
+        }
+
+    }
+
+
+    ///moves logical cursor by x and y, under conditions. and recalculates the visual cursor position
     pub(crate) fn move_cursor_in_editor(&mut self, x: i16, y: i16) {
         if self.cursor_y == 0 && y == -1 {
             return;
@@ -319,10 +406,43 @@ impl App {
         self.visual_cursor_x = Self::calculate_visual_x(current_line, self.cursor_x as usize) as i16;
     }
 
+
+    ///checks if cursor is at top or bottom of the screen
     fn is_cursor_top_or_bottom(&self) -> (bool,bool) {
         let top = self.cursor_y == self.scroll_offset;
         let bottom =  self.cursor_y == self.scroll_offset + (self.terminal_height -2);
         (top,bottom)
+    }
+
+    ///moves selection cursor
+    pub(crate) fn move_selection_cursor(&mut self, x: i16, y: i16) {
+        let old_x = self.cursor_x.clone();
+        let old_y = self.cursor_y.clone();
+        self.move_cursor_in_editor(x,y);
+        let new_x = self.cursor_x.clone();
+        let new_y = self.cursor_y.clone();
+
+        let mut start_cp = CursorPosition::default();
+        let mut end_cp = CursorPosition::default();
+        if x > 0 || y > 0 {
+            start_cp = CursorPosition{ x: old_x as usize, y: old_y as usize };
+            end_cp = CursorPosition{ x: new_x as usize, y: new_y as usize };
+
+            if self.text_selection_start.is_none() {
+                self.text_selection_start = Option::from(start_cp);
+            }
+            self.text_selection_end = Option::from(end_cp);
+        }
+
+        if x < 0 || y < 0 {
+            start_cp = CursorPosition{ x: new_x as usize, y: new_y as usize };
+            end_cp = CursorPosition{ x: old_x as usize, y: old_y as usize };
+            self.text_selection_start = Option::from(start_cp);
+            if self.text_selection_end.is_none() {
+                self.text_selection_end = Option::from(end_cp);
+            }
+        }
+
     }
 
         //IN COMMAND LINE
@@ -335,7 +455,7 @@ impl App {
 
 
     //SCROLL
-
+    ///moves the scroll offset
     pub(crate) fn move_scroll_offset(&mut self, offset: i16) {
         let (top, bottom) = self.is_cursor_top_or_bottom();
 
@@ -353,7 +473,7 @@ impl App {
 
 
     //PANEL HANDLING
-
+    ///toggles the active area of the app, between editor and command line
     pub(crate) fn toggle_active_area(&mut self) {
         match self.active_area {
             ActiveArea::Editor =>  {
@@ -411,6 +531,7 @@ impl App {
 
 
     //HELPER FUNCTIONS FOR BASIC COMMANDS
+    ///checks if file has changes and returns boolean
     pub(crate) fn file_has_changes(&self,editor_content:String,file_path:String) -> Result<bool> {
 
         let file = File::open(file_path)?;
