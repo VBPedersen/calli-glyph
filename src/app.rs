@@ -169,19 +169,20 @@ impl App {
         let start =self.text_selection_start.clone().unwrap();
         let end =self.text_selection_end.clone().unwrap();
         let mut lines = &mut self.editor_content[start.y..=end.y];
-
-        if lines.len() > 1 {
+        let lines_length = lines.len().clone();
+        if lines_length > 1 {
             for (y,line) in lines.iter_mut().enumerate() {
                 let mut line_chars_vec:Vec<char> = line.chars().collect();
 
-                if y == end.y {
+                //last line selected
+                if y == lines_length -1 {
                     line_chars_vec.drain(0..end.x);
                 } else {
                     line_chars_vec.drain(start.x..line.chars().count());
                 }
 
-
-                if y == start.y {
+                //start line selected
+                if y == 0 {
                     line_chars_vec.insert(start.x,c);
                 }
 
@@ -194,7 +195,8 @@ impl App {
             line_chars_vec.insert(start.x,c);
             *line = line_chars_vec.into_iter().collect();
         }
-
+        self.cursor_x = self.text_selection_start.unwrap().x as i16;
+        self.cursor_y = self.text_selection_start.unwrap().y as i16;
         self.text_selection_start = None;
         self.text_selection_end = None;
         self.move_cursor_in_editor(1, 0);
@@ -222,6 +224,47 @@ impl App {
         *line = line_chars_vec.into_iter().collect();
 
         self.move_cursor_in_editor(1, 0);
+    }
+
+    ///wrapper function to either call backspace in editor with selected text or function backspace_in_editor,
+    /// where text isn't selected
+    pub(crate) fn backspace_all_in_editor(&mut self){
+        if self.is_text_selected() {
+            self.backspace_in_editor_text_is_selected();
+        } else {
+            self.backspace_in_editor();
+        }
+    }
+
+    ///handles backspace in editor, removes char at y line x position and sets new cursor position
+    pub(crate) fn backspace_in_editor_text_is_selected(&mut self) {
+        let start =self.text_selection_start.clone().unwrap();
+        let end =self.text_selection_end.clone().unwrap();
+        let mut lines = &mut self.editor_content[start.y..=end.y];
+        let lines_length = lines.len().clone();
+        if lines_length > 1 {
+            for (y,line) in lines.iter_mut().enumerate() {
+                let mut line_chars_vec:Vec<char> = line.chars().collect();
+
+                if y == lines_length -1 {
+                    line_chars_vec.drain(0..end.x);
+                } else {
+                    line_chars_vec.drain(start.x..line.chars().count());
+                }
+
+                *line = line_chars_vec.into_iter().collect();
+            }
+        } else {
+            let mut line = &mut self.editor_content[start.y];
+            let mut line_chars_vec:Vec<char> = line.chars().collect();
+            line_chars_vec.drain(start.x..end.x);
+            *line = line_chars_vec.into_iter().collect();
+        }
+        self.cursor_x = self.text_selection_start.unwrap().x as i16;
+        self.cursor_y = self.text_selection_start.unwrap().y as i16;
+        self.text_selection_start = None;
+        self.text_selection_end = None;
+
     }
 
     ///handles backspace in editor, removes char at y line x position and sets new cursor position
