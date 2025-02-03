@@ -47,7 +47,7 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
             (_, KeyCode::Backspace) => { app.backspace_all_in_editor() },
             (_, KeyCode::Tab) => { app.tab_in_editor() },
             (_, KeyCode::Enter) => { app.enter_in_editor(); },
-            (_, KeyCode::Delete) => { app.delete_in_editor(); },
+            (_, KeyCode::Delete) => { app.delete_all_in_editor(); },
             (KeyModifiers::SHIFT, KeyCode::Left) => { app.move_all_cursor_editor(-1,0,true); },
             (KeyModifiers::SHIFT, KeyCode::Right) => { app.move_all_cursor_editor(1,0,true); },
             (KeyModifiers::SHIFT, KeyCode::Up) => { app.move_all_cursor_editor(0,-1,true); },

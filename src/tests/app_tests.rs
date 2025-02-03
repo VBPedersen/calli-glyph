@@ -299,6 +299,111 @@ mod app_editor_tests {
         assert_eq!(app.cursor_x, 1);
     }
 
+    //TEXT IS SELECTED
+
+    #[test]
+    fn test_delete_in_editor_text_is_selected() {
+        // Initialize the editor with some content
+        let mut app = create_app_with_editor_content(vec!["Hello Denmark".to_string()]);
+
+        // Set a selection range (e.g., "Denmark")
+        app.text_selection_start = Some(CursorPosition{x: 6, y:0} ); // Start of "Denmark"
+        app.text_selection_end = Some(CursorPosition{x: 13, y:0});  // End of "Denmark"
+        // Call the function to simulate a backspace with text selected
+        app.delete_in_editor_text_is_selected();
+
+        // Assert that the selected text is removed
+        assert_eq!(app.editor_content[0], "Hello        ");
+        assert_eq!(app.editor_content[0].len(), 13);
+
+        // Assert that the selection is cleared after the operation
+        assert!(app.text_selection_start.is_none());
+        assert!(app.text_selection_end.is_none());
+
+        // Assert that the cursor is moved to the correct position
+        assert_eq!(app.cursor_x, 13);
+        assert_eq!(app.cursor_y, 0);
+
+    }
+
+    #[test]
+    fn test_delete_in_editor_text_is_selected_multiple_lines() {
+        // Initialize the editor with some content
+        let mut app = create_app_with_editor_content(vec!["test".to_string(),"Hello Denmark".to_string(), "Hello Sudetenland".to_string()]);
+
+        // Set a selection range (e.g., "Denmark")
+        app.text_selection_start = Some(CursorPosition{x: 6, y:1} ); // Start of "Denmark"
+        app.text_selection_end = Some(CursorPosition{x: 13, y:2});  // End of "Denmark"
+        // Call the function to simulate a backspace with text selected
+        app.delete_in_editor_text_is_selected();
+
+        assert_eq!(app.editor_content.len(), 3);
+
+        // Assert that the selected text is removed
+        assert_eq!(app.editor_content[0], "test");
+        assert_eq!(app.editor_content[1], "Hello ");
+        assert_eq!(app.editor_content[2].len(), 17);
+
+        // Assert that the selection is cleared after the operation
+        assert!(app.text_selection_start.is_none());
+        assert!(app.text_selection_end.is_none());
+
+        // Assert that the cursor is moved to the correct position
+        assert_eq!(app.cursor_x, 13);
+        assert_eq!(app.cursor_y, 2);
+
+    }
+
+
+    #[test]
+    fn test_delete_in_editor_text_is_selected_empty_text() {
+        // Initialize the editor with empty content
+        let mut app = create_app_with_editor_content(vec!["".to_string()]);
+
+        // Set a selection range (even though the text is empty)
+        app.text_selection_start = Some(CursorPosition{x: 0, y:0} );
+        app.text_selection_end = Some(CursorPosition{x: 0, y:0});
+
+        // Call the function to simulate a backspace with empty text
+        app.delete_in_editor_text_is_selected();
+
+        // Assert that the text remains empty
+        assert_eq!(app.editor_content, vec!["".to_string()]);
+
+        // Assert that the selection is cleared
+        assert!(app.text_selection_start.is_none());
+        assert!(app.text_selection_end.is_none());
+
+        // Assert that the cursor position is 0
+        assert_eq!(app.cursor_x, 0);
+        assert_eq!(app.cursor_y, 0);
+    }
+
+    #[test]
+    fn test_delete_in_editor_text_is_selected_full_text_selected() {
+        // Initialize the editor with some content
+        let mut app = create_app_with_editor_content(vec!["Hello Denmark".to_string()]);
+
+        // Set a selection range for the entire text
+        app.text_selection_start = Some(CursorPosition{x: 0, y:0} );
+        app.text_selection_end = Some(CursorPosition{x: 13, y:0});
+
+        // Call the function to simulate a backspace with the entire text selected
+        app.delete_in_editor_text_is_selected();
+
+        // Assert that all text is removed
+        assert_eq!(app.editor_content[0].len(), 13);
+
+        // Assert that the selection is cleared
+        assert!(app.text_selection_start.is_none());
+        assert!(app.text_selection_end.is_none());
+
+        // Assert that the cursor position is 0
+        assert_eq!(app.cursor_x, 13);
+        assert_eq!(app.cursor_y, 0);
+    }
+
+
     //TAB in editor
     #[test]
     fn test_tab_in_editor_start_of_empty_line() {

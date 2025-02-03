@@ -168,7 +168,7 @@ impl App {
     fn write_char_in_editor_text_is_selected(&mut self, c: char){
         let start =self.text_selection_start.clone().unwrap();
         let end =self.text_selection_end.clone().unwrap();
-        let mut lines = &mut self.editor_content[start.y..=end.y];
+        let lines = &mut self.editor_content[start.y..=end.y];
         let lines_length = lines.len().clone();
         if lines_length > 1 {
             for (y,line) in lines.iter_mut().enumerate() {
@@ -189,7 +189,7 @@ impl App {
                 *line = line_chars_vec.into_iter().collect();
             }
         } else {
-            let mut line = &mut self.editor_content[start.y];
+            let line = &mut self.editor_content[start.y];
             let mut line_chars_vec:Vec<char> = line.chars().collect();
             line_chars_vec.drain(start.x..end.x);
             line_chars_vec.insert(start.x,c);
@@ -240,12 +240,12 @@ impl App {
     pub(crate) fn backspace_in_editor_text_is_selected(&mut self) {
         let start =self.text_selection_start.clone().unwrap();
         let end =self.text_selection_end.clone().unwrap();
-        let mut lines = &mut self.editor_content[start.y..=end.y];
+        let lines = &mut self.editor_content[start.y..=end.y];
         let lines_length = lines.len().clone();
         if lines_length > 1 {
             for (y,line) in lines.iter_mut().enumerate() {
                 let mut line_chars_vec:Vec<char> = line.chars().collect();
-
+                //last line selected
                 if y == lines_length -1 {
                     line_chars_vec.drain(0..end.x);
                 } else {
@@ -255,7 +255,7 @@ impl App {
                 *line = line_chars_vec.into_iter().collect();
             }
         } else {
-            let mut line = &mut self.editor_content[start.y];
+            let line = &mut self.editor_content[start.y];
             let mut line_chars_vec:Vec<char> = line.chars().collect();
             line_chars_vec.drain(start.x..end.x);
             *line = line_chars_vec.into_iter().collect();
@@ -286,6 +286,51 @@ impl App {
             self.cursor_x = new_x_value;
             self.editor_content[self.cursor_y as usize].push_str(&line);
         }
+    }
+
+
+    ///wrapper function to either call backspace in editor with selected text or function backspace_in_editor,
+    /// where text isn't selected
+    pub(crate) fn delete_all_in_editor(&mut self){
+        if self.is_text_selected() {
+            self.delete_in_editor_text_is_selected();
+        } else {
+            self.delete_in_editor();
+        }
+    }
+
+    ///handles delete in editor, removes char at y line x position and sets new cursor position
+    pub(crate) fn delete_in_editor_text_is_selected(&mut self) {
+        let start =self.text_selection_start.clone().unwrap();
+        let end =self.text_selection_end.clone().unwrap();
+        let lines = &mut self.editor_content[start.y..=end.y];
+        let lines_length = lines.len().clone();
+        if lines_length > 1 {
+            for (y,line) in lines.iter_mut().enumerate() {
+                let mut line_chars_vec:Vec<char> = line.chars().collect();
+
+                //last line selected
+                if y == lines_length -1 {
+                    //line_chars_vec.drain(0..end.x);
+                    line_chars_vec[0..end.x].fill(' ');
+                } else {
+                    //line_chars_vec[start.x..line.chars().count()].fill(' ');
+                    line_chars_vec.drain(start.x..line.chars().count());
+                }
+
+                *line = line_chars_vec.into_iter().collect();
+            }
+        } else {
+            let line = &mut self.editor_content[start.y];
+            let mut line_chars_vec:Vec<char> = line.chars().collect();
+            line_chars_vec[start.x..end.x].fill(' ');
+            //line_chars_vec.drain(start.x..end.x);
+            *line = line_chars_vec.into_iter().collect();
+        }
+        self.cursor_x = self.text_selection_end.unwrap().x as i16;
+        self.cursor_y = self.text_selection_end.unwrap().y as i16;
+        self.text_selection_start = None;
+        self.text_selection_end = None;
     }
 
     ///handles DELETE action, of deleting char in editor at x +1 position
