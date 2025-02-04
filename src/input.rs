@@ -38,20 +38,23 @@ fn on_scroll_events(app: &mut App, mouse: MouseEvent) {
 fn on_key_event(app: &mut App, key: KeyEvent) {
     match app.active_area {
         ActiveArea::Editor => match (key.modifiers, key.code) {
+            //no modifiers
             (KeyModifiers::NONE, KeyCode::Up) => app.move_all_cursor_editor(0, -1,false),
             (KeyModifiers::NONE, KeyCode::Down) => app.move_all_cursor_editor(0, 1,false),
             (KeyModifiers::NONE, KeyCode::Left) => app.move_all_cursor_editor(-1, 0,false),
             (KeyModifiers::NONE, KeyCode::Right) => app.move_all_cursor_editor(1, 0,false),
-            (_, KeyCode::Esc) => app.toggle_active_area(),
-            (_, KeyCode::Char(c)) =>  app.write_all_char_in_editor(c) ,
-            (_, KeyCode::Backspace) => { app.backspace_all_in_editor() },
-            (_, KeyCode::Tab) => { app.tab_in_editor() },
-            (_, KeyCode::Enter) => { app.enter_in_editor(); },
-            (_, KeyCode::Delete) => { app.delete_all_in_editor(); },
+            (KeyModifiers::NONE, KeyCode::Esc) => app.toggle_active_area(),
+            (KeyModifiers::NONE, KeyCode::Char(c)) =>  app.write_all_char_in_editor(c) ,
+            (KeyModifiers::NONE, KeyCode::Backspace) => { app.backspace_all_in_editor() },
+            (KeyModifiers::NONE, KeyCode::Tab) => { app.tab_in_editor() },
+            (KeyModifiers::NONE, KeyCode::Enter) => { app.enter_in_editor(); },
+            (KeyModifiers::NONE, KeyCode::Delete) => { app.delete_all_in_editor(); },
+            //with modifiers
             (KeyModifiers::SHIFT, KeyCode::Left) => { app.move_all_cursor_editor(-1,0,true); },
             (KeyModifiers::SHIFT, KeyCode::Right) => { app.move_all_cursor_editor(1,0,true); },
             (KeyModifiers::SHIFT, KeyCode::Up) => { app.move_all_cursor_editor(0,-1,true); },
             (KeyModifiers::SHIFT, KeyCode::Down) => { app.move_all_cursor_editor(0,1,true); },
+            (KeyModifiers::CONTROL, KeyCode::Char('c')) =>  { app.copy_selected_text(); } ,
             _ => {}
         },
         ActiveArea::CommandLine => match (key.modifiers, key.code) {

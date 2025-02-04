@@ -644,6 +644,43 @@ mod app_editor_tests {
         assert_eq!(app.text_selection_end.unwrap().y, 0);
     }
 
+    //copy selected text
+    #[test]
+    fn test_copy_single_line_selection() {
+        let mut editor = create_app_with_editor_content(vec!["Hello, world!".to_string()]);
+        editor.text_selection_start = Some(CursorPosition { x: 7, y: 0 });
+        editor.text_selection_end = Some(CursorPosition { x: 12, y: 0 });
+
+        let result = editor.copy_selected_text();
+
+        assert!(result.is_ok());
+        assert_eq!(editor.copied_text, vec!["world".to_string()]);
+    }
+
+    #[test]
+    fn test_copy_multi_line_selection() {
+        let mut editor = create_app_with_editor_content(vec!["Hello,".to_string(), " world!".to_string(), " Rust".to_string()]);
+        editor.text_selection_start = Some(CursorPosition { x: 4, y: 0 });
+        editor.text_selection_end = Some(CursorPosition { x: 3, y: 2 });
+
+        let result = editor.copy_selected_text();
+
+        assert!(result.is_ok());
+        assert_eq!(editor.copied_text, vec!["o,", " world!", " Ru"].into_iter().map(String::from).collect::<Vec<String>>());
+    }
+
+    #[test]
+    fn test_copy_no_selection() {
+        let mut editor = create_app_with_editor_content(vec!["Hello, world!".to_string()]);
+        editor.text_selection_start = None;
+        editor.text_selection_end = None;
+
+        let result = editor.copy_selected_text();
+
+        assert!(result.is_ok());
+        assert!(editor.copied_text.is_empty());
+    }
+
 
 }
 
