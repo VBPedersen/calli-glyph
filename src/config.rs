@@ -8,7 +8,13 @@ pub mod editor_settings{
 
 // KEYBINDS
 
+pub mod key_binds{
+    use crossterm::event::{KeyCode, KeyModifiers};
 
+    pub(crate) const KEYBIND_TAB:(KeyModifiers, KeyCode) = (KeyModifiers::NONE, KeyCode::Tab);
+    pub(crate) const KEYBIND_ENTER:(KeyModifiers, KeyCode) = (KeyModifiers::NONE, KeyCode::Enter);
+    pub(crate) const KEYBIND_DELETE:(KeyModifiers, KeyCode) = (KeyModifiers::NONE, KeyCode::Delete);
+}
 
 
 

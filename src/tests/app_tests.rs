@@ -647,38 +647,158 @@ mod app_editor_tests {
     //copy selected text
     #[test]
     fn test_copy_single_line_selection() {
-        let mut editor = create_app_with_editor_content(vec!["Hello, world!".to_string()]);
-        editor.text_selection_start = Some(CursorPosition { x: 7, y: 0 });
-        editor.text_selection_end = Some(CursorPosition { x: 12, y: 0 });
+        let mut app = create_app_with_editor_content(vec!["Hello, world!".to_string()]);
+        app.text_selection_start = Some(CursorPosition { x: 7, y: 0 });
+        app.text_selection_end = Some(CursorPosition { x: 12, y: 0 });
 
-        let result = editor.copy_selected_text();
+        let result = app.copy_selected_text();
 
         assert!(result.is_ok());
-        assert_eq!(editor.copied_text, vec!["world".to_string()]);
+        assert_eq!(app.copied_text, vec!["world".to_string()]);
     }
 
     #[test]
     fn test_copy_multi_line_selection() {
-        let mut editor = create_app_with_editor_content(vec!["Hello,".to_string(), " world!".to_string(), " Rust".to_string()]);
-        editor.text_selection_start = Some(CursorPosition { x: 4, y: 0 });
-        editor.text_selection_end = Some(CursorPosition { x: 3, y: 2 });
+        let mut app = create_app_with_editor_content(vec!["Hello,".to_string(), " world!".to_string(), " Rust".to_string()]);
+        app.text_selection_start = Some(CursorPosition { x: 4, y: 0 });
+        app.text_selection_end = Some(CursorPosition { x: 3, y: 2 });
 
-        let result = editor.copy_selected_text();
+        let result = app.copy_selected_text();
 
         assert!(result.is_ok());
-        assert_eq!(editor.copied_text, vec!["o,", " world!", " Ru"].into_iter().map(String::from).collect::<Vec<String>>());
+        assert_eq!(app.copied_text, vec!["o,", " world!", " Ru"].into_iter().map(String::from).collect::<Vec<String>>());
     }
 
     #[test]
     fn test_copy_no_selection() {
-        let mut editor = create_app_with_editor_content(vec!["Hello, world!".to_string()]);
-        editor.text_selection_start = None;
-        editor.text_selection_end = None;
+        let mut app = create_app_with_editor_content(vec!["Hello, world!".to_string()]);
+        app.text_selection_start = None;
+        app.text_selection_end = None;
 
-        let result = editor.copy_selected_text();
+        let result = app.copy_selected_text();
 
         assert!(result.is_ok());
-        assert!(editor.copied_text.is_empty());
+        assert!(app.copied_text.is_empty());
+    }
+
+    //paste selected text
+    #[test]
+    fn test_paste_single_line() {
+        let mut app = create_app_with_editor_content(vec!["Hello, world!".to_string(),
+                                                          "This is a test.".to_string(),
+                                                          "Another line.".to_string(),]);
+        app.copied_text = vec!["PASTED".to_string()];
+        app.cursor_x = 8;
+        app.cursor_y = 0;
+
+        app.paste_selected_text().unwrap();
+
+        assert_eq!(
+            app.editor_content,
+            vec![
+                "Hello, wPASTEDorld!".to_string(),
+                "This is a test.".to_string(),
+                "Another line.".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_paste_multiline() {
+        let mut app = create_app_with_editor_content(vec!["Hello, world!".to_string(),
+                                                          "This is a test.".to_string(),
+                                                          "Another line.".to_string(),]);
+        app.copied_text = vec!["First".to_string(), "Second ".to_string()];
+        app.cursor_x = 5;
+        app.cursor_y = 1;
+
+        app.paste_selected_text().unwrap();
+
+        assert_eq!(
+            app.editor_content,
+            vec![
+                "Hello, world!".to_string(),
+                "This First".to_string(),
+                "Second is a test.".to_string(),
+                "Another line.".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_paste_at_start_of_line() {
+        let mut app = create_app_with_editor_content(vec!["Hello, world!".to_string(),
+                                                          "This is a test.".to_string(),
+                                                          "Another line.".to_string(),]);
+        app.copied_text = vec!["NewStart".to_string()];
+        app.cursor_x = 0;
+        app.cursor_y = 2;
+
+        app.paste_selected_text().unwrap();
+
+        assert_eq!(
+            app.editor_content,
+            vec![
+                "Hello, world!".to_string(),
+                "This is a test.".to_string(),
+                "NewStartAnother line.".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_paste_at_end_of_line() {
+        let mut app = create_app_with_editor_content(vec!["Hello, world!".to_string(),
+                                                          "This is a test.".to_string(),
+                                                          "Another line.".to_string(),]);
+        app.copied_text = vec!["END".to_string()];
+        app.cursor_x = 13;
+        app.cursor_y = 0;
+
+        app.paste_selected_text().unwrap();
+
+        assert_eq!(
+            app.editor_content,
+            vec![
+                "Hello, world!END".to_string(),
+                "This is a test.".to_string(),
+                "Another line.".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_paste_with_empty_copied_text() {
+        let mut app = create_app_with_editor_content(vec!["Hello, world!".to_string(),
+                                                          "This is a test.".to_string(),
+                                                          "Another line.".to_string(),]);
+        app.copied_text = vec![];
+        app.cursor_x = 5;
+        app.cursor_y = 1;
+
+        app.paste_selected_text().unwrap();
+
+        assert_eq!(
+            app.editor_content,
+            vec![
+                "Hello, world!".to_string(),
+                "This is a test.".to_string(),
+                "Another line.".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_paste_into_empty_editor() {
+        let mut app = create_app_with_editor_content(vec![]);
+        app.copied_text = vec!["Hello".to_string(), "World".to_string()];
+
+        app.paste_selected_text().unwrap();
+
+        assert_eq!(
+            app.editor_content,
+            vec!["Hello".to_string(), "World".to_string()]
+        );
     }
 
 

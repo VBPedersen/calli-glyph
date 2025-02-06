@@ -2,7 +2,7 @@ use crossterm::event;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind};
 use crate::App;
 use crate::app::ActiveArea;
-use crate::config::command_binds;
+use crate::config::{command_binds, key_binds};
 
 
 /// Reads the crossterm events and updates the state of [`App`].
@@ -46,15 +46,16 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
             (KeyModifiers::NONE, KeyCode::Esc) => app.toggle_active_area(),
             (KeyModifiers::NONE, KeyCode::Char(c)) =>  app.write_all_char_in_editor(c) ,
             (KeyModifiers::NONE, KeyCode::Backspace) => { app.backspace_all_in_editor() },
-            (KeyModifiers::NONE, KeyCode::Tab) => { app.tab_in_editor() },
-            (KeyModifiers::NONE, KeyCode::Enter) => { app.enter_in_editor(); },
-            (KeyModifiers::NONE, KeyCode::Delete) => { app.delete_all_in_editor(); },
+            key_binds::KEYBIND_TAB => { app.tab_in_editor() },
+            key_binds::KEYBIND_ENTER => { app.enter_in_editor(); },
+            key_binds::KEYBIND_DELETE => { app.delete_all_in_editor(); },
             //with modifiers
             (KeyModifiers::SHIFT, KeyCode::Left) => { app.move_all_cursor_editor(-1,0,true); },
             (KeyModifiers::SHIFT, KeyCode::Right) => { app.move_all_cursor_editor(1,0,true); },
             (KeyModifiers::SHIFT, KeyCode::Up) => { app.move_all_cursor_editor(0,-1,true); },
             (KeyModifiers::SHIFT, KeyCode::Down) => { app.move_all_cursor_editor(0,1,true); },
-            (KeyModifiers::CONTROL, KeyCode::Char('c')) =>  { app.copy_selected_text(); } ,
+            (KeyModifiers::CONTROL, KeyCode::Char('d')) =>  { app.copy_selected_text(); } ,
+            (KeyModifiers::CONTROL, KeyCode::Char('f')) =>  { app.paste_selected_text(); } ,
             _ => {}
         },
         ActiveArea::CommandLine => match (key.modifiers, key.code) {

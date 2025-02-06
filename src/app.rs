@@ -624,6 +624,7 @@ impl App {
         }
     }
 
+    ///copies text within bound of text selected to copied_text
     pub(crate) fn copy_selected_text(&mut self) -> Result<()> {
         if let (Some(start), Some(end)) = (self.text_selection_start.clone(), self.text_selection_end.clone()) {
             let mut selected_text: Vec<String> = Vec::new();
@@ -633,7 +634,8 @@ impl App {
                 for (y, line) in lines.iter().enumerate() {
                     let mut line_chars: Vec<char> = line.chars().collect();
                     let extracted_text: String;
-
+                    
+                    //if first line, else if last line, else 
                     if y == 0 {
                         extracted_text = line_chars.drain(start.x..).collect();
                     } else if y == lines.len() - 1 {
@@ -655,6 +657,54 @@ impl App {
         } else {
             Ok(())
         }
+    }
+
+    ///pastes text from copied text to editor content
+    pub(crate) fn paste_selected_text(&mut self) -> Result<()> {
+        //if no text in copied text
+        if self.copied_text.is_empty() {
+            return Ok(());
+        }
+
+        let insert_y = self.cursor_y as usize;
+        let insert_x = self.cursor_x as usize;
+
+
+        while self.editor_content.len() < insert_y + self.copied_text.len() -1 {
+            self.editor_content.push(String::new());
+        }
+
+        let current_line = &self.editor_content[insert_y];
+
+        // Split the current line at cursor position
+        let (before_cursor, after_cursor) = current_line.split_at(insert_x);
+
+        if self.copied_text.len() == 1 {
+            // Single-line paste: insert within the current line
+            self.editor_content[insert_y] = format!("{}{}{}", before_cursor, self.copied_text[0], after_cursor);
+        } else {
+            // Multi-line paste
+            let mut new_lines = Vec::new();
+
+            // First line: insert copied text into the cursor position
+            new_lines.push(format!("{}{}", before_cursor, self.copied_text[0]));
+
+            // Middle lines: add as new lines
+            for line in &self.copied_text[1..self.copied_text.len() - 1] {
+                new_lines.push(line.clone());
+            }
+
+            // Last copied line + remainder of the original line
+            let last_copied_line = &self.copied_text[self.copied_text.len() - 1];
+            new_lines.push(format!("{}{}", last_copied_line, after_cursor));
+
+            // Replace the current line and insert the new lines
+            self.editor_content.splice(insert_y..=insert_y, new_lines);
+        }
+
+        // Clear copied text after pasting
+        //self.copied_text.clear();
+        Ok(())
     }
 
     //HELPER FUNCTIONS FOR BASIC COMMANDS
