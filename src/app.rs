@@ -676,35 +676,51 @@ impl App {
 
         let current_line = &self.editor_content[insert_y];
 
-        // Split the current line at cursor position
-        let (before_cursor, after_cursor) = current_line.split_at(insert_x);
+        // Convert the line into a Vec<char> to handle multi-byte characters correctly
+        let chars: Vec<char> = current_line.chars().collect();
+        let (before_cursor, after_cursor) = chars.split_at(insert_x.min(chars.len()));
 
         if self.copied_text.len() == 1 {
-            // Single-line paste: insert within the current line
-            self.editor_content[insert_y] = format!("{}{}{}", before_cursor, self.copied_text[0], after_cursor);
+            // Single-line paste: correctly insert into character-safe split
+            let new_line = format!(
+                "{}{}{}",
+                before_cursor.iter().collect::<String>(),
+                self.copied_text[0],
+                after_cursor.iter().collect::<String>()
+            );
+            self.editor_content[insert_y] = new_line;
         } else {
             // Multi-line paste
             let mut new_lines = Vec::new();
 
-            // First line: insert copied text into the cursor position
-            new_lines.push(format!("{}{}", before_cursor, self.copied_text[0]));
+            // First line: insert copied text at cursor position
+            new_lines.push(format!(
+                "{}{}",
+                before_cursor.iter().collect::<String>(),
+                self.copied_text[0]
+            ));
 
-            // Middle lines: add as new lines
+            // Middle lines: insert as separate lines
             for line in &self.copied_text[1..self.copied_text.len() - 1] {
                 new_lines.push(line.clone());
             }
 
             // Last copied line + remainder of the original line
             let last_copied_line = &self.copied_text[self.copied_text.len() - 1];
-            new_lines.push(format!("{}{}", last_copied_line, after_cursor));
+            new_lines.push(format!(
+                "{}{}",
+                last_copied_line,
+                after_cursor.iter().collect::<String>()
+            ));
 
-            // Replace the current line and insert the new lines
+            // Replace the current line and insert new lines
             self.editor_content.splice(insert_y..=insert_y, new_lines);
         }
 
         // Clear copied text after pasting
         //self.copied_text.clear();
         Ok(())
+
     }
 
     //HELPER FUNCTIONS FOR BASIC COMMANDS

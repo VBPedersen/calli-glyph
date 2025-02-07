@@ -36,36 +36,37 @@ fn on_scroll_events(app: &mut App, mouse: MouseEvent) {
 
 /// Handles the key events and updates the state of [`App`].
 fn on_key_event(app: &mut App, key: KeyEvent) {
+    //println!("Detected key: {:?}, modifiers: {:?}", key.code, key.modifiers);
     match app.active_area {
         ActiveArea::Editor => match (key.modifiers, key.code) {
             //no modifiers
-            (KeyModifiers::NONE, KeyCode::Up) => app.move_all_cursor_editor(0, -1,false),
-            (KeyModifiers::NONE, KeyCode::Down) => app.move_all_cursor_editor(0, 1,false),
-            (KeyModifiers::NONE, KeyCode::Left) => app.move_all_cursor_editor(-1, 0,false),
-            (KeyModifiers::NONE, KeyCode::Right) => app.move_all_cursor_editor(1, 0,false),
-            (KeyModifiers::NONE, KeyCode::Esc) => app.toggle_active_area(),
+            key_binds::KEYBIND_UP => app.move_all_cursor_editor(0, -1,false),
+            key_binds::KEYBIND_DOWN => app.move_all_cursor_editor(0, 1,false),
+            key_binds::KEYBIND_LEFT => app.move_all_cursor_editor(-1, 0,false),
+            key_binds::KEYBIND_RIGHT => app.move_all_cursor_editor(1, 0,false),
+            key_binds::KEYBIND_TOGGLE_AREA => app.toggle_active_area(),
             (KeyModifiers::NONE, KeyCode::Char(c)) =>  app.write_all_char_in_editor(c) ,
-            (KeyModifiers::NONE, KeyCode::Backspace) => { app.backspace_all_in_editor() },
+            key_binds::KEYBIND_BACKSPACE => { app.backspace_all_in_editor() },
             key_binds::KEYBIND_TAB => { app.tab_in_editor() },
             key_binds::KEYBIND_ENTER => { app.enter_in_editor(); },
             key_binds::KEYBIND_DELETE => { app.delete_all_in_editor(); },
             //with modifiers
-            (KeyModifiers::SHIFT, KeyCode::Left) => { app.move_all_cursor_editor(-1,0,true); },
-            (KeyModifiers::SHIFT, KeyCode::Right) => { app.move_all_cursor_editor(1,0,true); },
-            (KeyModifiers::SHIFT, KeyCode::Up) => { app.move_all_cursor_editor(0,-1,true); },
-            (KeyModifiers::SHIFT, KeyCode::Down) => { app.move_all_cursor_editor(0,1,true); },
-            (KeyModifiers::CONTROL, KeyCode::Char('d')) =>  { app.copy_selected_text(); } ,
-            (KeyModifiers::CONTROL, KeyCode::Char('f')) =>  { app.paste_selected_text(); } ,
+            key_binds::KEYBIND_SELECTION_UP => { app.move_all_cursor_editor(0,-1,true); },
+            key_binds::KEYBIND_SELECTION_DOWN => { app.move_all_cursor_editor(0,1,true); },
+            key_binds::KEYBIND_SELECTION_LEFT => { app.move_all_cursor_editor(-1,0,true); },
+            key_binds::KEYBIND_SELECTION_RIGHT => { app.move_all_cursor_editor(1,0,true); },
+            key_binds::KEYBIND_COPY =>  { app.copy_selected_text(); } ,
+            key_binds::KEYBIND_PASTE =>  { app.paste_selected_text(); } ,
             _ => {}
         },
         ActiveArea::CommandLine => match (key.modifiers, key.code) {
-            (_, KeyCode::Left) => app.move_cursor_in_command_line(-1),
-            (_, KeyCode::Right) => app.move_cursor_in_command_line(1),
+            key_binds::KEYBIND_LEFT => app.move_cursor_in_command_line(-1),
+            key_binds::KEYBIND_RIGHT => app.move_cursor_in_command_line(1),
             (_, KeyCode::Tab | KeyCode::Esc) => app.toggle_active_area(),
             (KeyModifiers::CONTROL, KeyCode::Char('c')) => app.quit(),
             (_, KeyCode::Char(c)) => { app.write_char_to_command_line(c) },
-            (_, KeyCode::Backspace) => { app.backspace_on_command_line() },
-            (_, KeyCode::Enter) => { on_command_enter(app); },
+            key_binds::KEYBIND_BACKSPACE => { app.backspace_on_command_line() },
+            key_binds::KEYBIND_ENTER => { on_command_enter(app); },
             _ => {}
         },
     }

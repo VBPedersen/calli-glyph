@@ -26,7 +26,7 @@ fn main() -> color_eyre::Result<()> {
     };
 
 
-    enable_raw_mode()?;
+    enable_raw_mode().expect("Failed to enable raw mode");
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
 

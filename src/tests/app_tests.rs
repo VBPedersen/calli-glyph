@@ -726,6 +726,49 @@ mod app_editor_tests {
     }
 
     #[test]
+    fn test_paste_single_line_special_characters() {
+        let mut app = create_app_with_editor_content(vec!["Hello, wᚠᚠᚠᚠorld!".to_string(),
+                                                          "This is a test.".to_string(),
+                                                          "Another line.".to_string(),]);
+        app.copied_text = vec!["PASTED".to_string()];
+        app.cursor_x = 10;
+        app.cursor_y = 0;
+
+        app.paste_selected_text().unwrap();
+
+        assert_eq!(
+            app.editor_content,
+            vec![
+                "Hello, wᚠᚠPASTEDᚠᚠorld!".to_string(),
+                "This is a test.".to_string(),
+                "Another line.".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_paste_multiline_special_charaters() {
+        let mut app = create_app_with_editor_content(vec!["Hello, world!".to_string(),
+                                                          "This ᚠᚠᚠᚠis a test.".to_string(),
+                                                          "Another line.".to_string(),]);
+        app.copied_text = vec!["First".to_string(), "Second ".to_string()];
+        app.cursor_x = 7;
+        app.cursor_y = 1;
+
+        app.paste_selected_text().unwrap();
+
+        assert_eq!(
+            app.editor_content,
+            vec![
+                "Hello, world!".to_string(),
+                "This ᚠᚠFirst".to_string(),
+                "Second ᚠᚠis a test.".to_string(),
+                "Another line.".to_string(),
+            ]
+        );
+    }
+
+    #[test]
     fn test_paste_at_start_of_line() {
         let mut app = create_app_with_editor_content(vec!["Hello, world!".to_string(),
                                                           "This is a test.".to_string(),
