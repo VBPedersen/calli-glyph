@@ -76,6 +76,7 @@ fn on_command_enter(app: &mut App) {
     match app.command_input.as_str(){
         command_binds::COMMAND_EXIT_DONT_SAVE => {app.quit()},
         command_binds::COMMAND_SAVE_DONT_EXIT => { app.save().expect("TODO: panic message");},
+        command_binds::COMMAND_SAVE_AND_EXIT => { app.save_and_exit().expect("TODO: panic message");},
         _ => {}
     }
 }

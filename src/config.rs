@@ -39,6 +39,7 @@ pub mod key_binds{
 
 //COMMAND BINDS
 pub mod command_binds{
-    pub(crate) const COMMAND_EXIT_DONT_SAVE:&str = ":q";
-    pub(crate) const COMMAND_SAVE_DONT_EXIT:&str = ":w";
+    pub(crate) const COMMAND_EXIT_DONT_SAVE:&str = "q";
+    pub(crate) const COMMAND_SAVE_DONT_EXIT:&str = "w";
+    pub(crate) const COMMAND_SAVE_AND_EXIT:&str = "wq";
 }

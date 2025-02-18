@@ -624,6 +624,19 @@ impl App {
         }
     }
 
+
+    ///saves file and exits window
+    pub(crate) fn save_and_exit(&mut self) -> Result<()> {
+        match self.save() {
+            Ok(_) => {
+                self.quit();
+                Ok(())
+            },
+            Err(e) => Err(e),
+        }
+
+    }
+
     ///copies text within bound of text selected to copied_text
     pub(crate) fn copy_selected_text(&mut self) -> Result<()> {
         if let (Some(start), Some(end)) = (self.text_selection_start.clone(), self.text_selection_end.clone()) {
