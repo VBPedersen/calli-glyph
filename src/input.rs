@@ -1,3 +1,4 @@
+use color_eyre::owo_colors::OwoColorize;
 use crossterm::event;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind};
 use crate::App;
@@ -73,10 +74,95 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
 }
 
 fn on_command_enter(app: &mut App) {
+    match split_command_bind_and_args(app) {
+        Ok((command_bind, command_args)) => {
+            match command_bind.as_ref() {
+                command_binds::COMMAND_EXIT_DONT_SAVE => {app.quit()},
+                command_binds::COMMAND_SAVE_DONT_EXIT => { app.save().expect("TODO: panic message");},
+                command_binds::COMMAND_SAVE_AND_EXIT => { app.save_and_exit().expect("TODO: panic message");},
+                _ => {}
+            }
+        }
+        Err(error) => {
+            println!("Error: {}", error);
+        }
+    }
+
+
     match app.command_input.as_str(){
         command_binds::COMMAND_EXIT_DONT_SAVE => {app.quit()},
         command_binds::COMMAND_SAVE_DONT_EXIT => { app.save().expect("TODO: panic message");},
         command_binds::COMMAND_SAVE_AND_EXIT => { app.save_and_exit().expect("TODO: panic message");},
         _ => {}
+    }
+}
+
+fn split_command_bind_and_args(app: &mut App) -> Result<(String, Vec<String>), String> {
+    let mut command_bind:Option<String> = None;
+    let mut command_args = vec![];
+    let mut parts = app.command_input.split_whitespace();
+
+    if let Some(first) = parts.next() {
+        if let Some(':') = first.chars().next() {
+            command_bind = Some(first.chars().skip(1).collect());
+        }
+    }
+
+    if let Some(ref cmd) = command_bind {
+        command_args.extend(parts.map(String::from));
+        return Ok((cmd.clone(), command_args));
+    }
+
+    Err("No valid command found".to_string())
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn create_app_with_command_input(s: String) -> App {
+        let mut app = App::new();
+        app.command_input = s;
+        app
+
+    }
+    #[test]
+    fn test_valid_command_with_args() {
+        let mut app = create_app_with_command_input(":command arg1 arg2".to_string());
+
+        let result = split_command_bind_and_args(&mut app);
+        assert!(result.is_ok());
+        let (cmd, args) = result.unwrap();
+        assert_eq!(cmd, "command");
+        assert_eq!(args, vec!["arg1", "arg2"]);
+    }
+
+    #[test]
+    fn test_valid_command_no_args() {
+        let mut app = create_app_with_command_input(":hello".to_string());
+
+        let result = split_command_bind_and_args(&mut app);
+        assert!(result.is_ok());
+        let (cmd, args) = result.unwrap();
+        assert_eq!(cmd, "hello");
+        assert!(args.is_empty());
+    }
+
+    #[test]
+    fn test_missing_command() {
+        let mut app = create_app_with_command_input("not_a_command arg1".to_string());
+
+        let result = split_command_bind_and_args(&mut app);
+        assert!(result.is_err());
+        assert_eq!(result.err().unwrap(), "No valid command found");
+    }
+
+    #[test]
+    fn test_empty_input() {
+        let mut app = create_app_with_command_input("".to_string());
+
+        let result = split_command_bind_and_args(&mut app);
+        assert!(result.is_err());
+        assert_eq!(result.err().unwrap(), "No valid command found");
     }
 }
