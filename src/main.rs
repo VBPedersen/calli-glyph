@@ -9,6 +9,7 @@ mod config;
 mod editor;
 mod cursor;
 mod command_line;
+mod clipboard;
 
 use ratatui::crossterm::event::EnableMouseCapture;
 use ratatui::crossterm::execute;

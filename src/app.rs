@@ -6,6 +6,7 @@ use ratatui::{
 
     DefaultTerminal
 };
+use crate::clipboard::Clipboard;
 use crate::command_line::CommandLine;
 use crate::ui::{ui};
 use crate::input::{handle_input};
@@ -24,7 +25,7 @@ pub struct App {
     last_tick: Instant,
     pub(crate) scroll_offset: i16,
     pub(crate) terminal_height: i16,
-    pub(crate) copied_text: Vec<String>,
+    pub clipboard: Clipboard,
     pub file_path: Option<String>,
 }
 
@@ -48,7 +49,7 @@ impl Default for App {
             cursor_visible: true,
             scroll_offset: 0,
             terminal_height: 0,
-            copied_text: vec![],
+            clipboard: Clipboard::new(),
             file_path: None,
         }
     }
@@ -635,7 +636,7 @@ impl App {
                 selected_text.push(extracted_text);
             }
 
-            self.copied_text = selected_text.clone();
+            self.clipboard.copy(&selected_text.clone());
             Ok(())
         } else {
             Ok(())
@@ -645,7 +646,7 @@ impl App {
     ///pastes text from copied text to editor content
     pub(crate) fn paste_selected_text(&mut self) -> Result<()> {
         //if no text in copied text
-        if self.copied_text.is_empty() {
+        if self.clipboard.copied_text.is_empty() {
             return Ok(());
         }
 
@@ -653,7 +654,7 @@ impl App {
         let insert_x = self.editor.cursor.x as usize;
 
 
-        while self.editor.editor_content.len() < insert_y + self.copied_text.len() -1 {
+        while self.editor.editor_content.len() < insert_y + self.clipboard.copied_text.len() -1 {
             self.editor.editor_content.push(String::new());
         }
 
@@ -663,12 +664,12 @@ impl App {
         let chars: Vec<char> = current_line.chars().collect();
         let (before_cursor, after_cursor) = chars.split_at(insert_x.min(chars.len()));
 
-        if self.copied_text.len() == 1 {
+        if self.clipboard.copied_text.len() == 1 {
             // Single-line paste: correctly insert into character-safe split
             let new_line = format!(
                 "{}{}{}",
                 before_cursor.iter().collect::<String>(),
-                self.copied_text[0],
+                self.clipboard.copied_text[0],
                 after_cursor.iter().collect::<String>()
             );
             self.editor.editor_content[insert_y] = new_line;
@@ -680,16 +681,16 @@ impl App {
             new_lines.push(format!(
                 "{}{}",
                 before_cursor.iter().collect::<String>(),
-                self.copied_text[0]
+                self.clipboard.copied_text[0]
             ));
 
             // Middle lines: insert as separate lines
-            for line in &self.copied_text[1..self.copied_text.len() - 1] {
+            for line in &self.clipboard.copied_text[1..self.clipboard.copied_text.len() - 1] {
                 new_lines.push(line.clone());
             }
 
             // Last copied line + remainder of the original line
-            let last_copied_line = &self.copied_text[self.copied_text.len() - 1];
+            let last_copied_line = &self.clipboard.copied_text[self.clipboard.copied_text.len() - 1];
             new_lines.push(format!(
                 "{}{}",
                 last_copied_line,

@@ -656,7 +656,7 @@ mod app_editor_tests {
         let result = app.copy_selected_text();
 
         assert!(result.is_ok());
-        assert_eq!(app.copied_text, vec!["world".to_string()]);
+        assert_eq!(app.clipboard.copied_text, vec!["world".to_string()]);
     }
 
     #[test]
@@ -668,7 +668,7 @@ mod app_editor_tests {
         let result = app.copy_selected_text();
 
         assert!(result.is_ok());
-        assert_eq!(app.copied_text, vec!["o,", " world!", " Ru"].into_iter().map(String::from).collect::<Vec<String>>());
+        assert_eq!(app.clipboard.copied_text, vec!["o,", " world!", " Ru"].into_iter().map(String::from).collect::<Vec<String>>());
     }
 
     #[test]
@@ -680,7 +680,7 @@ mod app_editor_tests {
         let result = app.copy_selected_text();
 
         assert!(result.is_ok());
-        assert!(app.copied_text.is_empty());
+        assert!(app.clipboard.copied_text.is_empty());
     }
 
     //paste selected text
@@ -689,7 +689,7 @@ mod app_editor_tests {
         let mut app = create_app_with_editor_content(vec!["Hello, world!".to_string(),
                                                           "This is a test.".to_string(),
                                                           "Another line.".to_string(),]);
-        app.copied_text = vec!["PASTED".to_string()];
+        app.clipboard.copy(&vec!["PASTED".to_string()]);
         app.editor.cursor.x = 8;
         app.editor.cursor.y = 0;
 
@@ -710,7 +710,7 @@ mod app_editor_tests {
         let mut app = create_app_with_editor_content(vec!["Hello, world!".to_string(),
                                                           "This is a test.".to_string(),
                                                           "Another line.".to_string(),]);
-        app.copied_text = vec!["First".to_string(), "Second ".to_string()];
+        app.clipboard.copy(&vec!["First".to_string(), "Second ".to_string()]);
         app.editor.cursor.x = 5;
         app.editor.cursor.y = 1;
 
@@ -732,7 +732,7 @@ mod app_editor_tests {
         let mut app = create_app_with_editor_content(vec!["Hello, wᚠᚠᚠᚠorld!".to_string(),
                                                           "This is a test.".to_string(),
                                                           "Another line.".to_string(),]);
-        app.copied_text = vec!["PASTED".to_string()];
+        app.clipboard.copy(&vec!["PASTED".to_string()]);
         app.editor.cursor.x = 10;
         app.editor.cursor.y = 0;
 
@@ -753,7 +753,7 @@ mod app_editor_tests {
         let mut app = create_app_with_editor_content(vec!["Hello, world!".to_string(),
                                                           "This ᚠᚠᚠᚠis a test.".to_string(),
                                                           "Another line.".to_string(),]);
-        app.copied_text = vec!["First".to_string(), "Second ".to_string()];
+        app.clipboard.copy(&vec!["First".to_string(), "Second ".to_string()]);
         app.editor.cursor.x = 7;
         app.editor.cursor.y = 1;
 
@@ -775,7 +775,7 @@ mod app_editor_tests {
         let mut app = create_app_with_editor_content(vec!["Hello, world!".to_string(),
                                                           "This is a test.".to_string(),
                                                           "Another line.".to_string(),]);
-        app.copied_text = vec!["NewStart".to_string()];
+        app.clipboard.copy(&vec!["NewStart".to_string()]);
         app.editor.cursor.x = 0;
         app.editor.cursor.y = 2;
 
@@ -796,7 +796,7 @@ mod app_editor_tests {
         let mut app = create_app_with_editor_content(vec!["Hello, world!".to_string(),
                                                           "This is a test.".to_string(),
                                                           "Another line.".to_string(),]);
-        app.copied_text = vec!["END".to_string()];
+        app.clipboard.copy(&vec!["END".to_string()]);
         app.editor.cursor.x = 13;
         app.editor.cursor.y = 0;
 
@@ -817,7 +817,7 @@ mod app_editor_tests {
         let mut app = create_app_with_editor_content(vec!["Hello, world!".to_string(),
                                                           "This is a test.".to_string(),
                                                           "Another line.".to_string(),]);
-        app.copied_text = vec![];
+        app.clipboard.copy(&vec![]);
         app.editor.cursor.x = 5;
         app.editor.cursor.y = 1;
 
@@ -836,7 +836,7 @@ mod app_editor_tests {
     #[test]
     fn test_paste_into_empty_editor() {
         let mut app = create_app_with_editor_content(vec![]);
-        app.copied_text = vec!["Hello".to_string(), "World".to_string()];
+        app.clipboard.copy(&vec!["Hello".to_string(), "World".to_string()]);
 
         app.paste_selected_text().unwrap();
 
