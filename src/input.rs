@@ -89,7 +89,7 @@ fn on_command_enter(app: &mut App) {
     }
 
 
-    match app.command_input.as_str(){
+    match app.command_line.input.as_str(){
         command_binds::COMMAND_EXIT_DONT_SAVE => {app.quit()},
         command_binds::COMMAND_SAVE_DONT_EXIT => { app.save().expect("TODO: panic message");},
         command_binds::COMMAND_SAVE_AND_EXIT => { app.save_and_exit().expect("TODO: panic message");},
@@ -100,7 +100,7 @@ fn on_command_enter(app: &mut App) {
 fn split_command_bind_and_args(app: &mut App) -> Result<(String, Vec<String>), String> {
     let mut command_bind:Option<String> = None;
     let mut command_args = vec![];
-    let mut parts = app.command_input.split_whitespace();
+    let mut parts = app.command_line.input.split_whitespace();
 
     if let Some(first) = parts.next() {
         if let Some(':') = first.chars().next() {
@@ -122,7 +122,7 @@ mod tests {
     use super::*;
     fn create_app_with_command_input(s: String) -> App {
         let mut app = App::new();
-        app.command_input = s;
+        app.command_line.input = s;
         app
 
     }

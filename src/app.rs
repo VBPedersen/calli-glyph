@@ -6,46 +6,29 @@ use ratatui::{
 
     DefaultTerminal
 };
-
-
-
+use crate::command_line::CommandLine;
 use crate::ui::{ui};
 use crate::input::{handle_input};
 use crate::config::editor_settings;
+use crate::cursor::CursorPosition;
+use crate::editor::Editor;
 
 #[derive(Debug)]
 pub struct App {
     /// Is the application running?
     running: bool,
     pub(crate) active_area: ActiveArea,
-    pub(crate) editor_content: Vec<String>,
-    pub(crate) command_input: String,
-    pub(crate) file_path: Option<String>,
-    pub(crate) cursor_x: i16,
-    pub(crate) cursor_y: i16,    
-    pub(crate) visual_cursor_x: i16,
-    pub(crate) editor_cursor_x: i16, //to save position in editor, when toggling area
-    pub(crate) editor_cursor_y: i16, //to save position in editor, when toggling are
+    pub editor: Editor,
+    pub command_line: CommandLine,
     pub(crate) cursor_visible: bool,
     last_tick: Instant,
     pub(crate) scroll_offset: i16,
     pub(crate) terminal_height: i16,
-    pub(crate) text_selection_start: Option<CursorPosition>,
-    pub(crate) text_selection_end: Option<CursorPosition>,
     pub(crate) copied_text: Vec<String>,
+    pub file_path: Option<String>,
 }
 
-#[derive(Debug,Copy,Clone)]
-pub struct CursorPosition {
-    pub(crate) x: usize,
-    pub(crate) y: usize,
-}
 
-impl Default for CursorPosition {
-    fn default() -> CursorPosition {
-        CursorPosition { x: 0, y: 0 }
-    }
-}
 
 #[derive(PartialEq, Debug, Default)]
 pub(crate) enum ActiveArea {
@@ -59,21 +42,14 @@ impl Default for App {
         Self {
             running: Default::default(),
             active_area: Default::default(),
-            editor_content: vec!(String::new()),
-            command_input: String::new(),
-            file_path: None,
-            cursor_x: 0,
-            cursor_y: 0,
-            visual_cursor_x: 0,
-            editor_cursor_x: 0,
-            editor_cursor_y: 0,
+            editor: Editor::new(),
+            command_line: CommandLine::new(),
             last_tick: Instant::now(),
             cursor_visible: true,
             scroll_offset: 0,
             terminal_height: 0,
-            text_selection_start: Default::default(),
-            text_selection_end: Default::default(),
             copied_text: vec![],
+            file_path: None,
         }
     }
 }
@@ -94,7 +70,7 @@ impl App {
         self.file_path = file_path;
 
         // Read file contents if a file path is provided
-        self.editor_content = if let Some(ref path) = self.file_path {
+        self.editor.editor_content = if let Some(ref path) = self.file_path {
             match File::open(path) {
                 Ok(f) => {
                     let mut buff_read_file = BufReader::new(f);
@@ -147,7 +123,7 @@ impl App {
     //TEXT OPERATIONS
 
     fn is_text_selected(&self) -> bool {
-        if self.text_selection_start.is_some() && self.text_selection_end.is_some() {
+        if self.editor.text_selection_start.is_some() && self.editor.text_selection_end.is_some() {
             true
         } else {
             false
@@ -168,9 +144,9 @@ impl App {
 
     ///replaces all selected text with char to y position line, with x position
     fn write_char_in_editor_text_is_selected(&mut self, c: char){
-        let start =self.text_selection_start.clone().unwrap();
-        let end =self.text_selection_end.clone().unwrap();
-        let lines = &mut self.editor_content[start.y..=end.y];
+        let start =self.editor.text_selection_start.clone().unwrap();
+        let end =self.editor.text_selection_end.clone().unwrap();
+        let lines = &mut self.editor.editor_content[start.y..=end.y];
         let lines_length = lines.len().clone();
         if lines_length > 1 {
             for (y,line) in lines.iter_mut().enumerate() {
@@ -191,37 +167,37 @@ impl App {
                 *line = line_chars_vec.into_iter().collect();
             }
         } else {
-            let line = &mut self.editor_content[start.y];
+            let line = &mut self.editor.editor_content[start.y];
             let mut line_chars_vec:Vec<char> = line.chars().collect();
             line_chars_vec.drain(start.x..end.x);
             line_chars_vec.insert(start.x,c);
             *line = line_chars_vec.into_iter().collect();
         }
-        self.cursor_x = self.text_selection_start.unwrap().x as i16;
-        self.cursor_y = self.text_selection_start.unwrap().y as i16;
-        self.text_selection_start = None;
-        self.text_selection_end = None;
+        self.editor.cursor.x = self.editor.text_selection_start.unwrap().x as i16;
+        self.editor.cursor.y = self.editor.text_selection_start.unwrap().y as i16;
+        self.editor.text_selection_start = None;
+        self.editor.text_selection_end = None;
         self.move_cursor_in_editor(1, 0);
     }
 
     ///writes char to y position line, with x position
     pub(crate) fn write_char_in_editor(&mut self, c: char) {
         //creating lines until y position of cursor
-        while self.editor_content.len() <= self.cursor_y as usize {
-            self.editor_content.push(String::new());
+        while self.editor.editor_content.len() <= self.editor.cursor.y as usize {
+            self.editor.editor_content.push(String::new());
         }
 
-        let line = &mut self.editor_content[self.cursor_y as usize];
+        let line = &mut self.editor.editor_content[self.editor.cursor.y as usize];
 
         let char_count = line.chars().count();
         //position cursor to line end in chars count
-        if char_count < self.cursor_x as usize {
-            self.cursor_x = char_count as i16;
+        if char_count < self.editor.cursor.x as usize {
+            self.editor.cursor.x = char_count as i16;
         }
 
         let mut line_chars_vec:Vec<char> = line.chars().collect();
 
-        line_chars_vec.insert(self.cursor_x as usize, c);
+        line_chars_vec.insert(self.editor.cursor.x as usize, c);
 
         *line = line_chars_vec.into_iter().collect();
 
@@ -240,9 +216,9 @@ impl App {
 
     ///handles backspace in editor, removes char at y line x position and sets new cursor position
     pub(crate) fn backspace_in_editor_text_is_selected(&mut self) {
-        let start =self.text_selection_start.clone().unwrap();
-        let end =self.text_selection_end.clone().unwrap();
-        let lines = &mut self.editor_content[start.y..=end.y];
+        let start =self.editor.text_selection_start.clone().unwrap();
+        let end =self.editor.text_selection_end.clone().unwrap();
+        let lines = &mut self.editor.editor_content[start.y..=end.y];
         let lines_length = lines.len().clone();
         if lines_length > 1 {
             for (y,line) in lines.iter_mut().enumerate() {
@@ -257,37 +233,37 @@ impl App {
                 *line = line_chars_vec.into_iter().collect();
             }
         } else {
-            let line = &mut self.editor_content[start.y];
+            let line = &mut self.editor.editor_content[start.y];
             let mut line_chars_vec:Vec<char> = line.chars().collect();
             line_chars_vec.drain(start.x..end.x);
             *line = line_chars_vec.into_iter().collect();
         }
-        self.cursor_x = self.text_selection_start.unwrap().x as i16;
-        self.cursor_y = self.text_selection_start.unwrap().y as i16;
-        self.text_selection_start = None;
-        self.text_selection_end = None;
+        self.editor.cursor.x = self.editor.text_selection_start.unwrap().x as i16;
+        self.editor.cursor.y = self.editor.text_selection_start.unwrap().y as i16;
+        self.editor.text_selection_start = None;
+        self.editor.text_selection_end = None;
         //replace visual cursor
-        self.visual_cursor_x = self.calculate_visual_x() as i16;
+        self.editor.visual_cursor_x = self.calculate_visual_x() as i16;
     }
 
     ///handles backspace in editor, removes char at y line x position and sets new cursor position
     pub(crate) fn backspace_in_editor(&mut self) {
-        let line_char_count = self.editor_content[self.cursor_y as usize].chars().count() as i16;
-        if self.cursor_x > 0 && self.cursor_x <= line_char_count {
-            let line = &mut self.editor_content[self.cursor_y as usize];
+        let line_char_count = self.editor.editor_content[self.editor.cursor.y as usize].chars().count() as i16;
+        if self.editor.cursor.x > 0 && self.editor.cursor.x <= line_char_count {
+            let line = &mut self.editor.editor_content[self.editor.cursor.y as usize];
             let mut line_chars_vec:Vec<char> = line.chars().collect();
 
-            line_chars_vec.remove(self.cursor_x as usize -1);
+            line_chars_vec.remove(self.editor.cursor.x as usize -1);
 
             *line = line_chars_vec.into_iter().collect();
-            //line.remove(self.cursor_x as usize -1);
+            //line.remove(self.editor.cursor.x as usize -1);
             self.move_cursor_in_editor(-1, 0);
-        } else if self.cursor_y > 0 {
-            let line = &mut self.editor_content.remove(self.cursor_y as usize);
-            let new_x_value = self.editor_content[(self.cursor_y -1) as usize].chars().count() as i16;
-            self.cursor_y -= 1;
-            self.cursor_x = new_x_value;
-            self.editor_content[self.cursor_y as usize].push_str(&line);
+        } else if self.editor.cursor.y > 0 {
+            let line = &mut self.editor.editor_content.remove(self.editor.cursor.y as usize);
+            let new_x_value = self.editor.editor_content[(self.editor.cursor.y -1) as usize].chars().count() as i16;
+            self.editor.cursor.y -= 1;
+            self.editor.cursor.x = new_x_value;
+            self.editor.editor_content[self.editor.cursor.y as usize].push_str(&line);
         }
     }
 
@@ -304,9 +280,9 @@ impl App {
 
     ///handles delete in editor, removes char at y line x position and sets new cursor position
     pub(crate) fn delete_in_editor_text_is_selected(&mut self) {
-        let start =self.text_selection_start.clone().unwrap();
-        let end =self.text_selection_end.clone().unwrap();
-        let lines = &mut self.editor_content[start.y..=end.y];
+        let start =self.editor.text_selection_start.clone().unwrap();
+        let end =self.editor.text_selection_end.clone().unwrap();
+        let lines = &mut self.editor.editor_content[start.y..=end.y];
         let lines_length = lines.len().clone();
         if lines_length > 1 {
             for (y,line) in lines.iter_mut().enumerate() {
@@ -324,48 +300,48 @@ impl App {
                 *line = line_chars_vec.into_iter().collect();
             }
         } else {
-            let line = &mut self.editor_content[start.y];
+            let line = &mut self.editor.editor_content[start.y];
             let mut line_chars_vec:Vec<char> = line.chars().collect();
             line_chars_vec[start.x..end.x].fill(' ');
             //line_chars_vec.drain(start.x..end.x);
             *line = line_chars_vec.into_iter().collect();
         }
-        self.cursor_x = self.text_selection_end.unwrap().x as i16;
-        self.cursor_y = self.text_selection_end.unwrap().y as i16;
-        self.text_selection_start = None;
-        self.text_selection_end = None;
+        self.editor.cursor.x = self.editor.text_selection_end.unwrap().x as i16;
+        self.editor.cursor.y = self.editor.text_selection_end.unwrap().y as i16;
+        self.editor.text_selection_start = None;
+        self.editor.text_selection_end = None;
         //replace visual cursor
-        self.visual_cursor_x = self.calculate_visual_x() as i16;
+        self.editor.visual_cursor_x = self.calculate_visual_x() as i16;
     }
 
     ///handles DELETE action, of deleting char in editor at x +1 position
     pub(crate) fn delete_in_editor(&mut self) {
-        let current_line_len = self.editor_content[self.cursor_y as usize].chars().count() as i16;
+        let current_line_len = self.editor.editor_content[self.editor.cursor.y as usize].chars().count() as i16;
 
         if current_line_len == 0 { return; }
         //if at line end, move line below up,  else if current line length is bigger than current cursor x pos, remove char
-        if self.cursor_x >= current_line_len -1 && self.editor_content.len() > (self.cursor_y +1) as usize {
-            let line = &mut self.editor_content.remove((self.cursor_y +1) as usize);
-            self.editor_content[self.cursor_y as usize].push_str(&line);
-        } else if current_line_len > (self.cursor_x+1) {
-            let line = &mut self.editor_content[self.cursor_y as usize];
+        if self.editor.cursor.x >= current_line_len -1 && self.editor.editor_content.len() > (self.editor.cursor.y +1) as usize {
+            let line = &mut self.editor.editor_content.remove((self.editor.cursor.y +1) as usize);
+            self.editor.editor_content[self.editor.cursor.y as usize].push_str(&line);
+        } else if current_line_len > (self.editor.cursor.x+1) {
+            let line = &mut self.editor.editor_content[self.editor.cursor.y as usize];
             let mut line_chars_vec:Vec<char> = line.chars().collect();
 
-            line_chars_vec.remove(self.cursor_x as usize +1);
+            line_chars_vec.remove(self.editor.cursor.x as usize +1);
 
             *line = line_chars_vec.into_iter().collect();
-            //line.remove((self.cursor_x+1) as usize);
+            //line.remove((self.editor.cursor.x+1) as usize);
         }
     }
 
     ///handles TAB action in editor, by writing \t to editor content.
     pub(crate) fn tab_in_editor(&mut self) {
 
-        let line = &mut self.editor_content[self.cursor_y as usize];
+        let line = &mut self.editor.editor_content[self.editor.cursor.y as usize];
 
         let mut line_chars_vec:Vec<char> = line.chars().collect();
 
-        line_chars_vec.insert(self.cursor_x as usize, '\t');
+        line_chars_vec.insert(self.editor.cursor.x as usize, '\t');
 
         *line = line_chars_vec.into_iter().collect();
 
@@ -374,22 +350,22 @@ impl App {
 
     ///handles enter new line, with possible move of text
     pub(crate) fn enter_in_editor(&mut self) {
-        let line = &mut self.editor_content[self.cursor_y as usize];
+        let line = &mut self.editor.editor_content[self.editor.cursor.y as usize];
         //if at end of line len, then just move cursor and make new line, else move text too
-        if self.cursor_x >= line.chars().count() as i16 {
-            self.editor_content.insert(self.cursor_y as usize +1,String::new());
+        if self.editor.cursor.x >= line.chars().count() as i16 {
+            self.editor.editor_content.insert(self.editor.cursor.y as usize +1,String::new());
             self.move_cursor_in_editor(0,1);
         } else {
             //split current line and remove split part
             let mut line_chars_vec:Vec<char> = line.chars().collect();
-            let line_end = line_chars_vec.split_off(self.cursor_x as usize);
+            let line_end = line_chars_vec.split_off(self.editor.cursor.x as usize);
             *line = line_chars_vec.into_iter().collect();
 
             //move down and insert split line to next line
             self.move_cursor_in_editor(0,1);
-            self.editor_content.insert(self.cursor_y as usize,String::new());
-            self.editor_content[self.cursor_y as usize] = line_end.into_iter().collect();
-            self.cursor_x = 0;
+            self.editor.editor_content.insert(self.editor.cursor.y as usize,String::new());
+            self.editor.editor_content[self.editor.cursor.y as usize] = line_end.into_iter().collect();
+            self.editor.cursor.x = 0;
 
         }
     }
@@ -398,18 +374,18 @@ impl App {
 
     /// writes char to the commandline content at x position, and moves cursor
     pub(crate) fn write_char_to_command_line(&mut self, c: char) {
-        let line = &mut self.command_input;
-        if line.len() < self.cursor_x as usize {
-            self.cursor_x = line.len() as i16;
+        let line = &mut self.command_line.input;
+        if line.len() < self.command_line.cursor.x as usize {
+            self.command_line.cursor.x = line.len() as i16;
         }
-        line.insert(self.cursor_x as usize, c);
+        line.insert(self.command_line.cursor.x as usize, c);
         self.move_cursor_in_command_line(1);
     }
 
     pub(crate) fn backspace_on_command_line(&mut self) {
-        let line = &mut self.command_input;
-        if self.cursor_x > 0 && self.cursor_x <= line.len() as i16 {
-            line.remove(self.cursor_x as usize -1);
+        let line = &mut self.command_line.input;
+        if self.command_line.cursor.x > 0 && self.command_line.cursor.x <= line.len() as i16 {
+            line.remove(self.command_line.cursor.x as usize -1);
             self.move_cursor_in_command_line(-1);
         }
     }
@@ -419,8 +395,8 @@ impl App {
         //IN EDITOR
     ///calculates the visual position of the cursor
     fn calculate_visual_x(&mut self) -> usize {
-        let line = &self.editor_content[self.cursor_y as usize];
-        let cursor_x = self.cursor_x as usize;
+        let line = &self.editor.editor_content[self.editor.cursor.y as usize];
+        let cursor_x = self.editor.cursor.x as usize;
         let tab_width = editor_settings::TAB_WIDTH as usize;
         let mut visual_x = 0;
         for (i, c) in line.chars().enumerate() {
@@ -447,8 +423,8 @@ impl App {
             self.move_selection_cursor(x,y);
         }else {
             self.move_cursor_in_editor(x,y);
-            self.text_selection_start = None;
-            self.text_selection_end = None;
+            self.editor.text_selection_start = None;
+            self.editor.text_selection_end = None;
         }
 
     }
@@ -456,35 +432,35 @@ impl App {
 
     ///moves logical cursor by x and y, under conditions. and recalculates the visual cursor position
     pub(crate) fn move_cursor_in_editor(&mut self, x: i16, y: i16) {
-        if self.cursor_y == 0 && y == -1 {
+        if self.editor.cursor.y == 0 && y == -1 {
             return;
         }
         //if wanting to go beyond current length of editor
-        while self.editor_content.len() <= (self.cursor_y + y) as usize {
-            self.editor_content.push(String::new());
+        while self.editor.editor_content.len() <= (self.editor.cursor.y + y) as usize {
+            self.editor.editor_content.push(String::new());
         }
 
-        let max_x_pos = self.editor_content[(self.cursor_y + y) as usize].chars().count() as i16;
-        //let current_line = &self.editor_content[self.cursor_y as usize];
+        let max_x_pos = self.editor.editor_content[(self.editor.cursor.y + y) as usize].chars().count() as i16;
+        //let current_line = &self.editor.editor_content[self.editor.cursor.y as usize];
 
         // Moving Right →
-        if x > 0 && self.cursor_x < max_x_pos {
-            self.cursor_x += x;
-        }else if  x == 1 && self.cursor_x >= self.editor_content[self.cursor_y as usize].chars().count() as i16
-            && self.editor_content.len() > self.cursor_y as usize +1{ //else if end of line and more lines
-            self.cursor_y += 1;
-            self.cursor_x = 0;
-            self.visual_cursor_x = self.calculate_visual_x() as i16;
+        if x > 0 && self.editor.cursor.x < max_x_pos {
+            self.editor.cursor.x += x;
+        }else if  x == 1 && self.editor.cursor.x >= self.editor.editor_content[self.editor.cursor.y as usize].chars().count() as i16
+            && self.editor.editor_content.len() > self.editor.cursor.y as usize +1{ //else if end of line and more lines
+            self.editor.cursor.y += 1;
+            self.editor.cursor.x = 0;
+            self.editor.visual_cursor_x = self.calculate_visual_x() as i16;
             return;
         }
 
         // Moving Left ←
-        if x < 0 && self.cursor_x > 0 {
-            self.cursor_x += x;
-        } else if self.cursor_x == 0 && x == -1 && self.cursor_y != 0 { //else if start of line and more lines
-            self.cursor_y -= 1;
-            self.cursor_x = self.editor_content[self.cursor_y as usize].chars().count() as i16;
-            self.visual_cursor_x = self.calculate_visual_x() as i16;
+        if x < 0 && self.editor.cursor.x > 0 {
+            self.editor.cursor.x += x;
+        } else if self.editor.cursor.x == 0 && x == -1 && self.editor.cursor.y != 0 { //else if start of line and more lines
+            self.editor.cursor.y -= 1;
+            self.editor.cursor.x = self.editor.editor_content[self.editor.cursor.y as usize].chars().count() as i16;
+            self.editor.visual_cursor_x = self.calculate_visual_x() as i16;
             return;
         }
 
@@ -496,26 +472,26 @@ impl App {
             return;
         }
 
-        self.cursor_x = self.cursor_x.clamp(0, max_x_pos);
-        self.cursor_y = (self.cursor_y + y).clamp(0, i16::MAX);
-        self.visual_cursor_x = self.calculate_visual_x() as i16;
+        self.editor.cursor.x = self.editor.cursor.x.clamp(0, max_x_pos);
+        self.editor.cursor.y = (self.editor.cursor.y + y).clamp(0, i16::MAX);
+        self.editor.visual_cursor_x = self.calculate_visual_x() as i16;
     }
 
 
     ///checks if cursor is at top or bottom of the screen
     fn is_cursor_top_or_bottom(&self) -> (bool,bool) {
-        let top = self.cursor_y == self.scroll_offset;
-        let bottom =  self.cursor_y == self.scroll_offset + (self.terminal_height -2);
+        let top = self.editor.cursor.y == self.scroll_offset;
+        let bottom =  self.editor.cursor.y == self.scroll_offset + (self.terminal_height -2);
         (top,bottom)
     }
 
     ///moves selection cursor
     pub(crate) fn move_selection_cursor(&mut self, x: i16, y: i16) {
-        let old_x = self.cursor_x.clone();
-        let old_y = self.cursor_y.clone();
+        let old_x = self.editor.cursor.x.clone();
+        let old_y = self.editor.cursor.y.clone();
         self.move_cursor_in_editor(x,y);
-        let new_x = self.cursor_x.clone();
-        let new_y = self.cursor_y.clone();
+        let new_x = self.editor.cursor.x.clone();
+        let new_y = self.editor.cursor.y.clone();
 
         let mut start_cp = CursorPosition::default();
         let mut end_cp = CursorPosition::default();
@@ -523,18 +499,18 @@ impl App {
             start_cp = CursorPosition{ x: old_x as usize, y: old_y as usize };
             end_cp = CursorPosition{ x: new_x as usize, y: new_y as usize };
 
-            if self.text_selection_start.is_none() {
-                self.text_selection_start = Option::from(start_cp);
+            if self.editor.text_selection_start.is_none() {
+                self.editor.text_selection_start = Option::from(start_cp);
             }
-            self.text_selection_end = Option::from(end_cp);
+            self.editor.text_selection_end = Option::from(end_cp);
         }
 
         if x < 0 || y < 0 {
             start_cp = CursorPosition{ x: new_x as usize, y: new_y as usize };
             end_cp = CursorPosition{ x: old_x as usize, y: old_y as usize };
-            self.text_selection_start = Option::from(start_cp);
-            if self.text_selection_end.is_none() {
-                self.text_selection_end = Option::from(end_cp);
+            self.editor.text_selection_start = Option::from(start_cp);
+            if self.editor.text_selection_end.is_none() {
+                self.editor.text_selection_end = Option::from(end_cp);
             }
         }
 
@@ -543,8 +519,8 @@ impl App {
         //IN COMMAND LINE
     ///moves cursor by x and y amounts in commandline
     pub(crate) fn move_cursor_in_command_line(&mut self, x: i16) {
-        let max_x_pos:i16 = self.command_input.len() as i16;
-        self.cursor_x = (self.cursor_x + x).clamp(0, max_x_pos);
+        let max_x_pos:i16 = self.command_line.input.len() as i16;
+        self.command_line.cursor.x = (self.command_line.cursor.x + x).clamp(0, max_x_pos);
 
     }
 
@@ -572,16 +548,10 @@ impl App {
     pub(crate) fn toggle_active_area(&mut self) {
         match self.active_area {
             ActiveArea::Editor =>  {
-                self.editor_cursor_x = self.cursor_x;
-                self.editor_cursor_y = self.cursor_y;
                 self.active_area = ActiveArea::CommandLine;
-                self.cursor_x = 0;
-                self.cursor_y = 0;
             },
             ActiveArea::CommandLine => {
                 self.active_area = ActiveArea::Editor;
-                self.cursor_x = self.editor_cursor_x;
-                self.cursor_y = self.editor_cursor_y;
             },
 
         }
@@ -600,7 +570,7 @@ impl App {
         let path;
         let has_changes:bool;
 
-        let new_content = self.editor_content.join("\n");
+        let new_content = self.editor.editor_content.join("\n");
         if self.file_path.is_some() {
             path = self.file_path.clone().unwrap();
             has_changes = self.file_has_changes(new_content.clone(),path.clone())?;
@@ -639,9 +609,9 @@ impl App {
 
     ///copies text within bound of text selected to copied_text
     pub(crate) fn copy_selected_text(&mut self) -> Result<()> {
-        if let (Some(start), Some(end)) = (self.text_selection_start.clone(), self.text_selection_end.clone()) {
+        if let (Some(start), Some(end)) = (self.editor.text_selection_start.clone(), self.editor.text_selection_end.clone()) {
             let mut selected_text: Vec<String> = Vec::new();
-            let lines = &self.editor_content[start.y..=end.y];
+            let lines = &self.editor.editor_content[start.y..=end.y];
 
             if lines.len() > 1 {
                 for (y, line) in lines.iter().enumerate() {
@@ -660,7 +630,7 @@ impl App {
                     selected_text.push(extracted_text);
                 }
             } else {
-                let mut line_chars: Vec<char> = self.editor_content[start.y].chars().collect();
+                let mut line_chars: Vec<char> = self.editor.editor_content[start.y].chars().collect();
                 let extracted_text: String = line_chars.drain(start.x..end.x).collect();
                 selected_text.push(extracted_text);
             }
@@ -679,15 +649,15 @@ impl App {
             return Ok(());
         }
 
-        let insert_y = self.cursor_y as usize;
-        let insert_x = self.cursor_x as usize;
+        let insert_y = self.editor.cursor.y as usize;
+        let insert_x = self.editor.cursor.x as usize;
 
 
-        while self.editor_content.len() < insert_y + self.copied_text.len() -1 {
-            self.editor_content.push(String::new());
+        while self.editor.editor_content.len() < insert_y + self.copied_text.len() -1 {
+            self.editor.editor_content.push(String::new());
         }
 
-        let current_line = &self.editor_content[insert_y];
+        let current_line = &self.editor.editor_content[insert_y];
 
         // Convert the line into a Vec<char> to handle multi-byte characters correctly
         let chars: Vec<char> = current_line.chars().collect();
@@ -701,7 +671,7 @@ impl App {
                 self.copied_text[0],
                 after_cursor.iter().collect::<String>()
             );
-            self.editor_content[insert_y] = new_line;
+            self.editor.editor_content[insert_y] = new_line;
         } else {
             // Multi-line paste
             let mut new_lines = Vec::new();
@@ -727,7 +697,7 @@ impl App {
             ));
 
             // Replace the current line and insert new lines
-            self.editor_content.splice(insert_y..=insert_y, new_lines);
+            self.editor.editor_content.splice(insert_y..=insert_y, new_lines);
         }
 
         // Clear copied text after pasting

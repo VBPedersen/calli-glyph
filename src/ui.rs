@@ -5,17 +5,18 @@ use ratatui::layout::{Alignment, Position};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Paragraph};
-use crate::app::{ActiveArea, App, CursorPosition};
+use crate::app::{ActiveArea, App};
 
 use crate::config::editor_settings;
+use crate::cursor::CursorPosition;
 
 pub fn ui(frame: &mut Frame, app: &mut App) {
     app.terminal_height = frame.area().height as i16;
 
-    let editor_content: Text = handle_editor_content(app.editor_content.clone(), app.text_selection_start, app.text_selection_end);
+    let editor_content: Text = handle_editor_content(app.editor.editor_content.clone(), app.editor.text_selection_start, app.editor.text_selection_end);
 
 
-    let command_input:String = app.command_input.to_string();
+    let command_input:String = app.command_line.input.to_string();
     let file_name_optional:Option<String> = app.file_path.clone();
     let file_to_use: String;
     if file_name_optional.is_some() {
@@ -35,7 +36,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
 
 
     frame.render_widget(
-        info_bar(file_to_use, app.cursor_x, app.cursor_y, app.visual_cursor_x,app.text_selection_start,app.text_selection_end),
+        info_bar(file_to_use, app.editor.cursor.x, app.editor.cursor.y, app.editor.visual_cursor_x,app.editor.text_selection_start,app.editor.text_selection_end),
         layout[0],
     );
     frame.render_widget(
@@ -51,14 +52,14 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     if app.cursor_visible {
         match app.active_area {
             ActiveArea::Editor => {
-                let x = layout[1].x + app.visual_cursor_x as u16; //using visual x
-                let y = layout[1].y + (app.cursor_y - app.scroll_offset).clamp(0,i16::MAX) as u16;
+                let x = layout[1].x + app.editor.visual_cursor_x as u16; //using visual x
+                let y = layout[1].y + (app.editor.cursor.y - app.scroll_offset).clamp(0,i16::MAX) as u16;
                 let pos: Position = Position { x, y };
                 frame.set_cursor_position(pos);
             },
             ActiveArea::CommandLine => {
-                let x = layout[2].x + app.cursor_x as u16;
-                let y = layout[2].y + app.cursor_y as u16;
+                let x = layout[2].x + app.command_line.cursor.x as u16;
+                let y = layout[2].y + app.command_line.cursor.y as u16;
                 let pos: Position = Position { x, y };
                 frame.set_cursor_position(pos);
             },
