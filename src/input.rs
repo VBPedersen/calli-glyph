@@ -73,13 +73,17 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
     }
 }
 
+
+
+///handles checking command and executing said command with given args
 fn on_command_enter(app: &mut App) {
     match split_command_bind_and_args(app) {
         Ok((command_bind, command_args)) => {
             match command_bind.as_ref() {
                 command_binds::COMMAND_EXIT_DONT_SAVE => {app.quit()},
-                command_binds::COMMAND_SAVE_DONT_EXIT => { app.save().expect("TODO: panic message");},
-                command_binds::COMMAND_SAVE_AND_EXIT => { app.save_and_exit().expect("TODO: panic message");},
+                command_binds::COMMAND_SAVE_DONT_EXIT => { app.save(command_args).expect("TODO: panic message");},
+                command_binds::COMMAND_SAVE_AND_EXIT => { app.save_and_exit(command_args).expect("TODO: panic message");},
+                command_binds::COMMAND_HELP => { },
                 _ => {}
             }
         }
@@ -87,16 +91,9 @@ fn on_command_enter(app: &mut App) {
             println!("Error: {}", error);
         }
     }
-
-
-    match app.command_line.input.as_str(){
-        command_binds::COMMAND_EXIT_DONT_SAVE => {app.quit()},
-        command_binds::COMMAND_SAVE_DONT_EXIT => { app.save().expect("TODO: panic message");},
-        command_binds::COMMAND_SAVE_AND_EXIT => { app.save_and_exit().expect("TODO: panic message");},
-        _ => {}
-    }
 }
 
+///to split command line text into a command and arguments
 fn split_command_bind_and_args(app: &mut App) -> Result<(String, Vec<String>), String> {
     let mut command_bind:Option<String> = None;
     let mut command_args = vec![];
@@ -115,6 +112,9 @@ fn split_command_bind_and_args(app: &mut App) -> Result<(String, Vec<String>), S
 
     Err("No valid command found".to_string())
 }
+
+//
+
 
 
 #[cfg(test)]

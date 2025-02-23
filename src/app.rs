@@ -1,5 +1,7 @@
+use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
+use std::path::Path;
 use std::time::{Instant, Duration};
 use color_eyre::Result;
 use ratatui::{
@@ -566,20 +568,51 @@ impl App {
         self.running = false;
     }
 
-    ///saves contents to file
-    pub(crate) fn save(&self) -> Result<()> {
+    ///saves contents to file, if any file path specified in args then saves to that file,
+    /// if not and file path is existing then saves to that, else saves to untitled
+    /// command_bind <file_path> --flags
+    pub(crate) fn save(&self, args:Vec<String>) -> Result<()> {
+
         let path;
+        let mut path_is_current_file:bool = false;
         let has_changes:bool;
+        let mut force_flag:bool = false;
 
         let new_content = self.editor.editor_content.join("\n");
-        if self.file_path.is_some() {
+
+        //if file path to save on is set in command args
+        if !args.is_empty() {
+            path = args.get(0).unwrap().clone();
+            force_flag = args.contains(&"--force".to_string());
+        } else if self.file_path.is_some(){
             path = self.file_path.clone().unwrap();
-            has_changes = self.file_has_changes(new_content.clone(),path.clone())?;
-        }else {
+            path_is_current_file = true;
+        } else {
             path = "untitled".to_string();
-            has_changes = new_content.len() > 0;
+
         }
 
+        let path_ref = Path::new(&path);
+
+        // Check if file exists
+        if path_ref.exists() {
+            has_changes = self.file_has_changes(new_content.clone(),path.clone())?;
+            //if force is false then make user confirm, if confirm false -> abort save
+            if !path_is_current_file && has_changes  && !force_flag && !self.confirm_overwrite(&path) {
+                println!("Save aborted.");
+                return Ok(());
+            }
+
+        } else {
+            has_changes = new_content.len() > 0;
+            // If file doesn't exist, ensure the parent directory exists
+            if let Some(parent) = path_ref.parent() {
+                fs::create_dir_all(parent)?;
+            }
+
+        }
+
+        //if file has changes write these to file
         if has_changes {
             let file = OpenOptions::new()
                 .write(true)
@@ -597,8 +630,8 @@ impl App {
 
 
     ///saves file and exits window
-    pub(crate) fn save_and_exit(&mut self) -> Result<()> {
-        match self.save() {
+    pub(crate) fn save_and_exit(&mut self, args:Vec<String>) -> Result<()> {
+        match self.save(args) {
             Ok(_) => {
                 self.quit();
                 Ok(())
@@ -606,6 +639,32 @@ impl App {
             Err(e) => Err(e),
         }
 
+    }
+
+    ///checks if file has changes and returns boolean
+    pub(crate) fn file_has_changes(&self,editor_content:String,file_path:String) -> Result<bool> {
+
+        let file = File::open(file_path)?;
+        let mut buff_read_file = BufReader::new(file);
+        let mut read_file_contents = String::new();
+
+        buff_read_file.read_to_string(&mut read_file_contents).expect("TODO: panic message");
+        //if has changes, return true else return false
+        if !read_file_contents.eq(&editor_content) {
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    //TODO should launch confirmation popup
+    ///handles creating popup to confirm if file should be overridden
+    fn confirm_overwrite(&self, path: &str) -> bool {
+        //println!("File '{}' already exists. Overwrite? (y/n): ", path);
+        //let mut input = String::new();
+        //std::io::stdin().read_line(&mut input).unwrap();
+        //input.trim().eq_ignore_ascii_case("y")
+        true
     }
 
     ///copies text within bound of text selected to copied_text
@@ -708,20 +767,6 @@ impl App {
     }
 
     //HELPER FUNCTIONS FOR BASIC COMMANDS
-    ///checks if file has changes and returns boolean
-    pub(crate) fn file_has_changes(&self,editor_content:String,file_path:String) -> Result<bool> {
 
-        let file = File::open(file_path)?;
-        let mut buff_read_file = BufReader::new(file);
-        let mut read_file_contents = String::new();
-
-        buff_read_file.read_to_string(&mut read_file_contents).expect("TODO: panic message");
-        //if has changes, return true else return false
-        if !read_file_contents.eq(&editor_content) {
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    }
 
 }

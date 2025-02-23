@@ -852,9 +852,18 @@ mod app_editor_tests {
 
 #[cfg(test)]
 mod app_command_line_tests {
+    use std::fs;
+    use tempfile::NamedTempFile;
     use crate::app::*; // Access app.rs logic
 
     //init functions
+    fn create_app_with_editor_content(vec: Vec<String>) -> App {
+        let mut app = App::new();
+        app.editor.editor_content = vec;
+        app
+
+    }
+
     fn create_app_with_command_input(s: String) -> App {
         let mut app = App::new();
         app.command_line.input = s;
@@ -904,6 +913,72 @@ mod app_command_line_tests {
         assert_eq!(app.command_line.cursor.x, 2);
     }
 
+
+    #[test]
+    fn test_save_with_specified_file() {
+        let temp_file = NamedTempFile::new().unwrap();
+        let file_path = temp_file.path().to_str().unwrap().to_string();
+
+        let mut app = create_app_with_editor_content(vec!["Test content".to_string()]);
+        app.file_path = None;
+        app.save(vec![file_path.clone(), "--force".to_string()]).unwrap();
+
+        let saved_content = fs::read_to_string(file_path).unwrap();
+        assert_eq!(saved_content, "Test content");
+    }
+
+    #[test]
+    fn test_save_with_existing_file_path() {
+        let temp_file = NamedTempFile::new().unwrap();
+        let file_path = temp_file.path().to_str().unwrap().to_string();
+
+        let mut app = create_app_with_editor_content(vec!["New content".to_string()]);
+        app.file_path = Some(file_path.clone());
+        app.save(vec![]).unwrap();
+
+        let saved_content = fs::read_to_string(file_path).unwrap();
+        assert_eq!(saved_content, "New content");
+    }
+
+    #[test]
+    fn test_save_with_no_file_path_defaults_to_untitled() {
+        let mut app = create_app_with_editor_content(vec!["Default content".to_string()]);
+
+        app.save(vec![]).unwrap();
+
+        let saved_content = fs::read_to_string("untitled").unwrap();
+        assert_eq!(saved_content, "Default content");
+
+        fs::remove_file("untitled").unwrap(); // Clean up after test
+    }
+
+    #[test]
+    fn test_does_not_save_if_no_changes() {
+        let temp_file = NamedTempFile::new().unwrap();
+        let file_path = temp_file.path().to_str().unwrap().to_string();
+        fs::write(&file_path, "Unchanged content").unwrap();
+        let mut app = create_app_with_editor_content(vec!["Unchanged content".to_string()]);
+        app.file_path = Some(file_path.clone());
+
+        app.save(vec![]).unwrap();
+
+        let saved_content = fs::read_to_string(file_path).unwrap();
+        assert_eq!(saved_content, "Unchanged content"); // No overwrite happened
+    }
+
+    #[test]
+    fn test_save_creates_new_file_if_missing() {
+        let temp_file_path = "new_test_file.txt".to_string();
+        let mut app = create_app_with_editor_content(vec!["Hello World!".to_string()]);
+        app.file_path = None;
+
+        app.save(vec![temp_file_path.clone()]).unwrap();
+
+        let saved_content = fs::read_to_string(&temp_file_path).unwrap();
+        assert_eq!(saved_content, "Hello World!");
+
+        fs::remove_file(temp_file_path).unwrap(); // Clean up
+    }
 
 
 }
