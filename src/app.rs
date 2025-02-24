@@ -13,8 +13,10 @@ use crate::command_line::CommandLine;
 use crate::ui::{ui};
 use crate::input::{handle_input};
 use crate::config::editor_settings;
+use crate::confirmation_popup::ConfirmationPopup;
 use crate::cursor::CursorPosition;
 use crate::editor::Editor;
+use crate::popup::{Popup, PopupResult};
 
 #[derive(Debug)]
 pub struct App {
@@ -29,15 +31,23 @@ pub struct App {
     pub(crate) terminal_height: i16,
     pub clipboard: Clipboard,
     pub file_path: Option<String>,
+    pub popup: Option<Box<dyn Popup>>,
+    pub popup_result: PopupResult,
+    pub pending_state: PendingState
 }
 
-
+#[derive(Debug,PartialEq)]
+pub enum PendingState{
+    None,
+    Saving(String),
+}
 
 #[derive(PartialEq, Debug, Default)]
 pub(crate) enum ActiveArea {
     #[default]
     Editor,
     CommandLine,
+    Popup,
 }
 
 impl Default for App {
@@ -53,6 +63,9 @@ impl Default for App {
             terminal_height: 0,
             clipboard: Clipboard::new(),
             file_path: None,
+            popup: None,
+            popup_result: PopupResult::None,
+            pending_state: PendingState::None,
         }
     }
 }
@@ -557,7 +570,37 @@ impl App {
                 self.active_area = ActiveArea::Editor;
             },
 
+            _ => {}
         }
+    }
+
+    ///handles creating popup to confirm if file should be overridden
+    pub fn handle_confirmation_popup_response(&mut self) {
+        match &self.pending_state {
+            PendingState::Saving(save_path) => {
+                if self.popup_result == PopupResult::Bool(true) {
+                    self.save(vec![save_path.clone()]);
+                    self.popup_result = PopupResult::None;
+                    self.close_popup();
+                } else if self.popup_result == PopupResult::Bool(false) {
+                    self.popup_result = PopupResult::None;
+                    self.close_popup();
+                }
+            }
+            _ => {}
+        }
+
+    }
+    
+    ///handles setting popup with defined popup object
+    pub fn open_popup(&mut self, popup: Box<dyn Popup>) {
+        self.popup = Some(popup);
+        self.active_area = ActiveArea::Popup;
+    }
+
+    pub fn close_popup(&mut self) {
+        self.popup = None;
+        self.active_area = ActiveArea::Editor; // Go back to editor
     }
 
 
@@ -571,7 +614,7 @@ impl App {
     ///saves contents to file, if any file path specified in args then saves to that file,
     /// if not and file path is existing then saves to that, else saves to untitled
     /// command_bind <file_path> --flags
-    pub(crate) fn save(&self, args:Vec<String>) -> Result<()> {
+    pub(crate) fn save(&mut self, args:Vec<String>) -> Result<()> {
 
         let path;
         let mut path_is_current_file:bool = false;
@@ -597,9 +640,12 @@ impl App {
         // Check if file exists
         if path_ref.exists() {
             has_changes = self.file_has_changes(new_content.clone(),path.clone())?;
-            //if force is false then make user confirm, if confirm false -> abort save
-            if !path_is_current_file && has_changes  && !force_flag && !self.confirm_overwrite(&path) {
-                println!("Save aborted.");
+            //if path is the current file, has changes and force is false
+            // and no confirmation has been asked, then make user confirm
+            if !path_is_current_file && has_changes  && !force_flag &&  self.popup_result == PopupResult::None{
+                let popup = Box::new(ConfirmationPopup::new("Confirm Overwrite of file"));
+                self.open_popup(popup);
+                self.pending_state = PendingState::Saving(path);
                 return Ok(());
             }
 
@@ -656,16 +702,7 @@ impl App {
             Ok(false)
         }
     }
-
-    //TODO should launch confirmation popup
-    ///handles creating popup to confirm if file should be overridden
-    fn confirm_overwrite(&self, path: &str) -> bool {
-        //println!("File '{}' already exists. Overwrite? (y/n): ", path);
-        //let mut input = String::new();
-        //std::io::stdin().read_line(&mut input).unwrap();
-        //input.trim().eq_ignore_ascii_case("y")
-        true
-    }
+    
 
     ///copies text within bound of text selected to copied_text
     pub(crate) fn copy_selected_text(&mut self) -> Result<()> {
@@ -765,6 +802,9 @@ impl App {
         Ok(())
 
     }
+
+
+
 
     //HELPER FUNCTIONS FOR BASIC COMMANDS
 

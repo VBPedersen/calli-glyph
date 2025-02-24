@@ -1,7 +1,7 @@
 use std::default::Default;
 use std::vec;
 use ratatui::{layout::{Constraint, Direction, Layout}, widgets::{Block}, Frame, };
-use ratatui::layout::{Alignment, Position};
+use ratatui::layout::{Alignment, Position, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Paragraph};
@@ -48,6 +48,14 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
         layout[2],
     );
 
+
+    //if popup is any, then render it
+    if let Some(popup) = &app.popup{
+        let popup_area = centered_rect(60,20,frame.area());
+        popup.render(frame, popup_area);
+    }
+
+
     //set cursor with position if it should be visiblie (determined by app logic)
     if app.cursor_visible {
         match app.active_area {
@@ -63,10 +71,21 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                 let pos: Position = Position { x, y };
                 frame.set_cursor_position(pos);
             },
+            ActiveArea::Popup => {
+
+            },
         }
 
     }
 }
+
+///returns centered rect based on height,width and current screen Rect to use in layout
+fn centered_rect(width:u16, height:u16, area:Rect) -> Rect {
+    let x = (area.width - width) / 2;
+    let y = (area.height - height) / 2;
+    Rect {x, y, width, height}
+}
+
 
 
 //COMPONENTS

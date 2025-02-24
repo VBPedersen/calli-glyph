@@ -10,6 +10,8 @@ mod editor;
 mod cursor;
 mod command_line;
 mod clipboard;
+mod confirmation_popup;
+mod popup;
 
 use ratatui::crossterm::event::EnableMouseCapture;
 use ratatui::crossterm::execute;
