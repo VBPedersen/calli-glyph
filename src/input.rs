@@ -74,7 +74,7 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
         ActiveArea::Popup => if let Some(popup) = app.popup.as_mut() {
             let res = popup.handle_key_input(key);
             app.popup_result = res;
-            
+
             match popup.get_popup_type() { 
                 PopupType::Confirmation => {
                     app.handle_confirmation_popup_response()

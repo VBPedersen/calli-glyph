@@ -33,13 +33,14 @@ pub struct App {
     pub file_path: Option<String>,
     pub popup: Option<Box<dyn Popup>>,
     pub popup_result: PopupResult,
-    pub pending_state: PendingState
+    pub pending_states: Vec<PendingState>
 }
 
 #[derive(Debug,PartialEq)]
 pub enum PendingState{
     None,
     Saving(String),
+    Quitting,
 }
 
 #[derive(PartialEq, Debug, Default)]
@@ -65,7 +66,7 @@ impl Default for App {
             file_path: None,
             popup: None,
             popup_result: PopupResult::None,
-            pending_state: PendingState::None,
+            pending_states: vec![],
         }
     }
 }
@@ -576,20 +577,33 @@ impl App {
 
     ///handles creating popup to confirm if file should be overridden
     pub fn handle_confirmation_popup_response(&mut self) {
-        match &self.pending_state {
+        //get first state in vec, match the state and if needed checks next state after that
+        if self.pending_states.is_empty(){
+            return;
+        }
+
+        let state = self.pending_states.first().unwrap();
+        match state {
             PendingState::Saving(save_path) => {
                 if self.popup_result == PopupResult::Bool(true) {
                     self.save(vec![save_path.clone()]);
                     self.popup_result = PopupResult::None;
                     self.close_popup();
+                    self.pending_states.remove(0);
+                    //if next state is quit, then quit
+                    if !self.pending_states.is_empty() &&
+                        self.pending_states[0] == PendingState::Quitting {
+                        self.quit()
+                    }
+
                 } else if self.popup_result == PopupResult::Bool(false) {
                     self.popup_result = PopupResult::None;
                     self.close_popup();
                 }
-            }
+            },
+            PendingState::Quitting => self.quit(),
             _ => {}
         }
-
     }
     
     ///handles setting popup with defined popup object
@@ -645,7 +659,7 @@ impl App {
             if !path_is_current_file && has_changes  && !force_flag &&  self.popup_result == PopupResult::None{
                 let popup = Box::new(ConfirmationPopup::new("Confirm Overwrite of file"));
                 self.open_popup(popup);
-                self.pending_state = PendingState::Saving(path);
+                self.pending_states.push(PendingState::Saving(path));
                 return Ok(());
             }
 
@@ -679,12 +693,18 @@ impl App {
     pub(crate) fn save_and_exit(&mut self, args:Vec<String>) -> Result<()> {
         match self.save(args) {
             Ok(_) => {
+                // If a save confirmation is needed, push Quit AFTER Saving
+                if self.pending_states.iter().any(|s| matches!(s, PendingState::Saving(_))) {
+
+                    self.pending_states.push(PendingState::Quitting);  // Add Quit to the queue
+                    return Ok(());
+                }
                 self.quit();
+
                 Ok(())
             },
             Err(e) => Err(e),
         }
-
     }
 
     ///checks if file has changes and returns boolean

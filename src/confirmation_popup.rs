@@ -40,8 +40,11 @@ impl Popup for ConfirmationPopup {
         let popup = Paragraph::new(Text::from(vec![
             Line::from(Span::raw(&self.message)),
             Line::from(Span::raw("")), // Empty line
-            Line::from(Span::styled(" Yes ", yes_style)),
-            Line::from(Span::styled(" No ", no_style)),
+            Line::from(vec![
+                Span::styled(" Yes ", yes_style),
+                Span::raw("  "), // Space between "Yes" and "No"
+                Span::styled(" No ", no_style),
+            ]),
         ]))
             .block(popup_block)
             .style(Style::default().fg(Color::White).bg(Color::Black))
@@ -54,6 +57,7 @@ impl Popup for ConfirmationPopup {
 
     fn handle_key_input(&mut self, key: KeyEvent) -> PopupResult {
         use crossterm::event::KeyCode;
+
         match key.code {
             KeyCode::Left | KeyCode::Right => {
                 self.selected_option = !self.selected_option; // Toggle between Yes/No
