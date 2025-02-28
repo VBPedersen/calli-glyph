@@ -503,33 +503,65 @@ impl App {
 
     ///moves selection cursor
     pub(crate) fn move_selection_cursor(&mut self, x: i16, y: i16) {
-        let old_x = self.editor.cursor.x.clone();
-        let old_y = self.editor.cursor.y.clone();
-        self.move_cursor_in_editor(x,y);
-        let new_x = self.editor.cursor.x.clone();
-        let new_y = self.editor.cursor.y.clone();
 
-        let mut start_cp = CursorPosition::default();
-        let mut end_cp = CursorPosition::default();
+        let old_x = self.editor.cursor.x;
+        let old_y = self.editor.cursor.y;
+        self.move_cursor_in_editor(x, y);
+        let new_x = self.editor.cursor.x;
+        let new_y = self.editor.cursor.y;
+
+        let new_pos = CursorPosition { x: new_x as usize, y: new_y as usize };
+        let old_pos = CursorPosition { x: old_x as usize, y: old_y as usize };
+
+
+
+        if self.editor.text_selection_start.is_none() {
+            // Initialize selection start on first move
+            self.editor.text_selection_start = Some(old_pos);
+        }
+
+        if self.editor.text_selection_end.is_none() {
+            // Initialize selection end on first move
+            self.editor.text_selection_end = Some(old_pos);
+        }
+
+        let (at_start, at_end) = self.is_selection_cursor_start_or_end(old_pos);
+
         if x > 0 || y > 0 {
-            start_cp = CursorPosition{ x: old_x as usize, y: old_y as usize };
-            end_cp = CursorPosition{ x: new_x as usize, y: new_y as usize };
+            // Moving right/down → Extend selection
 
-            if self.editor.text_selection_start.is_none() {
-                self.editor.text_selection_start = Option::from(start_cp);
+            if at_start && !at_end {
+                //is at start pos and should move start instead of end
+                self.editor.text_selection_start = Some(new_pos);
+            } else if at_end && !at_start {
+                //is at end pos and should move end instead of start
+                self.editor.text_selection_end = Some(new_pos);
+            } else {
+                //is at both start and end, should move end
+                self.editor.text_selection_end = Some(new_pos);
             }
-            self.editor.text_selection_end = Option::from(end_cp);
-        }
 
-        if x < 0 || y < 0 {
-            start_cp = CursorPosition{ x: new_x as usize, y: new_y as usize };
-            end_cp = CursorPosition{ x: old_x as usize, y: old_y as usize };
-            self.editor.text_selection_start = Option::from(start_cp);
-            if self.editor.text_selection_end.is_none() {
-                self.editor.text_selection_end = Option::from(end_cp);
+        } else if x < 0 || y < 0 {
+            // Moving left/up → Adjust start instead of resetting
+            if at_start && !at_end {
+                //is at start pos and should move start instead of end
+                self.editor.text_selection_start = Some(new_pos);
+            } else if at_end && !at_start {
+                //is at end pos and should move end instead of start
+                self.editor.text_selection_end = Some(new_pos);
+            } else {
+                //is at both start and end, should move start
+                self.editor.text_selection_start = Some(new_pos);
             }
-        }
 
+        }
+        
+    }
+
+    fn is_selection_cursor_start_or_end(&self, current_pos: CursorPosition) -> (bool,bool) {
+        let start = current_pos.x == self.editor.text_selection_start.unwrap().x && current_pos.y == self.editor.text_selection_start.unwrap().y;
+        let end =  current_pos.x == self.editor.text_selection_end.unwrap().x && current_pos.y == self.editor.text_selection_end.unwrap().y;
+        (start,end)
     }
 
         //IN COMMAND LINE
