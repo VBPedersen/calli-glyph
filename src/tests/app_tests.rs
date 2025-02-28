@@ -1,6 +1,9 @@
 #[cfg(test)]
 mod app_tests {
+    use std::fs;
+    use std::path::Path;
     use crate::app::*;
+    use crate::popup::PopupResult;
 
     //init functions
     fn create_app() -> App {
@@ -33,6 +36,81 @@ mod app_tests {
         assert_eq!(app.active_area, ActiveArea::Editor);
         assert_eq!(app.editor.cursor.x, 5);
         assert_eq!(app.editor.cursor.y, 3);
+    }
+
+    fn test_save_path(filename: &str) -> String {
+        format!("test_saves/{}", filename)
+    }
+
+    #[test]
+    fn test_no_pending_states_does_nothing() {
+        let mut app = create_app();
+        app.handle_confirmation_popup_response();
+        assert!(app.pending_states.is_empty());
+    }
+
+    #[test]
+    fn test_save_confirmation_saves_file_and_removes_state() {
+        let mut app = create_app();
+        let save_path = test_save_path("file1.txt");
+        app.editor.editor_content = vec![String::from("test")];
+
+        app.pending_states.push(PendingState::Saving(save_path.clone()));
+        app.popup_result = PopupResult::Bool(true);
+
+        app.handle_confirmation_popup_response();
+
+        assert!(Path::new(&save_path).exists());
+        assert!(app.pending_states.is_empty());
+        assert_eq!(app.popup_result, PopupResult::None);
+        assert!(app.popup.is_none());
+
+        // Cleanup test file
+        fs::remove_file(&save_path).ok();
+    }
+
+    #[test]
+    fn test_save_rejection_closes_popup_but_does_not_save() {
+        let mut app = create_app();
+        let save_path = test_save_path("file2.txt");
+        app.editor.editor_content = vec![String::from("test")];
+
+        app.pending_states.push(PendingState::Saving(save_path.clone()));
+        app.popup_result = PopupResult::Bool(false);
+
+        app.handle_confirmation_popup_response();
+
+        assert!(!Path::new(&save_path).exists());
+        assert_eq!(app.popup_result, PopupResult::None);
+        assert!(app.popup.is_none());
+    }
+
+    #[test]
+    fn test_quit_state_calls_quit() {
+        let mut app = create_app();
+        app.pending_states.push(PendingState::Quitting);
+
+        app.handle_confirmation_popup_response();
+
+        assert!(app.pending_states.is_empty()); // Ensuring quit state was processed
+    }
+
+    #[test]
+    fn test_save_then_quit_calls_save_then_quit() {
+        let mut app = create_app();
+        let save_path = test_save_path("file3.txt");
+        app.editor.editor_content = vec![String::from("test")];
+        app.pending_states.push(PendingState::Saving(save_path.clone()));
+        app.pending_states.push(PendingState::Quitting);
+        app.popup_result = PopupResult::Bool(true);
+
+        app.handle_confirmation_popup_response();
+
+        assert!(app.pending_states.is_empty());
+        assert!(Path::new(&save_path).exists());
+
+        // Cleanup test file
+        fs::remove_file(&save_path).ok();
     }
 }
 

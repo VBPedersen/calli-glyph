@@ -16,6 +16,7 @@ use crate::config::editor_settings;
 use crate::confirmation_popup::ConfirmationPopup;
 use crate::cursor::CursorPosition;
 use crate::editor::Editor;
+use crate::error_popup::ErrorPopup;
 use crate::popup::{Popup, PopupResult};
 
 #[derive(Debug)]
@@ -435,7 +436,6 @@ impl App {
 
     ///wrapper function to either call move text selection cursor in editor or call to move cursor in editor,
     pub(crate) fn move_all_cursor_editor(&mut self, x: i16, y: i16, shift_held:bool) {
-
         if shift_held {
             self.move_selection_cursor(x,y);
         }else {
@@ -443,7 +443,6 @@ impl App {
             self.editor.text_selection_start = None;
             self.editor.text_selection_end = None;
         }
-
     }
 
 
@@ -586,13 +585,18 @@ impl App {
         match state {
             PendingState::Saving(save_path) => {
                 if self.popup_result == PopupResult::Bool(true) {
-                    self.save(vec![save_path.clone()]);
+                    if let Err(e) = self.save(vec![save_path.clone()]) {
+                        let popup = Box::new(ErrorPopup::new("Failed to save file",e));
+                        self.open_popup(popup);
+                    }
+
                     self.popup_result = PopupResult::None;
                     self.close_popup();
                     self.pending_states.remove(0);
                     //if next state is quit, then quit
                     if !self.pending_states.is_empty() &&
                         self.pending_states[0] == PendingState::Quitting {
+                        self.pending_states.clear();
                         self.quit()
                     }
 
@@ -601,8 +605,18 @@ impl App {
                     self.close_popup();
                 }
             },
-            PendingState::Quitting => self.quit(),
+            PendingState::Quitting => {
+                self.pending_states.clear();
+                self.quit()
+            },
             _ => {}
+        }
+    }
+
+    ///handles response from error popup, should only close popup
+    pub fn handle_error_popup_response(&mut self) {
+        if self.popup_result == PopupResult::Affirmed {
+            self.close_popup();
         }
     }
     

@@ -1,4 +1,3 @@
-use color_eyre::owo_colors::OwoColorize;
 use crossterm::event::KeyEvent;
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Rect};

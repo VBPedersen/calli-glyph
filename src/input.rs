@@ -1,10 +1,10 @@
-use color_eyre::owo_colors::OwoColorize;
 use crossterm::event;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind};
 use crate::App;
 use crate::app::ActiveArea;
 use crate::config::{command_binds, key_binds};
-use crate::popup::{Popup, PopupResult, PopupType};
+use crate::error_popup::ErrorPopup;
+use crate::popup::{PopupType};
 
 /// Reads the crossterm events and updates the state of [`App`].
 ///
@@ -56,8 +56,18 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
             key_binds::KEYBIND_SELECTION_DOWN => { app.move_all_cursor_editor(0, 1, true); },
             key_binds::KEYBIND_SELECTION_LEFT => { app.move_all_cursor_editor(-1, 0, true); },
             key_binds::KEYBIND_SELECTION_RIGHT => { app.move_all_cursor_editor(1, 0, true); },
-            key_binds::KEYBIND_COPY => { app.copy_selected_text(); },
-            key_binds::KEYBIND_PASTE => { app.paste_selected_text(); },
+            key_binds::KEYBIND_COPY => {
+                if let Err(e) = app.copy_selected_text() {
+                    let popup = Box::new(ErrorPopup::new("Failed to copy selected text",e));
+                    app.open_popup(popup);
+                }
+            },
+            key_binds::KEYBIND_PASTE => {
+                if let Err(e) = app.paste_selected_text() {
+                    let popup = Box::new(ErrorPopup::new("Failed to paste selected text",e));
+                    app.open_popup(popup);
+                }
+            },
             (_, KeyCode::Char(c)) => app.write_all_char_in_editor(c), // HAS TO BE LAST
             _ => {}
         },
@@ -78,6 +88,9 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
             match popup.get_popup_type() { 
                 PopupType::Confirmation => {
                     app.handle_confirmation_popup_response()
+                },
+                PopupType::Error => {
+                    app.handle_error_popup_response()
                 }
                 _ => {}
             }

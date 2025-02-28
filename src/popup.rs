@@ -2,7 +2,6 @@ use std::fmt::{Debug, Formatter};
 use crossterm::event::KeyEvent;
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use ratatui::widgets::Paragraph;
 pub trait Popup{
     fn render(&self, frame: &mut Frame, area:Rect);
     fn handle_key_input(&mut self, key:KeyEvent) -> PopupResult;
@@ -21,10 +20,12 @@ pub enum PopupResult {
     None,
     Bool(bool),
     String(String),
+    Affirmed,
 }
 
 pub enum PopupType {
     None,
     Confirmation,
     Warning,
+    Error,
 }
