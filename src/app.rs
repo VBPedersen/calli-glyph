@@ -555,7 +555,7 @@ impl App {
             }
 
         }
-        
+
     }
 
     fn is_selection_cursor_start_or_end(&self, current_pos: CursorPosition) -> (bool,bool) {
@@ -781,7 +781,8 @@ impl App {
                     let mut line_chars: Vec<char> = line.chars().collect();
                     let extracted_text: String;
                     
-                    //if first line, else if last line, else 
+                    //if first line drain all from start x,
+                    // else if last line drain to end .x, else drain all
                     if y == 0 {
                         extracted_text = line_chars.drain(start.x..).collect();
                     } else if y == lines.len() - 1 {
@@ -797,13 +798,61 @@ impl App {
                 let extracted_text: String = line_chars.drain(start.x..end.x).collect();
                 selected_text.push(extracted_text);
             }
-
+            //copy to clipboard
             self.clipboard.copy(&selected_text.clone());
+            //reset text selection
+            self.editor.text_selection_start = None;
+            self.editor.text_selection_end = None;
             Ok(())
         } else {
             Ok(())
         }
     }
+
+    ///cuts text within bound of text selected to copied_text
+    pub(crate) fn cut_selected_text(&mut self) -> Result<()> {
+        if let (Some(start), Some(end)) = (self.editor.text_selection_start.clone(), self.editor.text_selection_end.clone()) {
+            let mut selected_text: Vec<String> = Vec::new();
+            let lines = self.editor.editor_content[start.y..=end.y].as_mut();
+            let line_length = lines.len();
+            if lines.len() > 1 {
+                for (y, line) in lines.iter_mut().enumerate() {
+                    let mut line_chars: Vec<char> = line.as_mut().chars().collect();
+                    let extracted_text: String;
+
+                    //if first line drain all from start x,
+                    // else if last line drain to end .x, else drain all
+                    if y == 0 {
+                        extracted_text = line_chars.drain(start.x..).collect();
+                    } else if y == line_length - 1 {
+                        extracted_text = line_chars.drain(..end.x).collect();
+                    } else {
+                        extracted_text = line_chars.drain(..).collect();
+                    }
+
+                    selected_text.push(extracted_text);
+                    *line = line_chars.into_iter().collect();
+                }
+            } else {
+                let lines = self.editor.editor_content[start.y..start.y+1].as_mut();
+                let line = lines.iter_mut().next().unwrap();
+                let mut line_chars: Vec<char> = line.as_mut().chars().collect();
+                let extracted_text: String = line_chars.drain(start.x..end.x).collect();
+                selected_text.push(extracted_text);
+
+                *line = line_chars.into_iter().collect();
+            }
+            //copy to clipboard
+            self.clipboard.copy(&selected_text.clone());
+            //reset text selection
+            self.editor.text_selection_start = None;
+            self.editor.text_selection_end = None;
+            Ok(())
+        } else {
+            Ok(())
+        }
+    }
+
 
     ///pastes text from copied text to editor content
     pub(crate) fn paste_selected_text(&mut self) -> Result<()> {

@@ -62,6 +62,12 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
                     app.open_popup(popup);
                 }
             },
+            key_binds::KEYBIND_CUT => {
+                if let Err(e) = app.cut_selected_text() {
+                    let popup = Box::new(ErrorPopup::new("Failed to cut selected text",e));
+                    app.open_popup(popup);
+                }
+            },
             key_binds::KEYBIND_PASTE => {
                 if let Err(e) = app.paste_selected_text() {
                     let popup = Box::new(ErrorPopup::new("Failed to paste selected text",e));

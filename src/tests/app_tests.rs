@@ -761,6 +761,49 @@ mod app_editor_tests {
         assert!(app.clipboard.copied_text.is_empty());
     }
 
+    //cut selected text
+    #[test]
+    fn test_cut_single_line_selection() {
+        let mut app = create_app_with_editor_content(vec!["Hello, world!".to_string()]);
+        app.editor.text_selection_start = Some(CursorPosition { x: 7, y: 0 });
+        app.editor.text_selection_end = Some(CursorPosition { x: 12, y: 0 });
+
+        let result = app.cut_selected_text();
+
+        assert!(result.is_ok());
+        assert_eq!(app.clipboard.copied_text, vec!["world".to_string()]);
+        assert!(app.editor.text_selection_start.is_none());
+        assert!(app.editor.text_selection_end.is_none());
+    }
+
+    #[test]
+    fn test_cut_multi_line_selection() {
+        let mut app = create_app_with_editor_content(vec!["Hello,".to_string(), " world!".to_string(), " Rust".to_string()]);
+        app.editor.text_selection_start = Some(CursorPosition { x: 4, y: 0 });
+        app.editor.text_selection_end = Some(CursorPosition { x: 3, y: 2 });
+
+        let result = app.cut_selected_text();
+
+        assert!(result.is_ok());
+        assert_eq!(app.clipboard.copied_text, vec!["o,", " world!", " Ru"].into_iter().map(String::from).collect::<Vec<String>>());
+        assert!(app.editor.text_selection_start.is_none());
+        assert!(app.editor.text_selection_end.is_none());
+    }
+
+    #[test]
+    fn test_cut_no_selection() {
+        let mut app = create_app_with_editor_content(vec!["Hello, world!".to_string()]);
+        app.editor.text_selection_start = None;
+        app.editor.text_selection_end = None;
+
+        let result = app.cut_selected_text();
+
+        assert!(result.is_ok());
+        assert!(app.clipboard.copied_text.is_empty());
+        assert!(app.editor.text_selection_start.is_none());
+        assert!(app.editor.text_selection_end.is_none());
+    }
+
     //paste selected text
     #[test]
     fn test_paste_single_line() {
