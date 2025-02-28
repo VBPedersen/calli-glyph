@@ -1,10 +1,10 @@
+use crate::popup::{Popup, PopupResult, PopupType};
 use color_eyre::Report;
 use crossterm::event::KeyEvent;
-use ratatui::Frame;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::{Color, Line, Span, Style, Text};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
-use crate::popup::{Popup, PopupResult, PopupType};
+use ratatui::Frame;
 
 pub struct ErrorPopup {
     pub message: String,
@@ -13,13 +13,12 @@ pub struct ErrorPopup {
 
 impl ErrorPopup {
     pub fn new(msg: &str, e: Report) -> Self {
-        Self{
+        Self {
             message: msg.to_string(),
             error: e,
         }
     }
 }
-
 
 impl Popup for ErrorPopup {
     fn render(&self, frame: &mut Frame, area: Rect) {
@@ -32,12 +31,12 @@ impl Popup for ErrorPopup {
 
         let popup = Paragraph::new(Text::from(vec![
             Line::from(Span::raw(&self.message)),
-            Line::from(Span::raw(format!("{}",self.error))), // Empty line
+            Line::from(Span::raw(format!("{}", self.error))), // Empty line
             Line::from(Span::styled(" OK ", button_style)),
         ]))
-            .block(popup_block)
-            .style(Style::default().fg(Color::White).bg(Color::Black))
-            .alignment(Alignment::Center);
+        .block(popup_block)
+        .style(Style::default().fg(Color::White).bg(Color::Black))
+        .alignment(Alignment::Center);
 
         // Render the popup in the centered `area`
         frame.render_widget(Clear, area); // Clears the popup area to avoid overlap
@@ -50,7 +49,6 @@ impl Popup for ErrorPopup {
         match key.code {
             KeyCode::Enter => {
                 PopupResult::Affirmed // Return Affirmed
-
             }
             _ => PopupResult::None,
         }

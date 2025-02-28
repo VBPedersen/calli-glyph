@@ -1,10 +1,10 @@
+use crate::popup::{Popup, PopupResult, PopupType};
 use crossterm::event::KeyEvent;
-use ratatui::Frame;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::{Color, Style};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
-use crate::popup::{Popup, PopupResult, PopupType};
+use ratatui::Frame;
 
 #[derive(Debug)]
 pub struct ConfirmationPopup {
@@ -14,13 +14,11 @@ pub struct ConfirmationPopup {
 
 impl ConfirmationPopup {
     pub fn new(msg: &str) -> Self {
-        Self{
+        Self {
             message: msg.to_string(),
             selected_option: true,
         }
     }
-
-
 }
 impl Popup for ConfirmationPopup {
     fn render(&self, frame: &mut Frame, area: Rect) {
@@ -28,8 +26,16 @@ impl Popup for ConfirmationPopup {
         let non_selected_style = Style::default().bg(Color::Black).fg(Color::White);
 
         // Highlight correct option
-        let yes_style = if self.selected_option { selected_style } else { non_selected_style };
-        let no_style = if !self.selected_option { selected_style } else { non_selected_style };
+        let yes_style = if self.selected_option {
+            selected_style
+        } else {
+            non_selected_style
+        };
+        let no_style = if !self.selected_option {
+            selected_style
+        } else {
+            non_selected_style
+        };
 
         let popup_block = Block::default()
             .title("Confirm?")
@@ -45,9 +51,9 @@ impl Popup for ConfirmationPopup {
                 Span::styled(" No ", no_style),
             ]),
         ]))
-            .block(popup_block)
-            .style(Style::default().fg(Color::White).bg(Color::Black))
-            .alignment(Alignment::Center);
+        .block(popup_block)
+        .style(Style::default().fg(Color::White).bg(Color::Black))
+        .alignment(Alignment::Center);
 
         // Render the popup in the centered `area`
         frame.render_widget(Clear, area); // Clears the popup area to avoid overlap
@@ -64,7 +70,6 @@ impl Popup for ConfirmationPopup {
             }
             KeyCode::Enter => {
                 PopupResult::Bool(self.selected_option) // Return true if "Yes" was selected
-
             }
             _ => PopupResult::None,
         }

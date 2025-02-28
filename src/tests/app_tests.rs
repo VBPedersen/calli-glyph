@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod app_tests {
-    use std::fs;
-    use std::path::Path;
     use crate::app::*;
     use crate::popup::PopupResult;
+    use std::fs;
+    use std::path::Path;
 
     //init functions
     fn create_app() -> App {
@@ -55,7 +55,8 @@ mod app_tests {
         let save_path = test_save_path("file1.txt");
         app.editor.editor_content = vec![String::from("test")];
 
-        app.pending_states.push(PendingState::Saving(save_path.clone()));
+        app.pending_states
+            .push(PendingState::Saving(save_path.clone()));
         app.popup_result = PopupResult::Bool(true);
 
         app.handle_confirmation_popup_response();
@@ -75,7 +76,8 @@ mod app_tests {
         let save_path = test_save_path("file2.txt");
         app.editor.editor_content = vec![String::from("test")];
 
-        app.pending_states.push(PendingState::Saving(save_path.clone()));
+        app.pending_states
+            .push(PendingState::Saving(save_path.clone()));
         app.popup_result = PopupResult::Bool(false);
 
         app.handle_confirmation_popup_response();
@@ -100,7 +102,8 @@ mod app_tests {
         let mut app = create_app();
         let save_path = test_save_path("file3.txt");
         app.editor.editor_content = vec![String::from("test")];
-        app.pending_states.push(PendingState::Saving(save_path.clone()));
+        app.pending_states
+            .push(PendingState::Saving(save_path.clone()));
         app.pending_states.push(PendingState::Quitting);
         app.popup_result = PopupResult::Bool(true);
 
@@ -114,7 +117,6 @@ mod app_tests {
     }
 }
 
-
 #[cfg(test)]
 mod app_editor_tests {
     use crate::app::*; // Access app.rs logic
@@ -126,7 +128,6 @@ mod app_editor_tests {
         let mut app = App::new();
         app.editor.editor_content = vec;
         app
-
     }
 
     //WRITING CHARS IN EDITOR
@@ -183,8 +184,8 @@ mod app_editor_tests {
     #[test]
     fn test_write_char_in_editor_with_selected_text() {
         let mut app = create_app_with_editor_content(vec!["Hello Denmark".to_string()]);
-        app.editor.text_selection_start = Option::Some(CursorPosition{ x: 6, y: 0 });
-        app.editor.text_selection_end = Option::Some(CursorPosition{ x: 13, y: 0 });
+        app.editor.text_selection_start = Option::Some(CursorPosition { x: 6, y: 0 });
+        app.editor.text_selection_end = Option::Some(CursorPosition { x: 13, y: 0 });
         app.editor.cursor.x = 6;
         app.write_all_char_in_editor('W');
         assert_eq!(app.editor.editor_content[0], "Hello W");
@@ -193,9 +194,13 @@ mod app_editor_tests {
 
     #[test]
     fn test_write_char_in_editor_with_selected_text_multiple_lines() {
-        let mut app = create_app_with_editor_content(vec!["test".to_string(),"Hello Denmark".to_string(), "Hello Sudetenland".to_string()]);
-        app.editor.text_selection_start = Option::Some(CursorPosition{ x: 6, y: 1 });
-        app.editor.text_selection_end = Option::Some(CursorPosition{ x: 13, y: 2 });
+        let mut app = create_app_with_editor_content(vec![
+            "test".to_string(),
+            "Hello Denmark".to_string(),
+            "Hello Sudetenland".to_string(),
+        ]);
+        app.editor.text_selection_start = Option::Some(CursorPosition { x: 6, y: 1 });
+        app.editor.text_selection_end = Option::Some(CursorPosition { x: 13, y: 2 });
         app.editor.cursor.x = 6;
         app.write_all_char_in_editor('W');
         assert_eq!(app.editor.editor_content[0], "test");
@@ -207,8 +212,8 @@ mod app_editor_tests {
     #[test]
     fn test_write_char_in_editor_with_selected_text_special_characters() {
         let mut app = create_app_with_editor_content(vec!["ᚠΩ₿😎".to_string()]);
-        app.editor.text_selection_start = Option::Some(CursorPosition{ x: 1, y: 0 });
-        app.editor.text_selection_end = Option::Some(CursorPosition{ x: 2, y: 0 });
+        app.editor.text_selection_start = Option::Some(CursorPosition { x: 1, y: 0 });
+        app.editor.text_selection_end = Option::Some(CursorPosition { x: 2, y: 0 });
         app.editor.cursor.x = 1;
 
         app.write_all_char_in_editor('a');
@@ -245,10 +250,9 @@ mod app_editor_tests {
         assert_eq!(app.editor.editor_content.len(), 1);
         assert_eq!(app.editor.cursor.x, 1);
         assert_eq!(app.editor.cursor.y, 0);
-
     }
 
-        //TEXT IS SELECTED
+    //TEXT IS SELECTED
 
     #[test]
     fn test_backspace_in_editor_text_is_selected() {
@@ -256,9 +260,9 @@ mod app_editor_tests {
         let mut app = create_app_with_editor_content(vec!["Hello Denmark".to_string()]);
 
         // Set a selection range (e.g., "Denmark")
-        app.editor.text_selection_start = Some(CursorPosition{x: 6, y:0} ); // Start of "Denmark"
-        app.editor.text_selection_end = Some(CursorPosition{x: 13, y:0});  // End of "Denmark"
-        // Call the function to simulate a backspace with text selected
+        app.editor.text_selection_start = Some(CursorPosition { x: 6, y: 0 }); // Start of "Denmark"
+        app.editor.text_selection_end = Some(CursorPosition { x: 13, y: 0 }); // End of "Denmark"
+                                                                              // Call the function to simulate a backspace with text selected
         app.backspace_in_editor_text_is_selected();
 
         // Assert that the selected text is removed
@@ -271,18 +275,21 @@ mod app_editor_tests {
         // Assert that the cursor is moved to the correct position
         assert_eq!(app.editor.cursor.x, 6);
         assert_eq!(app.editor.cursor.y, 0);
-
     }
 
     #[test]
     fn test_backspace_in_editor_text_is_selected_multiple_lines() {
         // Initialize the editor with some content
-        let mut app = create_app_with_editor_content(vec!["test".to_string(),"Hello Denmark".to_string(), "Hello Sudetenland".to_string()]);
+        let mut app = create_app_with_editor_content(vec![
+            "test".to_string(),
+            "Hello Denmark".to_string(),
+            "Hello Sudetenland".to_string(),
+        ]);
 
         // Set a selection range (e.g., "Denmark")
-        app.editor.text_selection_start = Some(CursorPosition{x: 6, y:1} ); // Start of "Denmark"
-        app.editor.text_selection_end = Some(CursorPosition{x: 13, y:2});  // End of "Denmark"
-        // Call the function to simulate a backspace with text selected
+        app.editor.text_selection_start = Some(CursorPosition { x: 6, y: 1 }); // Start of "Denmark"
+        app.editor.text_selection_end = Some(CursorPosition { x: 13, y: 2 }); // End of "Denmark"
+                                                                              // Call the function to simulate a backspace with text selected
         app.backspace_in_editor_text_is_selected();
 
         assert_eq!(app.editor.editor_content.len(), 3);
@@ -298,9 +305,7 @@ mod app_editor_tests {
         // Assert that the cursor is moved to the correct position
         assert_eq!(app.editor.cursor.x, 6);
         assert_eq!(app.editor.cursor.y, 1);
-
     }
-
 
     #[test]
     fn test_backspace_in_editor_text_is_selected_empty_text() {
@@ -308,8 +313,8 @@ mod app_editor_tests {
         let mut app = create_app_with_editor_content(vec!["".to_string()]);
 
         // Set a selection range (even though the text is empty)
-        app.editor.text_selection_start = Some(CursorPosition{x: 0, y:0} );
-        app.editor.text_selection_end = Some(CursorPosition{x: 0, y:0});
+        app.editor.text_selection_start = Some(CursorPosition { x: 0, y: 0 });
+        app.editor.text_selection_end = Some(CursorPosition { x: 0, y: 0 });
 
         // Call the function to simulate a backspace with empty text
         app.backspace_in_editor_text_is_selected();
@@ -332,8 +337,8 @@ mod app_editor_tests {
         let mut app = create_app_with_editor_content(vec!["Hello Denmark".to_string()]);
 
         // Set a selection range for the entire text
-        app.editor.text_selection_start = Some(CursorPosition{x: 0, y:0} );
-        app.editor.text_selection_end = Some(CursorPosition{x: 13, y:0});
+        app.editor.text_selection_start = Some(CursorPosition { x: 0, y: 0 });
+        app.editor.text_selection_end = Some(CursorPosition { x: 13, y: 0 });
 
         // Call the function to simulate a backspace with the entire text selected
         app.backspace_in_editor_text_is_selected();
@@ -362,7 +367,7 @@ mod app_editor_tests {
 
     #[test]
     fn test_delete_in_editor_special_characters() {
-        let mut app = create_app_with_editor_content(vec!["ᚠΩ₿😎".to_string(),]);
+        let mut app = create_app_with_editor_content(vec!["ᚠΩ₿😎".to_string()]);
         app.editor.cursor.x = 2;
         app.delete_in_editor();
         assert_eq!(app.editor.editor_content[0], "ᚠΩ₿");
@@ -387,9 +392,9 @@ mod app_editor_tests {
         let mut app = create_app_with_editor_content(vec!["Hello Denmark".to_string()]);
 
         // Set a selection range (e.g., "Denmark")
-        app.editor.text_selection_start = Some(CursorPosition{x: 6, y:0} ); // Start of "Denmark"
-        app.editor.text_selection_end = Some(CursorPosition{x: 13, y:0});  // End of "Denmark"
-        // Call the function to simulate a backspace with text selected
+        app.editor.text_selection_start = Some(CursorPosition { x: 6, y: 0 }); // Start of "Denmark"
+        app.editor.text_selection_end = Some(CursorPosition { x: 13, y: 0 }); // End of "Denmark"
+                                                                              // Call the function to simulate a backspace with text selected
         app.delete_in_editor_text_is_selected();
 
         // Assert that the selected text is removed
@@ -403,18 +408,21 @@ mod app_editor_tests {
         // Assert that the cursor is moved to the correct position
         assert_eq!(app.editor.cursor.x, 13);
         assert_eq!(app.editor.cursor.y, 0);
-
     }
 
     #[test]
     fn test_delete_in_editor_text_is_selected_multiple_lines() {
         // Initialize the editor with some content
-        let mut app = create_app_with_editor_content(vec!["test".to_string(),"Hello Denmark".to_string(), "Hello Sudetenland".to_string()]);
+        let mut app = create_app_with_editor_content(vec![
+            "test".to_string(),
+            "Hello Denmark".to_string(),
+            "Hello Sudetenland".to_string(),
+        ]);
 
         // Set a selection range (e.g., "Denmark")
-        app.editor.text_selection_start = Some(CursorPosition{x: 6, y:1} ); // Start of "Denmark"
-        app.editor.text_selection_end = Some(CursorPosition{x: 13, y:2});  // End of "Denmark"
-        // Call the function to simulate a backspace with text selected
+        app.editor.text_selection_start = Some(CursorPosition { x: 6, y: 1 }); // Start of "Denmark"
+        app.editor.text_selection_end = Some(CursorPosition { x: 13, y: 2 }); // End of "Denmark"
+                                                                              // Call the function to simulate a backspace with text selected
         app.delete_in_editor_text_is_selected();
 
         assert_eq!(app.editor.editor_content.len(), 3);
@@ -431,9 +439,7 @@ mod app_editor_tests {
         // Assert that the cursor is moved to the correct position
         assert_eq!(app.editor.cursor.x, 13);
         assert_eq!(app.editor.cursor.y, 2);
-
     }
-
 
     #[test]
     fn test_delete_in_editor_text_is_selected_empty_text() {
@@ -441,8 +447,8 @@ mod app_editor_tests {
         let mut app = create_app_with_editor_content(vec!["".to_string()]);
 
         // Set a selection range (even though the text is empty)
-        app.editor.text_selection_start = Some(CursorPosition{x: 0, y:0} );
-        app.editor.text_selection_end = Some(CursorPosition{x: 0, y:0});
+        app.editor.text_selection_start = Some(CursorPosition { x: 0, y: 0 });
+        app.editor.text_selection_end = Some(CursorPosition { x: 0, y: 0 });
 
         // Call the function to simulate a backspace with empty text
         app.delete_in_editor_text_is_selected();
@@ -465,8 +471,8 @@ mod app_editor_tests {
         let mut app = create_app_with_editor_content(vec!["Hello Denmark".to_string()]);
 
         // Set a selection range for the entire text
-        app.editor.text_selection_start = Some(CursorPosition{x: 0, y:0} );
-        app.editor.text_selection_end = Some(CursorPosition{x: 13, y:0});
+        app.editor.text_selection_start = Some(CursorPosition { x: 0, y: 0 });
+        app.editor.text_selection_end = Some(CursorPosition { x: 13, y: 0 });
 
         // Call the function to simulate a backspace with the entire text selected
         app.delete_in_editor_text_is_selected();
@@ -483,7 +489,6 @@ mod app_editor_tests {
         assert_eq!(app.editor.cursor.y, 0);
     }
 
-
     //TAB in editor
     #[test]
     fn test_tab_in_editor_start_of_empty_line() {
@@ -492,7 +497,10 @@ mod app_editor_tests {
 
         assert_eq!(app.editor.cursor.y, 0); // Cursor should stay on line
         assert_eq!(app.editor.editor_content.len(), 1); // New line added
-        assert_eq!(app.editor.visual_cursor_x, editor_settings::TAB_WIDTH as i16);
+        assert_eq!(
+            app.editor.visual_cursor_x,
+            editor_settings::TAB_WIDTH as i16
+        );
     }
 
     #[test]
@@ -502,7 +510,10 @@ mod app_editor_tests {
 
         assert_eq!(app.editor.cursor.y, 0); // Cursor should stay on line
         assert_eq!(app.editor.editor_content.len(), 1); // New line added
-        assert_eq!(app.editor.visual_cursor_x, editor_settings::TAB_WIDTH as i16);
+        assert_eq!(
+            app.editor.visual_cursor_x,
+            editor_settings::TAB_WIDTH as i16
+        );
     }
 
     #[test]
@@ -514,7 +525,7 @@ mod app_editor_tests {
         assert_eq!(app.editor.cursor.y, 0); // Cursor should stay on line
         assert_eq!(app.editor.editor_content.len(), 1); // New line added
         assert_eq!(app.editor.visual_cursor_x, 4);
-        app.move_cursor_in_editor(10,0); //move to end
+        app.move_cursor_in_editor(10, 0); //move to end
         assert_eq!(app.editor.editor_content[0].chars().count(), 5); //should contain special plus \t char
         assert_eq!(app.editor.visual_cursor_x, 6); //at end of line should be 6
     }
@@ -528,11 +539,10 @@ mod app_editor_tests {
         assert_eq!(app.editor.cursor.y, 0); // Cursor should stay on line
         assert_eq!(app.editor.editor_content.len(), 1); // New line added
         assert_eq!(app.editor.visual_cursor_x, 4);
-        app.move_cursor_in_editor(10,0); //move to end
+        app.move_cursor_in_editor(10, 0); //move to end
         assert_eq!(app.editor.editor_content[0].chars().count(), 5); //should contain special plus \t char
         assert_eq!(app.editor.visual_cursor_x, 6); //at end of line should be 6
     }
-
 
     //ENTER in editor
 
@@ -558,7 +568,6 @@ mod app_editor_tests {
         assert_eq!(app.editor.editor_content[0], "Hello"); // Line before cursor is kept intact
         assert_eq!(app.editor.editor_content[1], " World"); // Line after cursor is moved to new line
     }
-
 
     //MOVE CURSOR in editor
 
@@ -591,7 +600,8 @@ mod app_editor_tests {
 
     #[test]
     fn test_cursor_move_right_at_end_of_first_line_should_move_down() {
-        let mut app = create_app_with_editor_content(vec!["First".to_string(),"Second".to_string()]);
+        let mut app =
+            create_app_with_editor_content(vec!["First".to_string(), "Second".to_string()]);
         app.editor.cursor.x = 5;
         app.move_cursor_in_editor(1, 0);
 
@@ -617,7 +627,6 @@ mod app_editor_tests {
         assert_eq!(app.editor.cursor.x, 0); // Cursor stays at column 0
         assert_eq!(app.editor.cursor.y, 1); // Moves to the second line
     }
-
 
     //SELECTION CURSOR
 
@@ -667,7 +676,8 @@ mod app_editor_tests {
 
     #[test]
     fn test_selection_cursor_move_up_should_go_up() {
-        let mut app = create_app_with_editor_content(vec!["First".to_string(),"Second".to_string()]);
+        let mut app =
+            create_app_with_editor_content(vec!["First".to_string(), "Second".to_string()]);
         app.editor.cursor.y = 1;
         app.move_selection_cursor(0, -1);
 
@@ -679,7 +689,8 @@ mod app_editor_tests {
 
     #[test]
     fn test_selection_cursor_move_down_should_go_down() {
-        let mut app = create_app_with_editor_content(vec!["First".to_string(),"Second".to_string()]);
+        let mut app =
+            create_app_with_editor_content(vec!["First".to_string(), "Second".to_string()]);
         app.move_selection_cursor(0, 1);
 
         assert_eq!(app.editor.text_selection_start.unwrap().x, 0);
@@ -739,14 +750,24 @@ mod app_editor_tests {
 
     #[test]
     fn test_copy_multi_line_selection() {
-        let mut app = create_app_with_editor_content(vec!["Hello,".to_string(), " world!".to_string(), " Rust".to_string()]);
+        let mut app = create_app_with_editor_content(vec![
+            "Hello,".to_string(),
+            " world!".to_string(),
+            " Rust".to_string(),
+        ]);
         app.editor.text_selection_start = Some(CursorPosition { x: 4, y: 0 });
         app.editor.text_selection_end = Some(CursorPosition { x: 3, y: 2 });
 
         let result = app.copy_selected_text();
 
         assert!(result.is_ok());
-        assert_eq!(app.clipboard.copied_text, vec!["o,", " world!", " Ru"].into_iter().map(String::from).collect::<Vec<String>>());
+        assert_eq!(
+            app.clipboard.copied_text,
+            vec!["o,", " world!", " Ru"]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<String>>()
+        );
     }
 
     #[test]
@@ -778,14 +799,24 @@ mod app_editor_tests {
 
     #[test]
     fn test_cut_multi_line_selection() {
-        let mut app = create_app_with_editor_content(vec!["Hello,".to_string(), " world!".to_string(), " Rust".to_string()]);
+        let mut app = create_app_with_editor_content(vec![
+            "Hello,".to_string(),
+            " world!".to_string(),
+            " Rust".to_string(),
+        ]);
         app.editor.text_selection_start = Some(CursorPosition { x: 4, y: 0 });
         app.editor.text_selection_end = Some(CursorPosition { x: 3, y: 2 });
 
         let result = app.cut_selected_text();
 
         assert!(result.is_ok());
-        assert_eq!(app.clipboard.copied_text, vec!["o,", " world!", " Ru"].into_iter().map(String::from).collect::<Vec<String>>());
+        assert_eq!(
+            app.clipboard.copied_text,
+            vec!["o,", " world!", " Ru"]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<String>>()
+        );
         assert!(app.editor.text_selection_start.is_none());
         assert!(app.editor.text_selection_end.is_none());
     }
@@ -807,9 +838,11 @@ mod app_editor_tests {
     //paste selected text
     #[test]
     fn test_paste_single_line() {
-        let mut app = create_app_with_editor_content(vec!["Hello, world!".to_string(),
-                                                          "This is a test.".to_string(),
-                                                          "Another line.".to_string(),]);
+        let mut app = create_app_with_editor_content(vec![
+            "Hello, world!".to_string(),
+            "This is a test.".to_string(),
+            "Another line.".to_string(),
+        ]);
         app.clipboard.copy(&vec!["PASTED".to_string()]);
         app.editor.cursor.x = 8;
         app.editor.cursor.y = 0;
@@ -828,10 +861,13 @@ mod app_editor_tests {
 
     #[test]
     fn test_paste_multiline() {
-        let mut app = create_app_with_editor_content(vec!["Hello, world!".to_string(),
-                                                          "This is a test.".to_string(),
-                                                          "Another line.".to_string(),]);
-        app.clipboard.copy(&vec!["First".to_string(), "Second ".to_string()]);
+        let mut app = create_app_with_editor_content(vec![
+            "Hello, world!".to_string(),
+            "This is a test.".to_string(),
+            "Another line.".to_string(),
+        ]);
+        app.clipboard
+            .copy(&vec!["First".to_string(), "Second ".to_string()]);
         app.editor.cursor.x = 5;
         app.editor.cursor.y = 1;
 
@@ -850,9 +886,11 @@ mod app_editor_tests {
 
     #[test]
     fn test_paste_single_line_special_characters() {
-        let mut app = create_app_with_editor_content(vec!["Hello, wᚠᚠᚠᚠorld!".to_string(),
-                                                          "This is a test.".to_string(),
-                                                          "Another line.".to_string(),]);
+        let mut app = create_app_with_editor_content(vec![
+            "Hello, wᚠᚠᚠᚠorld!".to_string(),
+            "This is a test.".to_string(),
+            "Another line.".to_string(),
+        ]);
         app.clipboard.copy(&vec!["PASTED".to_string()]);
         app.editor.cursor.x = 10;
         app.editor.cursor.y = 0;
@@ -871,10 +909,13 @@ mod app_editor_tests {
 
     #[test]
     fn test_paste_multiline_special_charaters() {
-        let mut app = create_app_with_editor_content(vec!["Hello, world!".to_string(),
-                                                          "This ᚠᚠᚠᚠis a test.".to_string(),
-                                                          "Another line.".to_string(),]);
-        app.clipboard.copy(&vec!["First".to_string(), "Second ".to_string()]);
+        let mut app = create_app_with_editor_content(vec![
+            "Hello, world!".to_string(),
+            "This ᚠᚠᚠᚠis a test.".to_string(),
+            "Another line.".to_string(),
+        ]);
+        app.clipboard
+            .copy(&vec!["First".to_string(), "Second ".to_string()]);
         app.editor.cursor.x = 7;
         app.editor.cursor.y = 1;
 
@@ -893,9 +934,11 @@ mod app_editor_tests {
 
     #[test]
     fn test_paste_at_start_of_line() {
-        let mut app = create_app_with_editor_content(vec!["Hello, world!".to_string(),
-                                                          "This is a test.".to_string(),
-                                                          "Another line.".to_string(),]);
+        let mut app = create_app_with_editor_content(vec![
+            "Hello, world!".to_string(),
+            "This is a test.".to_string(),
+            "Another line.".to_string(),
+        ]);
         app.clipboard.copy(&vec!["NewStart".to_string()]);
         app.editor.cursor.x = 0;
         app.editor.cursor.y = 2;
@@ -914,9 +957,11 @@ mod app_editor_tests {
 
     #[test]
     fn test_paste_at_end_of_line() {
-        let mut app = create_app_with_editor_content(vec!["Hello, world!".to_string(),
-                                                          "This is a test.".to_string(),
-                                                          "Another line.".to_string(),]);
+        let mut app = create_app_with_editor_content(vec![
+            "Hello, world!".to_string(),
+            "This is a test.".to_string(),
+            "Another line.".to_string(),
+        ]);
         app.clipboard.copy(&vec!["END".to_string()]);
         app.editor.cursor.x = 13;
         app.editor.cursor.y = 0;
@@ -935,9 +980,11 @@ mod app_editor_tests {
 
     #[test]
     fn test_paste_with_empty_copied_text() {
-        let mut app = create_app_with_editor_content(vec!["Hello, world!".to_string(),
-                                                          "This is a test.".to_string(),
-                                                          "Another line.".to_string(),]);
+        let mut app = create_app_with_editor_content(vec![
+            "Hello, world!".to_string(),
+            "This is a test.".to_string(),
+            "Another line.".to_string(),
+        ]);
         app.clipboard.copy(&vec![]);
         app.editor.cursor.x = 5;
         app.editor.cursor.y = 1;
@@ -957,7 +1004,8 @@ mod app_editor_tests {
     #[test]
     fn test_paste_into_empty_editor() {
         let mut app = create_app_with_editor_content(vec![]);
-        app.clipboard.copy(&vec!["Hello".to_string(), "World".to_string()]);
+        app.clipboard
+            .copy(&vec!["Hello".to_string(), "World".to_string()]);
 
         app.paste_selected_text().unwrap();
 
@@ -966,30 +1014,25 @@ mod app_editor_tests {
             vec!["Hello".to_string(), "World".to_string()]
         );
     }
-
-
 }
-
 
 #[cfg(test)]
 mod app_command_line_tests {
+    use crate::app::*;
     use std::fs;
-    use tempfile::NamedTempFile;
-    use crate::app::*; // Access app.rs logic
+    use tempfile::NamedTempFile; // Access app.rs logic
 
     //init functions
     fn create_app_with_editor_content(vec: Vec<String>) -> App {
         let mut app = App::new();
         app.editor.editor_content = vec;
         app
-
     }
 
     fn create_app_with_command_input(s: String) -> App {
         let mut app = App::new();
         app.command_line.input = s;
         app
-
     }
 
     //writing chars to command line
@@ -1011,7 +1054,7 @@ mod app_command_line_tests {
         assert_eq!(app.command_line.input, "TeXst");
         assert_eq!(app.command_line.cursor.x, 3);
     }
-    
+
     //BACKSPACE in commandline
 
     #[test]
@@ -1034,7 +1077,6 @@ mod app_command_line_tests {
         assert_eq!(app.command_line.cursor.x, 2);
     }
 
-
     #[test]
     fn test_save_with_specified_file() {
         let temp_file = NamedTempFile::new().unwrap();
@@ -1042,7 +1084,8 @@ mod app_command_line_tests {
 
         let mut app = create_app_with_editor_content(vec!["Test content".to_string()]);
         app.file_path = None;
-        app.save(vec![file_path.clone(), "--force".to_string()]).unwrap();
+        app.save(vec![file_path.clone(), "--force".to_string()])
+            .unwrap();
 
         let saved_content = fs::read_to_string(file_path).unwrap();
         assert_eq!(saved_content, "Test content");
@@ -1100,6 +1143,4 @@ mod app_command_line_tests {
 
         fs::remove_file(temp_file_path).unwrap(); // Clean up
     }
-
-
 }

@@ -1,10 +1,10 @@
-use std::fmt::{Debug, Formatter};
 use crossterm::event::KeyEvent;
-use ratatui::Frame;
 use ratatui::layout::Rect;
-pub trait Popup{
-    fn render(&self, frame: &mut Frame, area:Rect);
-    fn handle_key_input(&mut self, key:KeyEvent) -> PopupResult;
+use ratatui::Frame;
+use std::fmt::{Debug, Formatter};
+pub trait Popup {
+    fn render(&self, frame: &mut Frame, area: Rect);
+    fn handle_key_input(&mut self, key: KeyEvent) -> PopupResult;
     fn get_popup_type(&self) -> PopupType;
 }
 
@@ -13,7 +13,6 @@ impl Debug for dyn Popup {
         write!(f, "Popup trait")
     }
 }
-
 
 #[derive(Debug, PartialEq)]
 pub enum PopupResult {

@@ -1,5 +1,3 @@
-
-
 /// handles cursor
 #[derive(Debug, Clone, Copy)]
 pub struct Cursor {
@@ -13,7 +11,7 @@ impl Cursor {
     }
 }
 
-#[derive(Debug,Copy,Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct CursorPosition {
     pub(crate) x: usize,
     pub(crate) y: usize,

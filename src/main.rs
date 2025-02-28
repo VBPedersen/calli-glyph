@@ -1,25 +1,25 @@
 pub use app::App;
 
 pub mod app; //expose app module
-pub mod ui; //expose ui module
+mod clipboard;
+mod command_line;
+mod config;
+mod confirmation_popup;
+mod cursor;
+mod editor;
+mod error_popup;
 pub mod input; //expose input module
+mod popup;
 #[cfg(test)]
 mod tests;
-mod config;
-mod editor;
-mod cursor;
-mod command_line;
-mod clipboard;
-mod confirmation_popup;
-mod popup;
-mod error_popup;
+pub mod ui; //expose ui module
 
-use ratatui::crossterm::event::EnableMouseCapture;
-use ratatui::crossterm::execute;
-use ratatui::crossterm::terminal::{enable_raw_mode, EnterAlternateScreen, disable_raw_mode};
-use std::{env, io};
 use crossterm::event::DisableMouseCapture;
 use crossterm::terminal::LeaveAlternateScreen;
+use ratatui::crossterm::event::EnableMouseCapture;
+use ratatui::crossterm::execute;
+use ratatui::crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen};
+use std::{env, io};
 
 fn main() -> color_eyre::Result<()> {
     env::set_var("RUST_BACKTRACE", "1"); //more verbose error codes
@@ -31,7 +31,6 @@ fn main() -> color_eyre::Result<()> {
     } else {
         None
     };
-
 
     enable_raw_mode().expect("Failed to enable raw mode");
     let mut stdout = io::stdout();

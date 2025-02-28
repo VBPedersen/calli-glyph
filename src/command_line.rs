@@ -13,5 +13,4 @@ impl CommandLine {
             cursor: Cursor::new(),
         }
     }
-
 }

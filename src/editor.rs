@@ -1,5 +1,5 @@
-use crate::cursor::CursorPosition;
 use crate::cursor::Cursor;
+use crate::cursor::CursorPosition;
 
 /// handles editor content
 #[derive(Debug)]
@@ -21,7 +21,4 @@ impl Editor {
             cursor: Cursor::new(),
         }
     }
-
-
-
 }
