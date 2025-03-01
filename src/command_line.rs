@@ -1,6 +1,6 @@
 use crate::cursor::Cursor;
 
-#[derive(Debug)]
+#[derive(Debug,Default)]
 pub struct CommandLine {
     pub input: String,
     pub cursor: Cursor,

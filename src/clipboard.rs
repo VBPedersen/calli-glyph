@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug,Default)]
 pub struct Clipboard {
     pub copied_text: Vec<String>,
 }
@@ -10,8 +10,8 @@ impl Clipboard {
         }
     }
 
-    pub fn copy(&mut self, text: &Vec<String>) {
-        self.copied_text = text.clone();
+    pub fn copy(&mut self, text: &[String]) {
+        self.copied_text = text.to_owned();
     }
 
     pub fn paste(&self) -> Vec<String> {

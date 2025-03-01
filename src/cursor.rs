@@ -1,5 +1,5 @@
 /// handles cursor
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct Cursor {
     pub x: i16,
     pub y: i16,
@@ -11,14 +11,11 @@ impl Cursor {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone,Default)]
 pub struct CursorPosition {
     pub(crate) x: usize,
     pub(crate) y: usize,
 }
 
-impl Default for CursorPosition {
-    fn default() -> CursorPosition {
-        CursorPosition { x: 0, y: 0 }
-    }
-}
+
+

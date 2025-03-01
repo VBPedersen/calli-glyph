@@ -25,12 +25,12 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
 
     let command_input: String = app.command_line.input.to_string();
     let file_name_optional: Option<String> = app.file_path.clone();
-    let file_to_use: String;
-    if file_name_optional.is_some() {
-        file_to_use = file_name_optional.unwrap();
+    let file_to_use = if let Some(file) = file_name_optional {
+        file
     } else {
-        file_to_use = "untitled".to_string();
-    }
+        "untitled".to_string()
+    };
+
 
     let layout = Layout::default()
         .direction(Direction::Vertical)

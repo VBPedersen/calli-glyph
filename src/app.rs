@@ -55,7 +55,7 @@ impl Default for App {
             running: Default::default(),
             active_area: Default::default(),
             editor: Editor::new(),
-            command_line: CommandLine::new(),
+            command_line: CommandLine::default(),
             last_tick: Instant::now(),
             cursor_visible: true,
             scroll_offset: 0,
@@ -133,11 +133,7 @@ impl App {
     //TEXT OPERATIONS
 
     fn is_text_selected(&self) -> bool {
-        if self.editor.text_selection_start.is_some() && self.editor.text_selection_end.is_some() {
-            true
-        } else {
-            false
-        }
+        self.editor.text_selection_start.is_some() && self.editor.text_selection_end.is_some()
     }
 
     //IN EDITOR
@@ -153,10 +149,10 @@ impl App {
 
     ///replaces all selected text with char to y position line, with x position
     fn write_char_in_editor_text_is_selected(&mut self, c: char) {
-        let start = self.editor.text_selection_start.clone().unwrap();
-        let end = self.editor.text_selection_end.clone().unwrap();
+        let start = self.editor.text_selection_start.unwrap();
+        let end = self.editor.text_selection_end.unwrap();
         let lines = &mut self.editor.editor_content[start.y..=end.y];
-        let lines_length = lines.len().clone();
+        let lines_length = lines.len();
         if lines_length > 1 {
             for (y, line) in lines.iter_mut().enumerate() {
                 let mut line_chars_vec: Vec<char> = line.chars().collect();
@@ -225,10 +221,10 @@ impl App {
 
     ///handles backspace in editor, removes char at y line x position and sets new cursor position
     pub(crate) fn backspace_in_editor_text_is_selected(&mut self) {
-        let start = self.editor.text_selection_start.clone().unwrap();
-        let end = self.editor.text_selection_end.clone().unwrap();
+        let start = self.editor.text_selection_start.unwrap();
+        let end = self.editor.text_selection_end.unwrap();
         let lines = &mut self.editor.editor_content[start.y..=end.y];
-        let lines_length = lines.len().clone();
+        let lines_length = lines.len();
         if lines_length > 1 {
             for (y, line) in lines.iter_mut().enumerate() {
                 let mut line_chars_vec: Vec<char> = line.chars().collect();
@@ -279,7 +275,7 @@ impl App {
                 .count() as i16;
             self.editor.cursor.y -= 1;
             self.editor.cursor.x = new_x_value;
-            self.editor.editor_content[self.editor.cursor.y as usize].push_str(&line);
+            self.editor.editor_content[self.editor.cursor.y as usize].push_str(line);
         }
     }
 
@@ -295,10 +291,10 @@ impl App {
 
     ///handles delete in editor, removes char at y line x position and sets new cursor position
     pub(crate) fn delete_in_editor_text_is_selected(&mut self) {
-        let start = self.editor.text_selection_start.clone().unwrap();
-        let end = self.editor.text_selection_end.clone().unwrap();
+        let start = self.editor.text_selection_start.unwrap();
+        let end = self.editor.text_selection_end.unwrap();
         let lines = &mut self.editor.editor_content[start.y..=end.y];
-        let lines_length = lines.len().clone();
+        let lines_length = lines.len();
         if lines_length > 1 {
             for (y, line) in lines.iter_mut().enumerate() {
                 let mut line_chars_vec: Vec<char> = line.chars().collect();
@@ -346,7 +342,7 @@ impl App {
                 .editor
                 .editor_content
                 .remove((self.editor.cursor.y + 1) as usize);
-            self.editor.editor_content[self.editor.cursor.y as usize].push_str(&line);
+            self.editor.editor_content[self.editor.cursor.y as usize].push_str(line);
         } else if current_line_len > (self.editor.cursor.x + 1) {
             let line = &mut self.editor.editor_content[self.editor.cursor.y as usize];
             let mut line_chars_vec: Vec<char> = line.chars().collect();
@@ -693,7 +689,7 @@ impl App {
 
         //if file path to save on is set in command args
         if !args.is_empty() {
-            path = args.get(0).unwrap().clone();
+            path = args.first().unwrap().clone();
             force_flag = args.contains(&"--force".to_string());
         } else if self.file_path.is_some() {
             path = self.file_path.clone().unwrap();
@@ -720,7 +716,7 @@ impl App {
                 return Ok(());
             }
         } else {
-            has_changes = new_content.len() > 0;
+            has_changes = !new_content.is_empty();
             // If file doesn't exist, ensure the parent directory exists
             if let Some(parent) = path_ref.parent() {
                 fs::create_dir_all(parent)?;
@@ -788,8 +784,8 @@ impl App {
     ///copies text within bound of text selected to copied_text
     pub(crate) fn copy_selected_text(&mut self) -> Result<()> {
         if let (Some(start), Some(end)) = (
-            self.editor.text_selection_start.clone(),
-            self.editor.text_selection_end.clone(),
+            self.editor.text_selection_start,
+            self.editor.text_selection_end,
         ) {
             let mut selected_text: Vec<String> = Vec::new();
             let lines = &self.editor.editor_content[start.y..=end.y];
@@ -831,8 +827,8 @@ impl App {
     ///cuts text within bound of text selected to copied_text
     pub(crate) fn cut_selected_text(&mut self) -> Result<()> {
         if let (Some(start), Some(end)) = (
-            self.editor.text_selection_start.clone(),
-            self.editor.text_selection_end.clone(),
+            self.editor.text_selection_start,
+            self.editor.text_selection_end,
         ) {
             let mut selected_text: Vec<String> = Vec::new();
             let lines = self.editor.editor_content[start.y..=end.y].as_mut();
