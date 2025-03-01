@@ -34,6 +34,8 @@ pub mod key_binds {
         (KeyModifiers::SHIFT, KeyCode::Right);
 
     //WITH MODIFIER AND CHAR  :: ShortCuts
+    pub(crate) const KEYBIND_SAVE: (KeyModifiers, KeyCode) =
+        (KeyModifiers::CONTROL, KeyCode::Char('s'));
     pub(crate) const KEYBIND_COPY: (KeyModifiers, KeyCode) =
         (KeyModifiers::CONTROL, KeyCode::Char('c'));
     pub(crate) const KEYBIND_CUT: (KeyModifiers, KeyCode) =

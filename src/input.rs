@@ -69,6 +69,12 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
             key_binds::KEYBIND_SELECTION_RIGHT => {
                 app.move_all_cursor_editor(1, 0, true);
             }
+            key_binds::KEYBIND_SAVE => {
+                if let Err(e) = app.save(vec![]) {
+                    let popup = Box::new(ErrorPopup::new("Failed to Save File", e));
+                    app.open_popup(popup);
+                }
+            }
             key_binds::KEYBIND_COPY => {
                 if let Err(e) = app.copy_selected_text() {
                     let popup = Box::new(ErrorPopup::new("Failed to copy selected text", e));
