@@ -23,8 +23,6 @@ impl Editor {
             editor_width: 0,
         }
     }
-
-
 }
 
 impl Default for Editor {

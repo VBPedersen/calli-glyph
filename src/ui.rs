@@ -183,14 +183,13 @@ fn editor_side_line(
             } else {
                 line_nrs.push_line(line);
             }
-        } else {
-            if dest_to_cursor_y == 0 {
+        } else if dest_to_cursor_y == 0 {
                 let line = Line::from(vec![Span::styled(nr.to_string(), current_line_style)]);
                 line_nrs.push_line(line);
             } else {
                 line_nrs.push_line(dest_to_cursor_y.to_string());
             }
-        }
+
     }
 
     Paragraph::new(line_nrs)
@@ -237,20 +236,22 @@ fn handle_editor_content<'a>(
 
     let mut editor_text: Text = Text::default();
 
-    if let Some(_) = selection_start {
+    if selection_start.is_some() {
         editor_text = highlight_text(editor_vec.clone(), selection_start, selection_end);
     } else {
         for (i, s) in editor_vec.into_iter().enumerate() {
-            let line: Line;
+
             let visual_x = app.editor.visual_cursor_x;
 
             // Only scroll the line the cursor is on
-            if i == app.editor.cursor.y as usize && visual_x > editor_width as i16 {
+            let line: Line = if i == app.editor.cursor.y as usize && visual_x > editor_width as i16 {
                 let start_idx = (visual_x - editor_width as i16).max(0) as usize;
-                line = Line::from(get_copy_of_editor_content_at_line_between_cursor_editor_width(s,start_idx));
+                Line::from(
+                    get_copy_of_editor_content_at_line_between_cursor_editor_width(s, start_idx),
+                )
             } else {
-                line = Line::from(s);
-            }
+                Line::from(s)
+            };
 
             editor_text.push_line(line);
         }
@@ -260,11 +261,13 @@ fn handle_editor_content<'a>(
 }
 
 ///gets a copy of the text content at specific line and range of editor content
-pub(crate) fn get_copy_of_editor_content_at_line_between_cursor_editor_width(s:String, start:usize) -> String {
+pub(crate) fn get_copy_of_editor_content_at_line_between_cursor_editor_width(
+    s: String,
+    start: usize,
+) -> String {
     let mut line_chars_vec: Vec<char> = s.chars().collect();
     line_chars_vec.drain(start..).collect()
 }
-
 
 ///manipulates how the editor content \t character is rendered visually
 fn handle_tab_rendering(s: String) -> String {
