@@ -9,7 +9,7 @@ pub struct Editor {
     pub cursor: Cursor, //to save position in editor, when toggling area
     pub text_selection_start: Option<CursorPosition>,
     pub text_selection_end: Option<CursorPosition>,
-    pub editor_width: u16,
+    pub editor_width: i16,
 }
 
 impl Editor {
@@ -23,6 +23,8 @@ impl Editor {
             editor_width: 0,
         }
     }
+
+
 }
 
 impl Default for Editor {

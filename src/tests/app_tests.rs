@@ -130,6 +130,8 @@ mod app_editor_tests {
         app
     }
 
+    //helper functions
+
     //WRITING CHARS IN EDITOR
 
     #[test]
