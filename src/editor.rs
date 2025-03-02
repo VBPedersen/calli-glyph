@@ -9,6 +9,7 @@ pub struct Editor {
     pub cursor: Cursor, //to save position in editor, when toggling area
     pub text_selection_start: Option<CursorPosition>,
     pub text_selection_end: Option<CursorPosition>,
+    pub editor_width: u16,
 }
 
 impl Editor {
@@ -19,6 +20,7 @@ impl Editor {
             text_selection_start: None,
             text_selection_end: None,
             cursor: Cursor::new(),
+            editor_width: 0,
         }
     }
 }

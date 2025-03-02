@@ -2,7 +2,7 @@ use crate::app::{ActiveArea, App};
 use ratatui::layout::{Alignment, Position, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span, Text};
-use ratatui::widgets::Paragraph;
+use ratatui::widgets::{Paragraph, Wrap};
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     widgets::Block,
@@ -10,17 +10,37 @@ use ratatui::{
 };
 use std::default::Default;
 use std::vec;
-
+use color_eyre::owo_colors::OwoColorize;
 use crate::config::editor_settings;
 use crate::cursor::CursorPosition;
 
 pub fn ui(frame: &mut Frame, app: &mut App) {
     app.terminal_height = frame.area().height as i16;
 
+    let layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(vec![
+            Constraint::Length(1),
+            Constraint::Percentage(95),
+            Constraint::Length(1),
+        ])
+        .split(frame.area());
+
+    let editor_layout = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(vec![
+            Constraint::Length(3),
+            Constraint::Percentage(95),
+        ])
+        .split(layout[1]);
+
+    app.editor.editor_width = editor_layout[1].width;
+
     let editor_content: Text = handle_editor_content(
         app.editor.editor_content.clone(),
         app.editor.text_selection_start,
         app.editor.text_selection_end,
+        editor_layout[1].width as usize
     );
 
     let command_input: String = app.command_line.input.to_string();
@@ -32,15 +52,8 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     };
 
 
-    let layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(vec![
-            Constraint::Length(1),
-            Constraint::Percentage(95),
-            Constraint::Length(1),
-        ])
-        .split(frame.area());
 
+    //render widgets : infobar, editor side, editor and command line
     frame.render_widget(
         info_bar(
             file_to_use,
@@ -52,7 +65,9 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
         ),
         layout[0],
     );
-    frame.render_widget(editor(editor_content, app.scroll_offset as u16), layout[1]);
+    frame.render_widget(editor_side_line(editor_content.to_owned(),app.scroll_offset as u16,
+                                         editor_layout[1].width as usize, app.editor.cursor.y), editor_layout[0]);
+    frame.render_widget(editor(editor_content, app.scroll_offset as u16), editor_layout[1]);
     frame.render_widget(command_line(command_input), layout[2]);
 
     //if popup is any, then render it
@@ -65,8 +80,8 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     if app.cursor_visible {
         match app.active_area {
             ActiveArea::Editor => {
-                let x = layout[1].x + app.editor.visual_cursor_x as u16; //using visual x
-                let y = layout[1].y
+                let x = editor_layout[1].x + app.editor.visual_cursor_x as u16; //using visual x
+                let y = editor_layout[1].y
                     + (app.editor.cursor.y - app.scroll_offset).clamp(0, i16::MAX) as u16;
                 let pos: Position = Position { x, y };
                 frame.set_cursor_position(pos);
@@ -132,7 +147,49 @@ fn info_bar<'a>(
     )
 }
 
+///generates a side bar for line nr display as well as displaying line overflow if existing
+fn editor_side_line(editor_content: Text,scroll_offset: u16, editor_width: usize, cursor_y:i16) -> Paragraph {
+    let mut line_nrs: Text = Text::from(vec![]);
+
+    let overflow_marker_style = Style::default().fg(Color::Cyan);
+    let current_line_style = Style::default().bg(Color::White).fg(Color::Black);
+
+    for (nr,s) in editor_content.iter().enumerate() {
+        let mut dest_to_cursor_y = cursor_y.abs_diff(nr as i16);
+
+        if s.width() > editor_width {
+            let line = Line::from(vec![Span::raw(dest_to_cursor_y.to_string()),Span::styled(">",overflow_marker_style)]);
+            //if is zero (current line), display actual line nr
+            if dest_to_cursor_y == 0 {
+                let line = Line::from(vec![Span::styled(dest_to_cursor_y.to_string(),current_line_style)
+                                           ,Span::styled(">",overflow_marker_style)]);
+                line_nrs.push_line(line);
+            } else {
+                line_nrs.push_line(line);
+            }
+        } else {
+            if dest_to_cursor_y == 0 {
+                let line = Line::from(vec![Span::styled(nr.to_string(),current_line_style)]);
+                line_nrs.push_line(line);
+            } else {
+                line_nrs.push_line(dest_to_cursor_y.to_string());
+            }
+        }
+
+
+    }
+
+    Paragraph::new(line_nrs)
+        .style(Style::default().bg(Color::DarkGray).fg(Color::White))
+        .block(
+            Block::default(), //.borders(Borders::LEFT | Borders::RIGHT)
+            //.border_type(BorderType::Rounded)
+        )
+        .scroll((scroll_offset, 0))
+}
+
 fn editor(editor_content: Text, scroll_offset: u16) -> Paragraph {
+
     Paragraph::new(editor_content)
         .style(Style::default().fg(Color::White))
         .block(
@@ -160,7 +217,9 @@ fn handle_editor_content<'a>(
     vec: Vec<String>,
     selection_start: Option<CursorPosition>,
     selection_end: Option<CursorPosition>,
+    max_width: usize,
 ) -> Text<'a> {
+
     let mut editor_vec: Vec<String> = Vec::new();
     for s in vec.into_iter() {
         let processed_string = handle_tab_rendering(s);
@@ -171,9 +230,9 @@ fn handle_editor_content<'a>(
 
     //if some text is selected, calculate highlight
     if selection_start.is_some() {
-        editor_text = highlight_text(editor_vec, selection_start, selection_end);
+        editor_text = highlight_text(editor_vec.to_owned(), selection_start, selection_end);
     } else {
-        for s in editor_vec.iter() {
+        for s in editor_vec.into_iter() {
             let line: Line = Line::from(s.to_string());
             editor_text.push_line(line);
         }
@@ -181,6 +240,7 @@ fn handle_editor_content<'a>(
 
     editor_text
 }
+
 
 ///manipulates how the editor content \t character is rendered visually
 fn handle_tab_rendering(s: String) -> String {

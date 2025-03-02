@@ -1,4 +1,4 @@
-#[derive(Debug,Default)]
+#[derive(Debug, Default)]
 pub struct Clipboard {
     pub copied_text: Vec<String>,
 }
