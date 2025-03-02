@@ -2,7 +2,7 @@ use crate::app::{ActiveArea, App};
 use ratatui::layout::{Alignment, Position, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span, Text};
-use ratatui::widgets::{Paragraph, Wrap};
+use ratatui::widgets::{Paragraph};
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     widgets::Block,
@@ -10,7 +10,6 @@ use ratatui::{
 };
 use std::default::Default;
 use std::vec;
-use color_eyre::owo_colors::OwoColorize;
 use crate::config::editor_settings;
 use crate::cursor::CursorPosition;
 
@@ -40,7 +39,6 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
         app.editor.editor_content.clone(),
         app.editor.text_selection_start,
         app.editor.text_selection_end,
-        editor_layout[1].width as usize
     );
 
     let command_input: String = app.command_line.input.to_string();
@@ -155,7 +153,7 @@ fn editor_side_line(editor_content: Text,scroll_offset: u16, editor_width: usize
     let current_line_style = Style::default().bg(Color::White).fg(Color::Black);
 
     for (nr,s) in editor_content.iter().enumerate() {
-        let mut dest_to_cursor_y = cursor_y.abs_diff(nr as i16);
+        let dest_to_cursor_y = cursor_y.abs_diff(nr as i16);
 
         if s.width() > editor_width {
             let line = Line::from(vec![Span::raw(dest_to_cursor_y.to_string()),Span::styled(">",overflow_marker_style)]);
@@ -217,7 +215,6 @@ fn handle_editor_content<'a>(
     vec: Vec<String>,
     selection_start: Option<CursorPosition>,
     selection_end: Option<CursorPosition>,
-    max_width: usize,
 ) -> Text<'a> {
 
     let mut editor_vec: Vec<String> = Vec::new();
