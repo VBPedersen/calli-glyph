@@ -16,6 +16,7 @@ use std::vec;
 pub fn ui(frame: &mut Frame, app: &mut App) {
     app.terminal_height = frame.area().height as i16;
 
+
     let layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints(vec![
@@ -24,6 +25,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             Constraint::Length(1),
         ])
         .split(frame.area());
+    app.editor.editor_height = layout[1].height;
 
     let editor_layout = Layout::default()
         .direction(Direction::Horizontal)
@@ -63,14 +65,14 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     frame.render_widget(
         editor_side_line(
             editor_content.to_owned(),
-            app.scroll_offset as u16,
+            app.editor.scroll_offset as u16,
             editor_layout[1].width as usize,
             app.editor.cursor.y,
         ),
         editor_layout[0],
     );
     frame.render_widget(
-        editor(editor_content, app.scroll_offset as u16),
+        editor(editor_content, app.editor.scroll_offset as u16),
         editor_layout[1],
     );
     frame.render_widget(command_line(command_input), layout[2]);
@@ -87,7 +89,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             ActiveArea::Editor => {
                 let x = editor_layout[1].x + app.editor.visual_cursor_x as u16; //using visual x
                 let y = editor_layout[1].y
-                    + (app.editor.cursor.y - app.scroll_offset).clamp(0, i16::MAX) as u16;
+                    + (app.editor.cursor.y - app.editor.scroll_offset).clamp(0, i16::MAX) as u16;
                 let pos: Position = Position { x, y };
 
                 frame.set_cursor_position(pos);

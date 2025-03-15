@@ -5,14 +5,15 @@ use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::{Color, Line, Span, Style, Text};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use ratatui::Frame;
+use crate::errors::AppError;
 
 pub struct ErrorPopup {
     pub message: String,
-    pub error: Report,
+    pub error: AppError,
 }
 
 impl ErrorPopup {
-    pub fn new(msg: &str, e: Report) -> Self {
+    pub fn new(msg: &str, e: AppError) -> Self {
         Self {
             message: msg.to_string(),
             error: e,

@@ -2,7 +2,6 @@ use crate::clipboard::Clipboard;
 use crate::command_line::CommandLine;
 use crate::config::editor_settings;
 use crate::confirmation_popup::ConfirmationPopup;
-use crate::cursor::CursorPosition;
 use crate::editor::Editor;
 use crate::error_popup::ErrorPopup;
 use crate::input::handle_input;
@@ -15,6 +14,8 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 use std::time::{Duration, Instant};
+use crate::errors::{AppError, EditorError};
+use crate::errors::EditorError::{ClipboardError, TextSelectionError};
 
 #[derive(Debug)]
 pub struct App {
@@ -25,7 +26,6 @@ pub struct App {
     pub command_line: CommandLine,
     pub(crate) cursor_visible: bool,
     last_tick: Instant,
-    pub(crate) scroll_offset: i16,
     pub(crate) terminal_height: i16,
     pub clipboard: Clipboard,
     pub file_path: Option<String>,
@@ -58,7 +58,6 @@ impl Default for App {
             command_line: CommandLine::default(),
             last_tick: Instant::now(),
             cursor_visible: true,
-            scroll_offset: 0,
             terminal_height: 0,
             clipboard: Clipboard::new(),
             file_path: None,
@@ -149,64 +148,12 @@ impl App {
 
     ///replaces all selected text with char to y position line, with x position
     fn write_char_in_editor_text_is_selected(&mut self, c: char) {
-        let start = self.editor.text_selection_start.unwrap();
-        let end = self.editor.text_selection_end.unwrap();
-        let lines = &mut self.editor.editor_content[start.y..=end.y];
-        let lines_length = lines.len();
-        if lines_length > 1 {
-            for (y, line) in lines.iter_mut().enumerate() {
-                let mut line_chars_vec: Vec<char> = line.chars().collect();
-
-                //last line selected
-                if y == lines_length - 1 {
-                    line_chars_vec.drain(0..end.x);
-                } else {
-                    line_chars_vec.drain(start.x..line.chars().count());
-                }
-
-                //start line selected
-                if y == 0 {
-                    line_chars_vec.insert(start.x, c);
-                }
-
-                *line = line_chars_vec.into_iter().collect();
-            }
-        } else {
-            let line = &mut self.editor.editor_content[start.y];
-            let mut line_chars_vec: Vec<char> = line.chars().collect();
-            line_chars_vec.drain(start.x..end.x);
-            line_chars_vec.insert(start.x, c);
-            *line = line_chars_vec.into_iter().collect();
-        }
-        self.editor.cursor.x = self.editor.text_selection_start.unwrap().x as i16;
-        self.editor.cursor.y = self.editor.text_selection_start.unwrap().y as i16;
-        self.editor.text_selection_start = None;
-        self.editor.text_selection_end = None;
-        self.move_cursor_in_editor(1, 0);
+        self.editor.write_char_text_is_selected(c);
     }
 
     ///writes char to y position line, with x position
     pub(crate) fn write_char_in_editor(&mut self, c: char) {
-        //creating lines until y position of cursor
-        while self.editor.editor_content.len() <= self.editor.cursor.y as usize {
-            self.editor.editor_content.push(String::new());
-        }
-
-        let line = &mut self.editor.editor_content[self.editor.cursor.y as usize];
-
-        let char_count = line.chars().count();
-        //position cursor to line end in chars count
-        if char_count < self.editor.cursor.x as usize {
-            self.editor.cursor.x = char_count as i16;
-        }
-
-        let mut line_chars_vec: Vec<char> = line.chars().collect();
-
-        line_chars_vec.insert(self.editor.cursor.x as usize, c);
-
-        *line = line_chars_vec.into_iter().collect();
-
-        self.move_cursor_in_editor(1, 0);
+        self.editor.write_char(c);
     }
 
     ///wrapper function to either call backspace in editor with selected text or function backspace_in_editor,
@@ -221,62 +168,12 @@ impl App {
 
     ///handles backspace in editor, removes char at y line x position and sets new cursor position
     pub(crate) fn backspace_in_editor_text_is_selected(&mut self) {
-        let start = self.editor.text_selection_start.unwrap();
-        let end = self.editor.text_selection_end.unwrap();
-        let lines = &mut self.editor.editor_content[start.y..=end.y];
-        let lines_length = lines.len();
-        if lines_length > 1 {
-            for (y, line) in lines.iter_mut().enumerate() {
-                let mut line_chars_vec: Vec<char> = line.chars().collect();
-                //last line selected
-                if y == lines_length - 1 {
-                    line_chars_vec.drain(0..end.x);
-                } else {
-                    line_chars_vec.drain(start.x..line.chars().count());
-                }
-
-                *line = line_chars_vec.into_iter().collect();
-            }
-        } else {
-            let line = &mut self.editor.editor_content[start.y];
-            let mut line_chars_vec: Vec<char> = line.chars().collect();
-            line_chars_vec.drain(start.x..end.x);
-            *line = line_chars_vec.into_iter().collect();
-        }
-        self.editor.cursor.x = self.editor.text_selection_start.unwrap().x as i16;
-        self.editor.cursor.y = self.editor.text_selection_start.unwrap().y as i16;
-        self.editor.text_selection_start = None;
-        self.editor.text_selection_end = None;
-        //replace visual cursor
-        self.editor.visual_cursor_x = self.calculate_visual_x() as i16;
+        self.editor.backspace_text_is_selected();
     }
 
     ///handles backspace in editor, removes char at y line x position and sets new cursor position
     pub(crate) fn backspace_in_editor(&mut self) {
-        let line_char_count = self.editor.editor_content[self.editor.cursor.y as usize]
-            .chars()
-            .count() as i16;
-        if self.editor.cursor.x > 0 && self.editor.cursor.x <= line_char_count {
-            let line = &mut self.editor.editor_content[self.editor.cursor.y as usize];
-            let mut line_chars_vec: Vec<char> = line.chars().collect();
-
-            line_chars_vec.remove(self.editor.cursor.x as usize - 1);
-
-            *line = line_chars_vec.into_iter().collect();
-            //line.remove(self.editor.cursor.x as usize -1);
-            self.move_cursor_in_editor(-1, 0);
-        } else if self.editor.cursor.y > 0 {
-            let line = &mut self
-                .editor
-                .editor_content
-                .remove(self.editor.cursor.y as usize);
-            let new_x_value = self.editor.editor_content[(self.editor.cursor.y - 1) as usize]
-                .chars()
-                .count() as i16;
-            self.editor.cursor.y -= 1;
-            self.editor.cursor.x = new_x_value;
-            self.editor.editor_content[self.editor.cursor.y as usize].push_str(line);
-        }
+        self.editor.backspace_in_editor();
     }
 
     ///wrapper function to either call backspace in editor with selected text or function backspace_in_editor,
@@ -291,106 +188,22 @@ impl App {
 
     ///handles delete in editor, removes char at y line x position and sets new cursor position
     pub(crate) fn delete_in_editor_text_is_selected(&mut self) {
-        let start = self.editor.text_selection_start.unwrap();
-        let end = self.editor.text_selection_end.unwrap();
-        let lines = &mut self.editor.editor_content[start.y..=end.y];
-        let lines_length = lines.len();
-        if lines_length > 1 {
-            for (y, line) in lines.iter_mut().enumerate() {
-                let mut line_chars_vec: Vec<char> = line.chars().collect();
-
-                //last line selected
-                if y == lines_length - 1 {
-                    //line_chars_vec.drain(0..end.x);
-                    line_chars_vec[0..end.x].fill(' ');
-                } else {
-                    //line_chars_vec[start.x..line.chars().count()].fill(' ');
-                    line_chars_vec.drain(start.x..line.chars().count());
-                }
-
-                *line = line_chars_vec.into_iter().collect();
-            }
-        } else {
-            let line = &mut self.editor.editor_content[start.y];
-            let mut line_chars_vec: Vec<char> = line.chars().collect();
-            line_chars_vec[start.x..end.x].fill(' ');
-            //line_chars_vec.drain(start.x..end.x);
-            *line = line_chars_vec.into_iter().collect();
-        }
-        self.editor.cursor.x = self.editor.text_selection_end.unwrap().x as i16;
-        self.editor.cursor.y = self.editor.text_selection_end.unwrap().y as i16;
-        self.editor.text_selection_start = None;
-        self.editor.text_selection_end = None;
-        //replace visual cursor
-        self.editor.visual_cursor_x = self.calculate_visual_x() as i16;
+        self.editor.delete_text_is_selected()
     }
 
     ///handles DELETE action, of deleting char in editor at x +1 position
     pub(crate) fn delete_in_editor(&mut self) {
-        let current_line_len = self.editor.editor_content[self.editor.cursor.y as usize]
-            .chars()
-            .count() as i16;
-
-        if current_line_len == 0 {
-            return;
-        }
-        //if at line end, move line below up,  else if current line length is bigger than current cursor x pos, remove char
-        if self.editor.cursor.x >= current_line_len - 1
-            && self.editor.editor_content.len() > (self.editor.cursor.y + 1) as usize
-        {
-            let line = &mut self
-                .editor
-                .editor_content
-                .remove((self.editor.cursor.y + 1) as usize);
-            self.editor.editor_content[self.editor.cursor.y as usize].push_str(line);
-        } else if current_line_len > (self.editor.cursor.x + 1) {
-            let line = &mut self.editor.editor_content[self.editor.cursor.y as usize];
-            let mut line_chars_vec: Vec<char> = line.chars().collect();
-
-            line_chars_vec.remove(self.editor.cursor.x as usize + 1);
-
-            *line = line_chars_vec.into_iter().collect();
-            //line.remove((self.editor.cursor.x+1) as usize);
-        }
+        self.editor.delete_in_editor();
     }
 
     ///handles TAB action in editor, by writing \t to editor content.
     pub(crate) fn tab_in_editor(&mut self) {
-        let line = &mut self.editor.editor_content[self.editor.cursor.y as usize];
-
-        let mut line_chars_vec: Vec<char> = line.chars().collect();
-
-        line_chars_vec.insert(self.editor.cursor.x as usize, '\t');
-
-        *line = line_chars_vec.into_iter().collect();
-
-        self.move_cursor_in_editor(1, 0)
+        self.editor.tab();
     }
 
     ///handles enter new line, with possible move of text
     pub(crate) fn enter_in_editor(&mut self) {
-        let line = &mut self.editor.editor_content[self.editor.cursor.y as usize];
-        //if at end of line len, then just move cursor and make new line, else move text too
-        if self.editor.cursor.x >= line.chars().count() as i16 {
-            self.editor
-                .editor_content
-                .insert(self.editor.cursor.y as usize + 1, String::new());
-            self.move_cursor_in_editor(0, 1);
-        } else {
-            //split current line and remove split part
-            let mut line_chars_vec: Vec<char> = line.chars().collect();
-            let line_end = line_chars_vec.split_off(self.editor.cursor.x as usize);
-            *line = line_chars_vec.into_iter().collect();
-
-            //move down and insert split line to next line
-            self.move_cursor_in_editor(0, 1);
-            self.editor
-                .editor_content
-                .insert(self.editor.cursor.y as usize, String::new());
-            self.editor.editor_content[self.editor.cursor.y as usize] =
-                line_end.into_iter().collect();
-            self.editor.cursor.x = 0;
-        }
+        self.editor.enter();
     }
 
     //IN COMMANDLINE
@@ -414,27 +227,6 @@ impl App {
     }
 
     //CURSOR
-    //IN EDITOR
-    ///calculates the visual position of the cursor
-    fn calculate_visual_x(&mut self) -> usize {
-        let line = &self.editor.editor_content[self.editor.cursor.y as usize];
-        let cursor_x = self.editor.cursor.x as usize;
-        let tab_width = editor_settings::TAB_WIDTH as usize;
-        let mut visual_x = 0;
-        for (i, c) in line.chars().enumerate() {
-            if i == cursor_x {
-                break;
-            }
-
-            if c == '\t' {
-                visual_x += tab_width - (visual_x % tab_width);
-            } else {
-                visual_x += 1;
-            }
-        }
-
-        visual_x
-    }
 
     ///wrapper function to either call move text selection cursor in editor or call to move cursor in editor,
     pub(crate) fn move_all_cursor_editor(&mut self, x: i16, y: i16, shift_held: bool) {
@@ -449,132 +241,15 @@ impl App {
 
     ///moves logical cursor by x and y, under conditions. and recalculates the visual cursor position
     pub(crate) fn move_cursor_in_editor(&mut self, x: i16, y: i16) {
-        if self.editor.cursor.y == 0 && y == -1 {
-            return;
-        }
-        //if wanting to go beyond current length of editor
-        while self.editor.editor_content.len() <= (self.editor.cursor.y + y) as usize {
-            self.editor.editor_content.push(String::new());
-        }
+        self.editor.move_cursor(x, y);
 
-        let max_x_pos = self.editor.editor_content[(self.editor.cursor.y + y) as usize]
-            .chars()
-            .count() as i16;
-        //let current_line = &self.editor.editor_content[self.editor.cursor.y as usize];
-
-        // Moving Right →
-        if x > 0 && self.editor.cursor.x < max_x_pos {
-            self.editor.cursor.x += x;
-        } else if x == 1
-            && self.editor.cursor.x
-                >= self.editor.editor_content[self.editor.cursor.y as usize]
-                    .chars()
-                    .count() as i16
-            && self.editor.editor_content.len() > self.editor.cursor.y as usize + 1
-        {
-            //else if end of line and more lines
-            self.editor.cursor.y += 1;
-            self.editor.cursor.x = 0;
-            self.editor.visual_cursor_x = self.calculate_visual_x() as i16;
-            return;
-        }
-
-        // Moving Left ←
-        if x < 0 && self.editor.cursor.x > 0 {
-            self.editor.cursor.x += x;
-        } else if self.editor.cursor.x == 0 && x == -1 && self.editor.cursor.y != 0 {
-            //else if start of line and more lines
-            self.editor.cursor.y -= 1;
-            self.editor.cursor.x = self.editor.editor_content[self.editor.cursor.y as usize]
-                .chars()
-                .count() as i16;
-            self.editor.visual_cursor_x = self.calculate_visual_x() as i16;
-            return;
-        }
-
-        let (top, bottom) = self.is_cursor_top_or_bottom();
-        //to offset scroll
-        if (y == 1 && bottom) || (y == -1 && top) {
-            self.scroll_offset = (self.scroll_offset + y).clamp(0, i16::MAX);
-            return;
-        }
-
-        self.editor.cursor.x = self.editor.cursor.x.clamp(0, max_x_pos);
-        self.editor.cursor.y = (self.editor.cursor.y + y).clamp(0, i16::MAX);
-        self.editor.visual_cursor_x = self.calculate_visual_x() as i16;
-    }
-
-    ///checks if cursor is at top or bottom of the screen
-    fn is_cursor_top_or_bottom(&self) -> (bool, bool) {
-        let top = self.editor.cursor.y == self.scroll_offset;
-        let bottom = self.editor.cursor.y == self.scroll_offset + (self.terminal_height - 2);
-        (top, bottom)
     }
 
     ///moves selection cursor
     pub(crate) fn move_selection_cursor(&mut self, x: i16, y: i16) {
-        let old_x = self.editor.cursor.x;
-        let old_y = self.editor.cursor.y;
-        self.move_cursor_in_editor(x, y);
-        let new_x = self.editor.cursor.x;
-        let new_y = self.editor.cursor.y;
-
-        let new_pos = CursorPosition {
-            x: new_x as usize,
-            y: new_y as usize,
-        };
-        let old_pos = CursorPosition {
-            x: old_x as usize,
-            y: old_y as usize,
-        };
-
-        if self.editor.text_selection_start.is_none() {
-            // Initialize selection start on first move
-            self.editor.text_selection_start = Some(old_pos);
-        }
-
-        if self.editor.text_selection_end.is_none() {
-            // Initialize selection end on first move
-            self.editor.text_selection_end = Some(old_pos);
-        }
-
-        let (at_start, at_end) = self.is_selection_cursor_start_or_end(old_pos);
-
-        if x > 0 || y > 0 {
-            // Moving right/down → Extend selection
-
-            if at_start && !at_end {
-                //is at start pos and should move start instead of end
-                self.editor.text_selection_start = Some(new_pos);
-            } else if at_end && !at_start {
-                //is at end pos and should move end instead of start
-                self.editor.text_selection_end = Some(new_pos);
-            } else {
-                //is at both start and end, should move end
-                self.editor.text_selection_end = Some(new_pos);
-            }
-        } else if x < 0 || y < 0 {
-            // Moving left/up → Adjust start instead of resetting
-            if at_start && !at_end {
-                //is at start pos and should move start instead of end
-                self.editor.text_selection_start = Some(new_pos);
-            } else if at_end && !at_start {
-                //is at end pos and should move end instead of start
-                self.editor.text_selection_end = Some(new_pos);
-            } else {
-                //is at both start and end, should move start
-                self.editor.text_selection_start = Some(new_pos);
-            }
-        }
+        self.editor.move_selection_cursor(x, y);
     }
 
-    fn is_selection_cursor_start_or_end(&self, current_pos: CursorPosition) -> (bool, bool) {
-        let start = current_pos.x == self.editor.text_selection_start.unwrap().x
-            && current_pos.y == self.editor.text_selection_start.unwrap().y;
-        let end = current_pos.x == self.editor.text_selection_end.unwrap().x
-            && current_pos.y == self.editor.text_selection_end.unwrap().y;
-        (start, end)
-    }
 
     //IN COMMAND LINE
     ///moves cursor by x and y amounts in commandline
@@ -586,15 +261,7 @@ impl App {
     //SCROLL
     ///moves the scroll offset
     pub(crate) fn move_scroll_offset(&mut self, offset: i16) {
-        let (top, bottom) = self.is_cursor_top_or_bottom();
-
-        //if on way down and at bottom, move scroll
-        if (offset == 1 && bottom) || (offset == -1 && top) {
-            self.scroll_offset = (self.scroll_offset + offset).clamp(0, i16::MAX);
-            return;
-        }
-
-        self.move_cursor_in_editor(0, offset);
+        self.editor.move_scroll_offset(offset);
     }
 
     //PANEL HANDLING
@@ -624,7 +291,7 @@ impl App {
             PendingState::Saving(save_path) => {
                 if self.popup_result == PopupResult::Bool(true) {
                     if let Err(e) = self.save(vec![save_path.clone()]) {
-                        let popup = Box::new(ErrorPopup::new("Failed to save file", e));
+                        let popup = Box::new(ErrorPopup::new("Failed to save file", AppError::InternalError("e".to_string())));
                         self.open_popup(popup);
                     }
 
@@ -782,158 +449,50 @@ impl App {
     }
 
     ///copies text within bound of text selected to copied_text
-    pub(crate) fn copy_selected_text(&mut self) -> Result<()> {
-        if let (Some(start), Some(end)) = (
-            self.editor.text_selection_start,
-            self.editor.text_selection_end,
-        ) {
-            let mut selected_text: Vec<String> = Vec::new();
-            let lines = &self.editor.editor_content[start.y..=end.y];
-
-            if lines.len() > 1 {
-                for (y, line) in lines.iter().enumerate() {
-                    let mut line_chars: Vec<char> = line.chars().collect();
-                    let extracted_text: String;
-
-                    //if first line drain all from start x,
-                    // else if last line drain to end .x, else drain all
-                    if y == 0 {
-                        extracted_text = line_chars.drain(start.x..).collect();
-                    } else if y == lines.len() - 1 {
-                        extracted_text = line_chars.drain(..end.x).collect();
-                    } else {
-                        extracted_text = line_chars.into_iter().collect();
-                    }
-
-                    selected_text.push(extracted_text);
-                }
-            } else {
-                let mut line_chars: Vec<char> =
-                    self.editor.editor_content[start.y].chars().collect();
-                let extracted_text: String = line_chars.drain(start.x..end.x).collect();
-                selected_text.push(extracted_text);
+    pub(crate) fn copy_selected_text(&mut self) -> Result<(),EditorError> {
+        match self.editor.copy_selected_text(){
+            Ok(selected_text) => {
+                //copy to clipboard
+                self.clipboard.copy(&*selected_text);
+                //reset text selection
+                self.editor.text_selection_start = None;
+                self.editor.text_selection_end = None;
+                Ok(())
+            },
+            Err(e) => {
+                Err(TextSelectionError(e))
             }
-            //copy to clipboard
-            self.clipboard.copy(&selected_text.clone());
-            //reset text selection
-            self.editor.text_selection_start = None;
-            self.editor.text_selection_end = None;
-            Ok(())
-        } else {
-            Ok(())
         }
     }
 
     ///cuts text within bound of text selected to copied_text
-    pub(crate) fn cut_selected_text(&mut self) -> Result<()> {
-        if let (Some(start), Some(end)) = (
-            self.editor.text_selection_start,
-            self.editor.text_selection_end,
-        ) {
-            let mut selected_text: Vec<String> = Vec::new();
-            let lines = self.editor.editor_content[start.y..=end.y].as_mut();
-            let line_length = lines.len();
-            if lines.len() > 1 {
-                for (y, line) in lines.iter_mut().enumerate() {
-                    let mut line_chars: Vec<char> = line.as_mut().chars().collect();
-                    let extracted_text: String;
-
-                    //if first line drain all from start x,
-                    // else if last line drain to end .x, else drain all
-                    if y == 0 {
-                        extracted_text = line_chars.drain(start.x..).collect();
-                    } else if y == line_length - 1 {
-                        extracted_text = line_chars.drain(..end.x).collect();
-                    } else {
-                        extracted_text = line_chars.drain(..).collect();
-                    }
-
-                    selected_text.push(extracted_text);
-                    *line = line_chars.into_iter().collect();
-                }
-            } else {
-                let lines = self.editor.editor_content[start.y..start.y + 1].as_mut();
-                let line = lines.iter_mut().next().unwrap();
-                let mut line_chars: Vec<char> = line.as_mut().chars().collect();
-                let extracted_text: String = line_chars.drain(start.x..end.x).collect();
-                selected_text.push(extracted_text);
-
-                *line = line_chars.into_iter().collect();
+    pub(crate) fn cut_selected_text(&mut self) -> Result<(),EditorError> {
+        match self.editor.cut_selected_text(){
+            Ok(selected_text) => {
+                //copy to clipboard
+                self.clipboard.copy(&*selected_text);
+                //reset text selection
+                self.editor.text_selection_start = None;
+                self.editor.text_selection_end = None;
+                Ok(())
+            },
+            Err(e) => {
+                Err(TextSelectionError(e))
             }
-            //copy to clipboard
-            self.clipboard.copy(&selected_text.clone());
-            //reset text selection
-            self.editor.text_selection_start = None;
-            self.editor.text_selection_end = None;
-            Ok(())
-        } else {
-            Ok(())
         }
+
     }
 
     ///pastes text from copied text to editor content
-    pub(crate) fn paste_selected_text(&mut self) -> Result<()> {
-        //if no text in copied text
-        if self.clipboard.copied_text.is_empty() {
-            return Ok(());
-        }
-
-        let insert_y = self.editor.cursor.y as usize;
-        let insert_x = self.editor.cursor.x as usize;
-
-        while self.editor.editor_content.len() < insert_y + self.clipboard.copied_text.len() - 1 {
-            self.editor.editor_content.push(String::new());
-        }
-
-        let current_line = &self.editor.editor_content[insert_y];
-
-        // Convert the line into a Vec<char> to handle multi-byte characters correctly
-        let chars: Vec<char> = current_line.chars().collect();
-        let (before_cursor, after_cursor) = chars.split_at(insert_x.min(chars.len()));
-
-        if self.clipboard.copied_text.len() == 1 {
-            // Single-line paste: correctly insert into character-safe split
-            let new_line = format!(
-                "{}{}{}",
-                before_cursor.iter().collect::<String>(),
-                self.clipboard.copied_text[0],
-                after_cursor.iter().collect::<String>()
-            );
-            self.editor.editor_content[insert_y] = new_line;
-        } else {
-            // Multi-line paste
-            let mut new_lines = Vec::new();
-
-            // First line: insert copied text at cursor position
-            new_lines.push(format!(
-                "{}{}",
-                before_cursor.iter().collect::<String>(),
-                self.clipboard.copied_text[0]
-            ));
-
-            // Middle lines: insert as separate lines
-            for line in &self.clipboard.copied_text[1..self.clipboard.copied_text.len() - 1] {
-                new_lines.push(line.clone());
+    pub(crate) fn paste_selected_text(&mut self) -> Result<(),EditorError> {
+        match self.editor.paste_selected_text(self.clipboard.copied_text.clone()){
+            Ok(()) => {
+                Ok(())
+            },
+            Err(e) => {
+                Err(ClipboardError(e))
             }
-
-            // Last copied line + remainder of the original line
-            let last_copied_line =
-                &self.clipboard.copied_text[self.clipboard.copied_text.len() - 1];
-            new_lines.push(format!(
-                "{}{}",
-                last_copied_line,
-                after_cursor.iter().collect::<String>()
-            ));
-
-            // Replace the current line and insert new lines
-            self.editor
-                .editor_content
-                .splice(insert_y..=insert_y, new_lines);
         }
-
-        // Clear copied text after pasting
-        //self.copied_text.clear();
-        Ok(())
     }
 
     //HELPER FUNCTIONS FOR BASIC COMMANDS

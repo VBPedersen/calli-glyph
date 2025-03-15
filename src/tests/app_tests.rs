@@ -127,6 +127,7 @@ mod app_editor_tests {
     fn create_app_with_editor_content(vec: Vec<String>) -> App {
         let mut app = App::new();
         app.editor.editor_content = vec;
+        app.editor.editor_height = 10; //since testing doesnt start ui.rs, height isnt set
         app
     }
 
@@ -780,7 +781,7 @@ mod app_editor_tests {
 
         let result = app.copy_selected_text();
 
-        assert!(result.is_ok());
+        assert!(result.is_err());
         assert!(app.clipboard.copied_text.is_empty());
     }
 
@@ -831,7 +832,7 @@ mod app_editor_tests {
 
         let result = app.cut_selected_text();
 
-        assert!(result.is_ok());
+        assert!(result.is_err());
         assert!(app.clipboard.copied_text.is_empty());
         assert!(app.editor.text_selection_start.is_none());
         assert!(app.editor.text_selection_end.is_none());
@@ -991,8 +992,8 @@ mod app_editor_tests {
         app.editor.cursor.x = 5;
         app.editor.cursor.y = 1;
 
-        app.paste_selected_text().unwrap();
 
+        assert!(app.paste_selected_text().is_err());
         assert_eq!(
             app.editor.editor_content,
             vec![
