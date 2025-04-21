@@ -1,7 +1,37 @@
 use crate::config::editor_settings;
 use crate::cursor::Cursor;
 use crate::cursor::CursorPosition;
-use crate::errors::{ClipboardError, EditorError, TextSelectionError};
+use crate::errors::{ClipboardError, EditorError, RedoError, TextSelectionError, UndoError};
+
+#[derive(Debug, Clone)]
+pub enum EditAction {
+    // single-char operations
+    Insert {
+        pos: CursorPosition,
+        c: char,
+    },
+    Delete {
+        pos: CursorPosition,
+        deleted_char: char,
+    },
+    Replace {
+        start: CursorPosition,
+        end: CursorPosition,
+        old: char,
+        new: char,
+    },
+    // multi-char operations
+    InsertLines {
+        start: CursorPosition,
+        lines: Vec<String>,
+    },
+    DeleteLines {
+        start: CursorPosition,
+        deleted: Vec<String>,
+    },
+
+}
+
 
 /// handles editor content
 #[derive(Debug)]
@@ -14,6 +44,8 @@ pub struct Editor {
     pub editor_width: i16,
     pub scroll_offset: i16,
     pub editor_height: u16,
+    pub(crate) undo_stack: Vec<EditAction>,
+    redo_stack: Vec<EditAction>,
 }
 
 impl Editor {
@@ -27,6 +59,8 @@ impl Editor {
             editor_width: 0,
             scroll_offset: 0,
             editor_height: 0,
+            undo_stack: vec![],
+            redo_stack: vec![],
         }
     }
 
@@ -205,6 +239,7 @@ impl Editor {
         *line = line_chars_vec.into_iter().collect();
 
         self.move_cursor(1, 0);
+        
     }
 
 
@@ -258,6 +293,7 @@ impl Editor {
         *line = line_chars_vec.into_iter().collect();
 
         self.move_cursor(1, 0)
+        
     }
 
     //editor enter
@@ -290,14 +326,15 @@ impl Editor {
     //editor backspace
     ///handles backspace in editor, removes char at y line x position and sets new cursor position
     pub fn backspace_in_editor(&mut self) {
+        let mut deleted_char: Option<char> = None;
         let line_char_count = self.editor_content[self.cursor.y as usize]
             .chars()
             .count() as i16;
         if self.cursor.x > 0 && self.cursor.x <= line_char_count {
             let line = &mut self.editor_content[self.cursor.y as usize];
             let mut line_chars_vec: Vec<char> = line.chars().collect();
-
-            line_chars_vec.remove(self.cursor.x as usize - 1);
+            let char = line_chars_vec.remove(self.cursor.x as usize - 1);
+            deleted_char = Some(char);
 
             *line = line_chars_vec.into_iter().collect();
             //line.remove(self.editor.cursor.x as usize -1);
@@ -312,6 +349,13 @@ impl Editor {
             self.cursor.y -= 1;
             self.cursor.x = new_x_value;
             self.editor_content[self.cursor.y as usize].push_str(line);
+        }
+        
+        if let Some(char) =  deleted_char {
+            self.undo_stack.push(EditAction::Delete {
+                pos: CursorPosition { x: self.cursor.x as usize, y: self.cursor.y as usize },
+                deleted_char: char.clone() });
+            self.redo_stack.clear();
         }
     }
 
@@ -581,8 +625,140 @@ impl Editor {
         let bottom = self.cursor.y == self.scroll_offset + (self.editor_height as i16);
         (top, bottom)
     }
+    
+    
+    
+    // UNDO AND REDO FUNCTIONALITY
+    /// undo's last action of user
+    pub fn undo(&mut self) -> Result<(), UndoError> {
+        if let Some(last_action) = self.undo_stack.pop() {
+            let action_reversed = self.reverse_action(&last_action);
+            self.apply_action(&action_reversed);
+            self.redo_stack.push(last_action);
+            Ok(())
+        } else {
+            Err(UndoError::NoActionToUndo) 
+        }
+    }
+    
+    /// redo's last action of user
+    pub fn redo(&mut self) -> Result<(), RedoError> {
+        if let Some(last_action) = self.redo_stack.pop() {
+            self.apply_action(&last_action);
+            self.undo_stack.push(last_action);
+            Ok(())
+        } else {
+            Err(RedoError::NoActionToRedo) 
+        }
+    }
+    
+    /// applies an EditAction
+    fn apply_action(&mut self, action: &EditAction) {
+        match action {
+            EditAction::Insert { pos, c } => {
+                self.set_cursor_position(*pos);
+                self.insert_char_at(*pos, *c);
+            }
+            EditAction::Delete { pos, .. } => {
+                self.set_cursor_position(*pos);
+                self.delete_char_at(*pos);
+            }
+            EditAction::Replace { start, end, new, .. } => {
+                self.set_cursor_position(*start);
+                self.replace_selection_with_text(*start, *end, *new);
+            }
+            EditAction::InsertLines { start, lines } => {
+                self.set_cursor_position(*start);
+                self.insert_lines_at(*start, lines.clone());
+            }
+            EditAction::DeleteLines { start, deleted } => {
+                self.set_cursor_position(*start);
+                self.delete_lines_at(*start, deleted.len());
+            }
+        }
+    }
+    
+    /// sets cursor position to specified position
+    fn set_cursor_position(&mut self, pos: CursorPosition) {
+        self.cursor.x = pos.x as i16;
+        self.cursor.y = pos.y as i16;
+        self.visual_cursor_x = self.calculate_visual_x() as i16;
+    }
+    
+    /// Insert a character at the specified position (buffer-only: does not touch undo/redo, does not move main cursor)
+    fn insert_char_at(&mut self, pos: CursorPosition, c: char) {
+        // Ensure the target line exists
+        while self.editor_content.len() <= pos.y {
+            self.editor_content.push(String::new());
+        }
+        let line = &mut self.editor_content[pos.y];
+        let mut chars: Vec<char> = line.chars().collect();
+        // Clamp to actual line length
+        let x = pos.x.min(chars.len());
+        chars.insert(x, c);
+        *line = chars.into_iter().collect();
+        // cursor not updated
+    }
+
+    /// Delete a character at the specified position (buffer-only)
+    fn delete_char_at(&mut self, pos: CursorPosition) {
+        if let Some(line) = self.editor_content.get_mut(pos.y) {
+            let mut chars: Vec<char> = line.chars().collect();
+            if pos.x < chars.len() {
+                chars.remove(pos.x);
+                *line = chars.into_iter().collect();
+            }
+        }
+    }
+
+    /// Replace a text selection (from start to end) with new text
+    fn replace_selection_with_text(&mut self, start: CursorPosition, end: CursorPosition, new: char) {
+        if start.y == end.y {
+            if let Some(line) = self.editor_content.get_mut(start.y) {
+                let mut chars: Vec<char> = line.chars().collect();
+                // Clamp positions
+                let start_x = start.x.min(chars.len());
+                let end_x = end.x.min(chars.len());
+                chars.drain(start_x..end_x);
+                chars.insert(start_x, new);
+                *line = chars.into_iter().collect();
+            }
+        }
+        // For multi-line selection, you may wish to expand further as needed.
+    }
+
+    /// Insert multiple lines at a position
+    fn insert_lines_at(&mut self, start: CursorPosition, lines: Vec<String>) {
+        let y = start.y.min(self.editor_content.len());
+        for (i, line) in lines.into_iter().enumerate() {
+            self.editor_content.insert(y + i, line);
+        }
+    }
+
+    /// Delete lines starting at a position
+    fn delete_lines_at(&mut self, start: CursorPosition, count: usize) {
+        let y = start.y;
+        for _ in 0..count {
+            if y < self.editor_content.len() {
+                self.editor_content.remove(y);
+            } else {
+                break;
+            }
+        }
+    }
 
 
+    /// returns the reverse action of the given action
+    fn reverse_action(&mut self, action: &EditAction) -> EditAction {
+        match action {
+            EditAction::Insert { pos, c } => EditAction::Delete { pos: *pos, deleted_char: *c },
+            EditAction::Delete { pos, deleted_char } => EditAction::Insert { pos: *pos, c: *deleted_char },
+            EditAction::Replace { start, end, old, new } =>
+                EditAction::Replace { start: *start, end: *end, old: new.clone(), new: old.clone() },
+            EditAction::InsertLines { start, lines } => EditAction::DeleteLines { start: *start, deleted: lines.clone() },
+            EditAction::DeleteLines { start, deleted } => EditAction::InsertLines { start: *start, lines: deleted.clone() },
+        }
+    }
 
 
 }

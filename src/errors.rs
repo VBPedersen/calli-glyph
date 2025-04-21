@@ -23,6 +23,12 @@ pub enum EditorError {
     #[error("File: {0} not found")]
     FileNotFound(String),
 
+    #[error("UNDO failed: {0}")]
+    UndoError(#[from] UndoError),
+
+    #[error("REDO failed: {0}")]
+    RedoError(#[from] RedoError),
+
 }
 
 #[derive(Debug, Error)]
@@ -40,4 +46,24 @@ pub enum ClipboardError {
     NoCopiedText,
 
 }
+
+#[derive(Debug, Error)]
+pub enum UndoError {
+    #[error("No action to undo")]
+    NoActionToUndo,
+    #[error("failed to undo action")]
+    FailedToUndo,
+
+}
+
+#[derive(Debug, Error)]
+pub enum RedoError {
+    #[error("No action to redo")]
+    NoActionToRedo,
+    #[error("failed to redo action")]
+    FailedToRedo,
+
+}
+
+
 

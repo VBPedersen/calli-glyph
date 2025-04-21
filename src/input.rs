@@ -94,6 +94,18 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
                     app.open_popup(popup);
                 }
             }
+            key_binds::KEYBIND_UNDO => {
+                if let Err(e) = app.undo_in_editor() {
+                    let popup = Box::new(ErrorPopup::new("Failed to UNDO", AppError::EditorError(e)));
+                    app.open_popup(popup);
+                }
+            }
+            key_binds::KEYBIND_REDO => {
+                if let Err(e) = app.redo_in_editor() {
+                    let popup = Box::new(ErrorPopup::new("Failed to REDO", AppError::EditorError(e)));
+                    app.open_popup(popup);
+                }
+            }
             (_, KeyCode::Char(c)) => app.write_all_char_in_editor(c), // HAS TO BE LAST
             _ => {}
         },

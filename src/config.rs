@@ -43,6 +43,13 @@ pub mod key_binds {
 
     pub(crate) const KEYBIND_PASTE: (KeyModifiers, KeyCode) =
         (KeyModifiers::CONTROL, KeyCode::Char('f'));
+
+    pub(crate) const KEYBIND_UNDO: (KeyModifiers, KeyCode) =
+        (KeyModifiers::CONTROL, KeyCode::Char('z'));
+
+    pub(crate) const KEYBIND_REDO: (KeyModifiers, KeyCode) =
+        (KeyModifiers::CONTROL, KeyCode::Char('y'));
+    
 }
 
 //COMMAND BINDS

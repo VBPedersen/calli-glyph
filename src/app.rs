@@ -15,7 +15,7 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 use std::time::{Duration, Instant};
 use crate::errors::{AppError, EditorError};
-use crate::errors::EditorError::{ClipboardError, TextSelectionError};
+use crate::errors::EditorError::{ClipboardError, RedoError, TextSelectionError, UndoError};
 
 #[derive(Debug)]
 pub struct App {
@@ -491,6 +491,30 @@ impl App {
             },
             Err(e) => {
                 Err(ClipboardError(e))
+            }
+        }
+    }
+
+    ///undos last edit action
+    pub(crate) fn undo_in_editor(&mut self) -> Result<(),EditorError> {
+        match self.editor.undo(){
+            Ok(()) => {
+                Ok(())
+            },
+            Err(e) => {
+                Err(UndoError(e))
+            }
+        }
+    }
+
+    ///redos last edit action
+    pub(crate) fn redo_in_editor(&mut self) -> Result<(),EditorError> {
+        match self.editor.redo(){
+            Ok(()) => {
+                Ok(())
+            },
+            Err(e) => {
+                Err(RedoError(e))
             }
         }
     }
