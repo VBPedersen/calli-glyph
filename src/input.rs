@@ -2,7 +2,7 @@ use crate::app::ActiveArea;
 use crate::config::{command_binds, key_binds};
 use crate::error_popup::ErrorPopup;
 use crate::popup::PopupType;
-use crate::App;
+use crate::app::App;
 use crossterm::event;
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind,
@@ -72,37 +72,37 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
             }
             key_binds::KEYBIND_SAVE => {
                 if let Err(e) = app.save(vec![]) {
-                    let popup = Box::new(ErrorPopup::new("Failed to Save File", AppError::InternalError("e".to_string())));
+                    let popup = Box::new(ErrorPopup::new("Failed to Save File", AppError::InternalError(e.to_string())));
                     app.open_popup(popup);
                 }
             }
             key_binds::KEYBIND_COPY => {
                 if let Err(e) = app.copy_selected_text() {
-                    let popup = Box::new(ErrorPopup::new("Failed to copy selected text", AppError::EditorError(e)));
+                    let popup = Box::new(ErrorPopup::new("Failed to copy selected text", e));
                     app.open_popup(popup);
                 }
             }
             key_binds::KEYBIND_CUT => {
                 if let Err(e) = app.cut_selected_text() {
-                    let popup = Box::new(ErrorPopup::new("Failed to cut selected text", AppError::EditorError(e)));
+                    let popup = Box::new(ErrorPopup::new("Failed to cut selected text", e));
                     app.open_popup(popup);
                 }
             }
             key_binds::KEYBIND_PASTE => {
                 if let Err(e) = app.paste_selected_text() {
-                    let popup = Box::new(ErrorPopup::new("Failed to paste selected text", AppError::EditorError(e)));
+                    let popup = Box::new(ErrorPopup::new("Failed to paste selected text", e));
                     app.open_popup(popup);
                 }
             }
             key_binds::KEYBIND_UNDO => {
                 if let Err(e) = app.undo_in_editor() {
-                    let popup = Box::new(ErrorPopup::new("Failed to UNDO", AppError::EditorError(e)));
+                    let popup = Box::new(ErrorPopup::new("Failed to UNDO", e));
                     app.open_popup(popup);
                 }
             }
             key_binds::KEYBIND_REDO => {
                 if let Err(e) = app.redo_in_editor() {
-                    let popup = Box::new(ErrorPopup::new("Failed to REDO", AppError::EditorError(e)));
+                    let popup = Box::new(ErrorPopup::new("Failed to REDO", e));
                     app.open_popup(popup);
                 }
             }

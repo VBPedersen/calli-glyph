@@ -1,5 +1,4 @@
 use crate::popup::{Popup, PopupResult, PopupType};
-use color_eyre::Report;
 use crossterm::event::KeyEvent;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::{Color, Line, Span, Style, Text};

@@ -1,7 +1,10 @@
+
 use crate::config::editor_settings;
 use crate::cursor::Cursor;
 use crate::cursor::CursorPosition;
-use crate::errors::{ClipboardError, EditorError, RedoError, TextSelectionError, UndoError};
+use crate::editor::undo_redo::UndoRedoManager;
+use crate::errors::{ClipboardError, EditorError, TextSelectionError};
+use crate::errors::EditorError::{ClipboardFailure, RedoFailure, TextSelectionFailure, UndoFailure};
 
 #[derive(Debug, Clone)]
 pub enum EditAction {
@@ -44,8 +47,7 @@ pub struct Editor {
     pub editor_width: i16,
     pub scroll_offset: i16,
     pub editor_height: u16,
-    pub(crate) undo_stack: Vec<EditAction>,
-    redo_stack: Vec<EditAction>,
+    undo_redo_manager: UndoRedoManager
 }
 
 impl Editor {
@@ -59,15 +61,69 @@ impl Editor {
             editor_width: 0,
             scroll_offset: 0,
             editor_height: 0,
-            undo_stack: vec![],
-            redo_stack: vec![],
+            undo_redo_manager: UndoRedoManager::new(),
         }
     }
+
+
+    //undo manager
+    ///undo wrapper function, that calls the UndoRedoManager
+    pub fn undo(&mut self) -> Result<(), EditorError> {
+        match self.undo_redo_manager.undo(){
+            Ok(action) => {
+                self.apply_action(&action);
+                Ok(())
+            },
+            Err(e) => {
+                Err(UndoFailure(e))
+            }
+        }
+    }
+    ///redo wrapper function, that calls the UndoRedoManager
+    pub fn redo(&mut self) -> Result<(), EditorError> {
+        match self.undo_redo_manager.redo(){
+            Ok(action) => {
+                self.apply_action(&action);
+                Ok(())
+            },
+            Err(e) => {
+                Err(RedoFailure(e))
+            }
+        }
+    }
+
+    /// applies an EditAction
+    fn apply_action(&mut self, action: &EditAction) {
+        match action {
+            EditAction::Insert { pos, c } => {
+                self.set_cursor_position(*pos);
+                self.insert_char_at(*pos, *c);
+            }
+            EditAction::Delete { pos, .. } => {
+                self.set_cursor_position(*pos);
+                self.delete_char_at(*pos);
+            }
+            EditAction::Replace { start, end, new, .. } => {
+                self.set_cursor_position(*start);
+                self.replace_selection_with_text(*start, *end, *new);
+            }
+            EditAction::InsertLines { start, lines } => {
+                self.set_cursor_position(*start);
+                self.insert_lines_at(*start, lines.clone());
+            }
+            EditAction::DeleteLines { start, deleted } => {
+                self.set_cursor_position(*start);
+                self.delete_lines_at(*start, deleted.len());
+            }
+        }
+    }
+
+
 
     //copy, cut and paste
 
     ///copies text within bound of text selected to copied_text
-    pub fn copy_selected_text(&mut self) -> Result<Vec<String>, TextSelectionError> {
+    pub fn copy_selected_text(&mut self) -> Result<Vec<String>, EditorError> {
         if let (Some(start), Some(end)) = (
             self.text_selection_start,
             self.text_selection_end,
@@ -101,12 +157,12 @@ impl Editor {
 
             Ok(selected_text)
         } else {
-            Err(TextSelectionError::NoTextSelected)
+            Err(TextSelectionFailure(TextSelectionError::NoTextSelected))
         }
     }
 
     ///cuts text within bound of text selected to copied_text
-    pub fn cut_selected_text(&mut self) -> Result<Vec<String>, TextSelectionError> {
+    pub fn cut_selected_text(&mut self) -> Result<Vec<String>, EditorError> {
         if let (Some(start), Some(end)) = (
             self.text_selection_start,
             self.text_selection_end,
@@ -144,15 +200,15 @@ impl Editor {
 
             Ok(selected_text)
         } else {
-            Err(TextSelectionError::NoTextSelected)
+            Err(TextSelectionFailure(TextSelectionError::NoTextSelected))
         }
     }
 
     ///pastes text from copied text to editor content
-    pub fn paste_selected_text(&mut self, copied_text: Vec<String>) -> Result<(), ClipboardError> {
+    pub fn paste_selected_text(&mut self, copied_text: Vec<String>) -> Result<(), EditorError> {
         //if no text in copied text
         if copied_text.is_empty() {
-            return Err(ClipboardError::NoCopiedText);
+            return Err(ClipboardFailure(ClipboardError::NoCopiedText));
         }
 
         let insert_y = self.cursor.y as usize;
@@ -352,10 +408,10 @@ impl Editor {
         }
         
         if let Some(char) =  deleted_char {
-            self.undo_stack.push(EditAction::Delete {
+            self.undo_redo_manager.record_undo(
+                EditAction::Delete {
                 pos: CursorPosition { x: self.cursor.x as usize, y: self.cursor.y as usize },
                 deleted_char: char.clone() });
-            self.redo_stack.clear();
         }
     }
 
@@ -626,67 +682,29 @@ impl Editor {
         (top, bottom)
     }
     
-    
-    
-    // UNDO AND REDO FUNCTIONALITY
-    /// undo's last action of user
-    pub fn undo(&mut self) -> Result<(), UndoError> {
-        if let Some(last_action) = self.undo_stack.pop() {
-            let action_reversed = self.reverse_action(&last_action);
-            self.apply_action(&action_reversed);
-            self.redo_stack.push(last_action);
-            Ok(())
-        } else {
-            Err(UndoError::NoActionToUndo) 
-        }
-    }
-    
-    /// redo's last action of user
-    pub fn redo(&mut self) -> Result<(), RedoError> {
-        if let Some(last_action) = self.redo_stack.pop() {
-            self.apply_action(&last_action);
-            self.undo_stack.push(last_action);
-            Ok(())
-        } else {
-            Err(RedoError::NoActionToRedo) 
-        }
-    }
-    
-    /// applies an EditAction
-    fn apply_action(&mut self, action: &EditAction) {
-        match action {
-            EditAction::Insert { pos, c } => {
-                self.set_cursor_position(*pos);
-                self.insert_char_at(*pos, *c);
-            }
-            EditAction::Delete { pos, .. } => {
-                self.set_cursor_position(*pos);
-                self.delete_char_at(*pos);
-            }
-            EditAction::Replace { start, end, new, .. } => {
-                self.set_cursor_position(*start);
-                self.replace_selection_with_text(*start, *end, *new);
-            }
-            EditAction::InsertLines { start, lines } => {
-                self.set_cursor_position(*start);
-                self.insert_lines_at(*start, lines.clone());
-            }
-            EditAction::DeleteLines { start, deleted } => {
-                self.set_cursor_position(*start);
-                self.delete_lines_at(*start, deleted.len());
-            }
-        }
-    }
-    
+
+
+}
+
+
+
+//██╗  ██╗███████╗██╗     ██████╗ ███████╗██████╗ ███████╗
+//██║  ██║██╔════╝██║     ██╔══██╗██╔════╝██╔══██╗██╔════╝
+//███████║█████╗  ██║     ██████╔╝█████╗  ██████╔╝███████╗
+//██╔══██║██╔══╝  ██║     ██╔═══╝ ██╔══╝  ██╔══██╗╚════██║
+//██║  ██║███████╗███████╗██║     ███████╗██║  ██║███████║
+//╚═╝  ╚═╝╚══════╝╚══════╝╚═╝     ╚══════╝╚═╝  ╚═╝╚══════╝
+
+impl Editor {
     /// sets cursor position to specified position
-    fn set_cursor_position(&mut self, pos: CursorPosition) {
+    pub(crate) fn set_cursor_position(&mut self, pos: CursorPosition) {
         self.cursor.x = pos.x as i16;
         self.cursor.y = pos.y as i16;
         self.visual_cursor_x = self.calculate_visual_x() as i16;
     }
-    
+
     /// Insert a character at the specified position (buffer-only: does not touch undo/redo, does not move main cursor)
-    fn insert_char_at(&mut self, pos: CursorPosition, c: char) {
+    pub(crate) fn insert_char_at(&mut self, pos: CursorPosition, c: char) {
         // Ensure the target line exists
         while self.editor_content.len() <= pos.y {
             self.editor_content.push(String::new());
@@ -701,7 +719,7 @@ impl Editor {
     }
 
     /// Delete a character at the specified position (buffer-only)
-    fn delete_char_at(&mut self, pos: CursorPosition) {
+    pub(crate) fn delete_char_at(&mut self, pos: CursorPosition) {
         if let Some(line) = self.editor_content.get_mut(pos.y) {
             let mut chars: Vec<char> = line.chars().collect();
             if pos.x < chars.len() {
@@ -712,7 +730,7 @@ impl Editor {
     }
 
     /// Replace a text selection (from start to end) with new text
-    fn replace_selection_with_text(&mut self, start: CursorPosition, end: CursorPosition, new: char) {
+    pub(crate) fn replace_selection_with_text(&mut self, start: CursorPosition, end: CursorPosition, new: char) {
         if start.y == end.y {
             if let Some(line) = self.editor_content.get_mut(start.y) {
                 let mut chars: Vec<char> = line.chars().collect();
@@ -728,7 +746,7 @@ impl Editor {
     }
 
     /// Insert multiple lines at a position
-    fn insert_lines_at(&mut self, start: CursorPosition, lines: Vec<String>) {
+    pub(crate) fn insert_lines_at(&mut self, start: CursorPosition, lines: Vec<String>) {
         let y = start.y.min(self.editor_content.len());
         for (i, line) in lines.into_iter().enumerate() {
             self.editor_content.insert(y + i, line);
@@ -736,7 +754,7 @@ impl Editor {
     }
 
     /// Delete lines starting at a position
-    fn delete_lines_at(&mut self, start: CursorPosition, count: usize) {
+    pub(crate) fn delete_lines_at(&mut self, start: CursorPosition, count: usize) {
         let y = start.y;
         for _ in 0..count {
             if y < self.editor_content.len() {
@@ -746,25 +764,208 @@ impl Editor {
             }
         }
     }
-
-
-    /// returns the reverse action of the given action
-    fn reverse_action(&mut self, action: &EditAction) -> EditAction {
-        match action {
-            EditAction::Insert { pos, c } => EditAction::Delete { pos: *pos, deleted_char: *c },
-            EditAction::Delete { pos, deleted_char } => EditAction::Insert { pos: *pos, c: *deleted_char },
-            EditAction::Replace { start, end, old, new } =>
-                EditAction::Replace { start: *start, end: *end, old: new.clone(), new: old.clone() },
-            EditAction::InsertLines { start, lines } => EditAction::DeleteLines { start: *start, deleted: lines.clone() },
-            EditAction::DeleteLines { start, deleted } => EditAction::InsertLines { start: *start, lines: deleted.clone() },
-        }
-    }
-
-
 }
+
 
 impl Default for Editor {
     fn default() -> Self {
         Self::new()
     }
+}
+
+//████████╗███████╗███████╗████████╗███████╗
+//╚══██╔══╝██╔════╝██╔════╝╚══██╔══╝██╔════╝
+//   ██║   █████╗  ███████╗   ██║   ███████╗
+//   ██║   ██╔══╝  ╚════██║   ██║   ╚════██║
+//   ██║   ███████╗███████║   ██║   ███████║
+//   ╚═╝   ╚══════╝╚══════╝   ╚═╝   ╚══════╝
+
+mod unit_editor_write_tests {
+    use calliglyph::config::editor_settings;
+    use calliglyph::cursor::CursorPosition;
+    use calliglyph::editor::*;
+
+    //init functions
+    fn create_editor_with_editor_content(vec: Vec<String>) -> Editor {
+        let mut editor = Editor::new();
+        editor.editor_content = vec;
+        editor.editor_height = 10; //since testing doesnt start ui.rs, height isnt set
+        editor
+    }
+
+    #[test]
+    fn test_write_char() {
+        let mut editor = Editor::new();
+        editor.write_char('a');
+        assert_eq!(editor.editor_content[0], "a");
+        assert_eq!(editor.cursor.x, 1);
+    }
+
+    #[test]
+    fn test_write_char_normal_characters() {
+        let mut editor = Editor::new();
+        editor.write_char('a');
+        editor.write_char('b');
+        editor.write_char('c');
+        editor.write_char('d');
+        assert_eq!(editor.editor_content[0], "abcd");
+        assert_eq!(editor.cursor.x, 4);
+    }
+
+    #[test]
+    fn test_write_char_special_characters() {
+        let mut editor = Editor::new();
+        editor.write_char('ᚠ');
+        editor.write_char('Ω');
+        editor.write_char('₿');
+        editor.write_char('😎');
+        assert_eq!(editor.editor_content[0], "ᚠΩ₿😎");
+        assert_eq!(editor.cursor.x, 4);
+    }
+
+    #[test]
+    fn test_write_char_at_line_10() {
+        let mut editor = Editor::new();
+        editor.cursor.y = 10;
+        editor.write_char('a');
+        assert_eq!(editor.editor_content[10], "a");
+        assert_eq!(editor.cursor.x, 1);
+    }
+
+    #[test]
+    fn test_write_char_at_100_x() {
+        let mut editor = Editor::new();
+        editor.cursor.x = 100;
+        editor.write_char('a');
+        assert_eq!(editor.editor_content[0], "a");
+        assert_eq!(editor.cursor.x, 1);
+    }
+
+    //Write char to editor with selected text
+    #[test]
+    fn test_write_char_with_selected_text() {
+        let mut editor = create_editor_with_editor_content(vec!["Hello Denmark".to_string()]);
+        editor.text_selection_start = Option::Some(CursorPosition { x: 6, y: 0 });
+        editor.text_selection_end = Option::Some(CursorPosition { x: 13, y: 0 });
+        editor.cursor.x = 6;
+        editor.write_char('W');
+        assert_eq!(editor.editor_content[0], "Hello W");
+        assert_eq!(editor.cursor.x, 7);
+    }
+
+    #[test]
+    fn test_write_char_with_selected_text_multiple_lines() {
+        let mut editor = create_editor_with_editor_content(vec![
+            "test".to_string(),
+            "Hello Denmark".to_string(),
+            "Hello Sudetenland".to_string(),
+        ]);
+        editor.text_selection_start = Option::Some(CursorPosition { x: 6, y: 1 });
+        editor.text_selection_end = Option::Some(CursorPosition { x: 13, y: 2 });
+        editor.cursor.x = 6;
+        editor.write_char('W');
+        assert_eq!(editor.editor_content[0], "test");
+        assert_eq!(editor.editor_content[1], "Hello W");
+        assert_eq!(editor.editor_content[2], "land");
+        assert_eq!(editor.cursor.x, 7);
+    }
+
+    #[test]
+    fn test_write_char_with_selected_text_special_characters() {
+        let mut editor = create_editor_with_editor_content(vec!["ᚠΩ₿😎".to_string()]);
+        editor.text_selection_start = Option::Some(CursorPosition { x: 1, y: 0 });
+        editor.text_selection_end = Option::Some(CursorPosition { x: 2, y: 0 });
+        editor.cursor.x = 1;
+
+        editor.write_char('a');
+        assert_eq!(editor.editor_content[0], "ᚠa₿😎");
+        assert_eq!(editor.cursor.x, 2);
+    }
+
+    //TAB in editor
+    #[test]
+    fn test_tab_in_editor_start_of_empty_line() {
+        let mut editor = create_editor_with_editor_content(vec!["".to_string()]);
+        editor.tab();
+
+        assert_eq!(editor.cursor.y, 0); // Cursor should stay on line
+        assert_eq!(editor.editor_content.len(), 1); // New line added
+        assert_eq!(
+            editor.visual_cursor_x,
+            editor_settings::TAB_WIDTH as i16
+        );
+    }
+
+    #[test]
+    fn test_tab_in_editor_start_of_line() {
+        let mut editor = create_editor_with_editor_content(vec!["HELLO WORLD".to_string()]);
+        editor.tab();
+
+        assert_eq!(editor.cursor.y, 0); // Cursor should stay on line
+        assert_eq!(editor.editor_content.len(), 1); // New line added
+        assert_eq!(
+            editor.visual_cursor_x,
+            editor_settings::TAB_WIDTH as i16
+        );
+    }
+
+    #[test]
+    fn test_tab_in_editor_mid_of_line_normal_characters() {
+        let mut editor = create_editor_with_editor_content(vec!["1234".to_string()]);
+        editor.cursor.x = 2;
+        editor.tab();
+
+        assert_eq!(editor.cursor.y, 0); // Cursor should stay on line
+        assert_eq!(editor.editor_content.len(), 1); // New line added
+        assert_eq!(editor.visual_cursor_x, 4);
+        editor.move_cursor(10, 0); //move to end
+        assert_eq!(editor.editor_content[0].chars().count(), 5); //should contain special plus \t char
+        assert_eq!(editor.visual_cursor_x, 6); //at end of line should be 6
+    }
+
+    #[test]
+    fn test_tab_in_editor_mid_of_line_special_characters() {
+        let mut editor = create_editor_with_editor_content(vec!["ᚠΩ₿😎".to_string()]);
+        editor.cursor.x = 2;
+        editor.tab();
+
+        assert_eq!(editor.cursor.y, 0); // Cursor should stay on line
+        assert_eq!(editor.editor_content.len(), 1); // New line added
+        assert_eq!(editor.visual_cursor_x, 4);
+        editor.move_cursor(10, 0); //move to end
+        assert_eq!(editor.editor_content[0].chars().count(), 5); //should contain special plus \t char
+        assert_eq!(editor.visual_cursor_x, 6); //at end of line should be 6
+    }
+
+    //ENTER in editor
+
+    #[test]
+    fn test_enter_in_editor_at_end_of_line() {
+        let mut editor = create_editor_with_editor_content(vec!["Hello World".to_string()]);
+        editor.cursor.x = editor.editor_content[0].len() as i16; // Set cursor to end of line
+        editor.enter();
+
+        assert_eq!(editor.cursor.y, 1); // Cursor should move to the next line
+        assert_eq!(editor.editor_content.len(), 2); // New line added
+        assert_eq!(editor.editor_content[1], ""); // New line should be empty
+    }
+
+    #[test]
+    fn test_enter_in_editor_mid_line() {
+        let mut editor = create_editor_with_editor_content(vec!["Hello World".to_string()]);
+        editor.cursor.x = 5; // Split the line at index 5
+        editor.enter();
+
+        assert_eq!(editor.cursor.y, 1); // Cursor should move to next line
+        assert_eq!(editor.cursor.x, 0); // Cursor resets to start of new line
+        assert_eq!(editor.editor_content[0], "Hello"); // Line before cursor is kept intact
+        assert_eq!(editor.editor_content[1], " World"); // Line after cursor is moved to new line
+    }
+}
+
+mod unit_editor_delete_tests{
+    use calliglyph::editor::*;
+    
+    
+    
 }

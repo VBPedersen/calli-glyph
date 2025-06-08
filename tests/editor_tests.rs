@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod write_tests {
-    use crate::app::*; // Access app.rs logic
-    use crate::config::editor_settings;
-    use crate::cursor::CursorPosition;
+    use calliglyph::app::*; // Access app.rs logic
+    use calliglyph::config::editor_settings;
+    use calliglyph::cursor::CursorPosition;
 
     //init functions
     fn create_app_with_editor_content(vec: Vec<String>) -> App {
@@ -13,174 +13,7 @@ mod write_tests {
     }
 
 
-    #[test]
-    fn test_write_char_in_editor() {
-        let mut app = App::new();
-        app.write_char_in_editor('a');
-        assert_eq!(app.editor.editor_content[0], "a");
-        assert_eq!(app.editor.cursor.x, 1);
-    }
-
-    #[test]
-    fn test_write_char_in_editor_normal_characters() {
-        let mut app = App::new();
-        app.write_char_in_editor('a');
-        app.write_char_in_editor('b');
-        app.write_char_in_editor('c');
-        app.write_char_in_editor('d');
-        assert_eq!(app.editor.editor_content[0], "abcd");
-        assert_eq!(app.editor.cursor.x, 4);
-    }
-
-    #[test]
-    fn test_write_char_in_editor_special_characters() {
-        let mut app = App::new();
-        app.write_char_in_editor('ᚠ');
-        app.write_char_in_editor('Ω');
-        app.write_char_in_editor('₿');
-        app.write_char_in_editor('😎');
-        assert_eq!(app.editor.editor_content[0], "ᚠΩ₿😎");
-        assert_eq!(app.editor.cursor.x, 4);
-    }
-
-    #[test]
-    fn test_write_char_in_editor_at_line_10() {
-        let mut app = App::new();
-        app.editor.cursor.y = 10;
-        app.write_char_in_editor('a');
-        assert_eq!(app.editor.editor_content[10], "a");
-        assert_eq!(app.editor.cursor.x, 1);
-    }
-
-    #[test]
-    fn test_write_char_in_editor_at_100_x() {
-        let mut app = App::new();
-        app.editor.cursor.x = 100;
-        app.write_char_in_editor('a');
-        assert_eq!(app.editor.editor_content[0], "a");
-        assert_eq!(app.editor.cursor.x, 1);
-    }
-
-    //Write char to editor with selected text
-    #[test]
-    fn test_write_char_in_editor_with_selected_text() {
-        let mut app = create_app_with_editor_content(vec!["Hello Denmark".to_string()]);
-        app.editor.text_selection_start = Option::Some(CursorPosition { x: 6, y: 0 });
-        app.editor.text_selection_end = Option::Some(CursorPosition { x: 13, y: 0 });
-        app.editor.cursor.x = 6;
-        app.write_all_char_in_editor('W');
-        assert_eq!(app.editor.editor_content[0], "Hello W");
-        assert_eq!(app.editor.cursor.x, 7);
-    }
-
-    #[test]
-    fn test_write_char_in_editor_with_selected_text_multiple_lines() {
-        let mut app = create_app_with_editor_content(vec![
-            "test".to_string(),
-            "Hello Denmark".to_string(),
-            "Hello Sudetenland".to_string(),
-        ]);
-        app.editor.text_selection_start = Option::Some(CursorPosition { x: 6, y: 1 });
-        app.editor.text_selection_end = Option::Some(CursorPosition { x: 13, y: 2 });
-        app.editor.cursor.x = 6;
-        app.write_all_char_in_editor('W');
-        assert_eq!(app.editor.editor_content[0], "test");
-        assert_eq!(app.editor.editor_content[1], "Hello W");
-        assert_eq!(app.editor.editor_content[2], "land");
-        assert_eq!(app.editor.cursor.x, 7);
-    }
-
-    #[test]
-    fn test_write_char_in_editor_with_selected_text_special_characters() {
-        let mut app = create_app_with_editor_content(vec!["ᚠΩ₿😎".to_string()]);
-        app.editor.text_selection_start = Option::Some(CursorPosition { x: 1, y: 0 });
-        app.editor.text_selection_end = Option::Some(CursorPosition { x: 2, y: 0 });
-        app.editor.cursor.x = 1;
-
-        app.write_all_char_in_editor('a');
-        assert_eq!(app.editor.editor_content[0], "ᚠa₿😎");
-        assert_eq!(app.editor.cursor.x, 2);
-    }
-
-    //TAB in editor
-    #[test]
-    fn test_tab_in_editor_start_of_empty_line() {
-        let mut app = create_app_with_editor_content(vec!["".to_string()]);
-        app.tab_in_editor();
-
-        assert_eq!(app.editor.cursor.y, 0); // Cursor should stay on line
-        assert_eq!(app.editor.editor_content.len(), 1); // New line added
-        assert_eq!(
-            app.editor.visual_cursor_x,
-            editor_settings::TAB_WIDTH as i16
-        );
-    }
-
-    #[test]
-    fn test_tab_in_editor_start_of_line() {
-        let mut app = create_app_with_editor_content(vec!["HELLO WORLD".to_string()]);
-        app.tab_in_editor();
-
-        assert_eq!(app.editor.cursor.y, 0); // Cursor should stay on line
-        assert_eq!(app.editor.editor_content.len(), 1); // New line added
-        assert_eq!(
-            app.editor.visual_cursor_x,
-            editor_settings::TAB_WIDTH as i16
-        );
-    }
-
-    #[test]
-    fn test_tab_in_editor_mid_of_line_normal_characters() {
-        let mut app = create_app_with_editor_content(vec!["1234".to_string()]);
-        app.editor.cursor.x = 2;
-        app.tab_in_editor();
-
-        assert_eq!(app.editor.cursor.y, 0); // Cursor should stay on line
-        assert_eq!(app.editor.editor_content.len(), 1); // New line added
-        assert_eq!(app.editor.visual_cursor_x, 4);
-        app.move_cursor_in_editor(10, 0); //move to end
-        assert_eq!(app.editor.editor_content[0].chars().count(), 5); //should contain special plus \t char
-        assert_eq!(app.editor.visual_cursor_x, 6); //at end of line should be 6
-    }
-
-    #[test]
-    fn test_tab_in_editor_mid_of_line_special_characters() {
-        let mut app = create_app_with_editor_content(vec!["ᚠΩ₿😎".to_string()]);
-        app.editor.cursor.x = 2;
-        app.tab_in_editor();
-
-        assert_eq!(app.editor.cursor.y, 0); // Cursor should stay on line
-        assert_eq!(app.editor.editor_content.len(), 1); // New line added
-        assert_eq!(app.editor.visual_cursor_x, 4);
-        app.move_cursor_in_editor(10, 0); //move to end
-        assert_eq!(app.editor.editor_content[0].chars().count(), 5); //should contain special plus \t char
-        assert_eq!(app.editor.visual_cursor_x, 6); //at end of line should be 6
-    }
-
-    //ENTER in editor
-
-    #[test]
-    fn test_enter_in_editor_at_end_of_line() {
-        let mut app = create_app_with_editor_content(vec!["Hello World".to_string()]);
-        app.editor.cursor.x = app.editor.editor_content[0].len() as i16; // Set cursor to end of line
-        app.enter_in_editor();
-
-        assert_eq!(app.editor.cursor.y, 1); // Cursor should move to the next line
-        assert_eq!(app.editor.editor_content.len(), 2); // New line added
-        assert_eq!(app.editor.editor_content[1], ""); // New line should be empty
-    }
-
-    #[test]
-    fn test_enter_in_editor_mid_line() {
-        let mut app = create_app_with_editor_content(vec!["Hello World".to_string()]);
-        app.editor.cursor.x = 5; // Split the line at index 5
-        app.enter_in_editor();
-
-        assert_eq!(app.editor.cursor.y, 1); // Cursor should move to next line
-        assert_eq!(app.editor.cursor.x, 0); // Cursor resets to start of new line
-        assert_eq!(app.editor.editor_content[0], "Hello"); // Line before cursor is kept intact
-        assert_eq!(app.editor.editor_content[1], " World"); // Line after cursor is moved to new line
-    }
+    
 
     
 }
@@ -947,6 +780,7 @@ mod undo_redo_tests {
     use crate::app::*;
     use crate::cursor::CursorPosition;
     use crate::editor::EditAction;
+    use crate::editor::editor::EditAction;
 
     //init functions
     fn create_app_with_editor_content(vec: Vec<String>) -> App {

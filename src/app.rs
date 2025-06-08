@@ -1,6 +1,5 @@
 use crate::clipboard::Clipboard;
 use crate::command_line::CommandLine;
-use crate::config::editor_settings;
 use crate::confirmation_popup::ConfirmationPopup;
 use crate::editor::Editor;
 use crate::error_popup::ErrorPopup;
@@ -14,8 +13,8 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 use std::time::{Duration, Instant};
-use crate::errors::{AppError, EditorError};
-use crate::errors::EditorError::{ClipboardError, RedoError, TextSelectionError, UndoError};
+use crate::errors::{AppError};
+use crate::errors::AppError::EditorFailure;
 
 #[derive(Debug)]
 pub struct App {
@@ -136,6 +135,7 @@ impl App {
     }
 
     //IN EDITOR
+
     ///wrapper function to either call write char with selected text or function write char,
     /// where text isn't selected
     pub(crate) fn write_all_char_in_editor(&mut self, c: char) {
@@ -291,7 +291,7 @@ impl App {
             PendingState::Saving(save_path) => {
                 if self.popup_result == PopupResult::Bool(true) {
                     if let Err(e) = self.save(vec![save_path.clone()]) {
-                        let popup = Box::new(ErrorPopup::new("Failed to save file", AppError::InternalError("e".to_string())));
+                        let popup = Box::new(ErrorPopup::new("Failed to save file", AppError::InternalError(e.to_string())));
                         self.open_popup(popup);
                     }
 
@@ -346,7 +346,7 @@ impl App {
     ///saves contents to file, if any file path specified in args then saves to that file,
     /// if not and file path is existing then saves to that, else saves to untitled
     /// command_bind <file_path> --flags
-    pub(crate) fn save(&mut self, args: Vec<String>) -> Result<()> {
+    pub fn save(&mut self, args: Vec<String>) -> Result<()> {
         let path;
         let mut path_is_current_file: bool = false;
         let has_changes: bool;
@@ -449,7 +449,7 @@ impl App {
     }
 
     ///copies text within bound of text selected to copied_text
-    pub(crate) fn copy_selected_text(&mut self) -> Result<(),EditorError> {
+    pub(crate) fn copy_selected_text(&mut self) -> Result<(),AppError> {
         match self.editor.copy_selected_text(){
             Ok(selected_text) => {
                 //copy to clipboard
@@ -460,13 +460,13 @@ impl App {
                 Ok(())
             },
             Err(e) => {
-                Err(TextSelectionError(e))
+                Err(EditorFailure(e))
             }
         }
     }
 
     ///cuts text within bound of text selected to copied_text
-    pub(crate) fn cut_selected_text(&mut self) -> Result<(),EditorError> {
+    pub(crate) fn cut_selected_text(&mut self) -> Result<(),AppError> {
         match self.editor.cut_selected_text(){
             Ok(selected_text) => {
                 //copy to clipboard
@@ -477,47 +477,155 @@ impl App {
                 Ok(())
             },
             Err(e) => {
-                Err(TextSelectionError(e))
+                Err(EditorFailure(e))
             }
         }
 
     }
 
     ///pastes text from copied text to editor content
-    pub(crate) fn paste_selected_text(&mut self) -> Result<(),EditorError> {
+    pub(crate) fn paste_selected_text(&mut self) -> Result<(), AppError> {
         match self.editor.paste_selected_text(self.clipboard.copied_text.clone()){
             Ok(()) => {
                 Ok(())
             },
             Err(e) => {
-                Err(ClipboardError(e))
+                Err(EditorFailure(e))
             }
         }
     }
 
     ///undos last edit action
-    pub(crate) fn undo_in_editor(&mut self) -> Result<(),EditorError> {
+    pub(crate) fn undo_in_editor(&mut self) -> Result<(),AppError> {
         match self.editor.undo(){
             Ok(()) => {
                 Ok(())
             },
             Err(e) => {
-                Err(UndoError(e))
+                Err(EditorFailure(e))
             }
         }
     }
 
     ///redos last edit action
-    pub(crate) fn redo_in_editor(&mut self) -> Result<(),EditorError> {
+    pub(crate) fn redo_in_editor(&mut self) -> Result<(),AppError> {
         match self.editor.redo(){
             Ok(()) => {
                 Ok(())
             },
             Err(e) => {
-                Err(RedoError(e))
+                Err(EditorFailure(e))
             }
         }
     }
 
-    //HELPER FUNCTIONS FOR BASIC COMMANDS
 }
+
+
+
+
+
+//████████╗███████╗███████╗████████╗███████╗
+//╚══██╔══╝██╔════╝██╔════╝╚══██╔══╝██╔════╝
+//   ██║   █████╗  ███████╗   ██║   ███████╗
+//   ██║   ██╔══╝  ╚════██║   ██║   ╚════██║
+//   ██║   ███████╗███████║   ██║   ███████║
+//   ╚═╝   ╚══════╝╚══════╝   ╚═╝   ╚══════╝
+
+
+mod unit_app_tests {
+    use crate::app::*;
+
+    fn create_app() -> App {
+        let mut app = App::new();
+        app
+    }
+
+    
+    
+    #[test]
+    fn test_toggle_to_command_line() {
+        let mut app = create_app();
+        app.active_area = ActiveArea::Editor;
+        app.editor.cursor.x = 5;
+        app.editor.cursor.y = 3;
+
+        app.toggle_active_area();
+        assert_eq!(app.active_area, ActiveArea::CommandLine);
+        assert_eq!(app.command_line.cursor.x, 0);
+        assert_eq!(app.command_line.cursor.y, 0);
+        assert_eq!(app.editor.cursor.x, 5);
+        assert_eq!(app.editor.cursor.y, 3);
+    }
+
+    #[test]
+    fn test_toggle_to_editor() {
+        let mut app = create_app();
+        app.active_area = ActiveArea::CommandLine;
+        app.editor.cursor.x = 5;
+        app.editor.cursor.y = 3;
+
+        app.toggle_active_area();
+        assert_eq!(app.active_area, ActiveArea::Editor);
+        assert_eq!(app.editor.cursor.x, 5);
+        assert_eq!(app.editor.cursor.y, 3);
+    }
+    
+}
+
+mod unit_app_command_line_tests {
+    use calliglyph::app::App;
+
+    
+
+    fn create_app_with_command_input(s: String) -> App {
+        let mut app = App::new();
+        app.command_line.input = s;
+        app
+    }
+
+    //writing chars to command line
+    #[test]
+    fn test_write_char_to_command_line() {
+        let mut app = create_app_with_command_input("".to_string());
+        app.write_char_to_command_line('A');
+
+        assert_eq!(app.command_line.input, "A");
+        assert_eq!(app.command_line.cursor.x, 1);
+    }
+
+    #[test]
+    fn test_write_char_to_command_line_mid_input() {
+        let mut app = create_app_with_command_input("Test".to_string());
+        app.command_line.cursor.x = 2;
+        app.write_char_to_command_line('X');
+
+        assert_eq!(app.command_line.input, "TeXst");
+        assert_eq!(app.command_line.cursor.x, 3);
+    }
+
+    //BACKSPACE in commandline
+
+    #[test]
+    fn test_backspace_at_start() {
+        let mut app = create_app_with_command_input("".to_string());
+        app.command_line.cursor.x = 0;
+        app.backspace_on_command_line();
+
+        assert_eq!(app.command_line.input, "");
+        assert_eq!(app.command_line.cursor.x, 0);
+    }
+
+    #[test]
+    fn test_backspace_in_middle() {
+        let mut app = create_app_with_command_input("Test".to_string());
+        app.command_line.cursor.x = 3;
+        app.backspace_on_command_line();
+
+        assert_eq!(app.command_line.input, "Tet");
+        assert_eq!(app.command_line.cursor.x, 2);
+    }
+    
+}
+
+

@@ -3,10 +3,13 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum AppError {
     #[error("EditorError: {0}")]
-    EditorError(#[from] EditorError),
+    EditorFailure(#[from] EditorError),
 
     #[error("Internal error: {0}")]
     InternalError(String),
+
+    #[error("IO error: {0}")]
+    IoError(#[from] std::io::Error),
 
 }
 
@@ -15,19 +18,19 @@ pub enum AppError {
 #[derive(Error, Debug)]
 pub enum EditorError {
     #[error("Failed to copy text: {0}")]
-    TextSelectionError(#[from] TextSelectionError),
+    TextSelectionFailure(#[from] TextSelectionError),
 
     #[error("Clipboard failed: {0}")]
-    ClipboardError(#[from] ClipboardError),
+    ClipboardFailure(#[from] ClipboardError),
 
     #[error("File: {0} not found")]
     FileNotFound(String),
 
     #[error("UNDO failed: {0}")]
-    UndoError(#[from] UndoError),
+    UndoFailure(#[from] UndoError),
 
     #[error("REDO failed: {0}")]
-    RedoError(#[from] RedoError),
+    RedoFailure(#[from] RedoError),
 
 }
 
