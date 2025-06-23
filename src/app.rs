@@ -54,7 +54,7 @@ impl Default for App {
             running: Default::default(),
             active_area: Default::default(),
             editor: Editor::new(),
-            command_line: CommandLine::default(),
+            command_line: CommandLine::new(),
             last_tick: Instant::now(),
             cursor_visible: true,
             terminal_height: 0,
@@ -210,20 +210,11 @@ impl App {
 
     /// writes char to the commandline content at x position, and moves cursor
     pub(crate) fn write_char_to_command_line(&mut self, c: char) {
-        let line = &mut self.command_line.input;
-        if line.len() < self.command_line.cursor.x as usize {
-            self.command_line.cursor.x = line.len() as i16;
-        }
-        line.insert(self.command_line.cursor.x as usize, c);
-        self.move_cursor_in_command_line(1);
+        self.command_line.write_char(c);
     }
 
     pub(crate) fn backspace_on_command_line(&mut self) {
-        let line = &mut self.command_line.input;
-        if self.command_line.cursor.x > 0 && self.command_line.cursor.x <= line.len() as i16 {
-            line.remove(self.command_line.cursor.x as usize - 1);
-            self.move_cursor_in_command_line(-1);
-        }
+        self.command_line.backspace();
     }
 
     //CURSOR
@@ -254,8 +245,7 @@ impl App {
     //IN COMMAND LINE
     ///moves cursor by x and y amounts in commandline
     pub(crate) fn move_cursor_in_command_line(&mut self, x: i16) {
-        let max_x_pos: i16 = self.command_line.input.len() as i16;
-        self.command_line.cursor.x = (self.command_line.cursor.x + x).clamp(0, max_x_pos);
+        self.command_line.move_cursor(x);
     }
 
     //SCROLL
@@ -571,61 +561,7 @@ mod unit_app_tests {
     }
     
 }
-#[cfg(test)]
-mod unit_app_command_line_tests {
-    use crate::app::App;
 
-    
-
-    fn create_app_with_command_input(s: String) -> App {
-        let mut app = App::new();
-        app.command_line.input = s;
-        app
-    }
-
-    //writing chars to command line
-    #[test]
-    fn test_write_char_to_command_line() {
-        let mut app = create_app_with_command_input("".to_string());
-        app.write_char_to_command_line('A');
-
-        assert_eq!(app.command_line.input, "A");
-        assert_eq!(app.command_line.cursor.x, 1);
-    }
-
-    #[test]
-    fn test_write_char_to_command_line_mid_input() {
-        let mut app = create_app_with_command_input("Test".to_string());
-        app.command_line.cursor.x = 2;
-        app.write_char_to_command_line('X');
-
-        assert_eq!(app.command_line.input, "TeXst");
-        assert_eq!(app.command_line.cursor.x, 3);
-    }
-
-    //BACKSPACE in commandline
-
-    #[test]
-    fn test_backspace_at_start() {
-        let mut app = create_app_with_command_input("".to_string());
-        app.command_line.cursor.x = 0;
-        app.backspace_on_command_line();
-
-        assert_eq!(app.command_line.input, "");
-        assert_eq!(app.command_line.cursor.x, 0);
-    }
-
-    #[test]
-    fn test_backspace_in_middle() {
-        let mut app = create_app_with_command_input("Test".to_string());
-        app.command_line.cursor.x = 3;
-        app.backspace_on_command_line();
-
-        assert_eq!(app.command_line.input, "Tet");
-        assert_eq!(app.command_line.cursor.x, 2);
-    }
-    
-}
 #[cfg(test)]
 mod unit_app_cutcopy_tests{
     use crate::cursor::CursorPosition;
