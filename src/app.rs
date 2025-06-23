@@ -5,7 +5,7 @@ use crate::editor::Editor;
 use crate::popups::error_popup::ErrorPopup;
 use crate::input::handle_input;
 use crate::popups::popup::{Popup, PopupResult};
-use crate::ui::ui;  
+use crate::ui::ui;
 use color_eyre::Result;
 use ratatui::DefaultTerminal;
 use std::fs;
