@@ -1,11 +1,11 @@
 use crate::clipboard::Clipboard;
 use crate::command_line::CommandLine;
-use crate::confirmation_popup::ConfirmationPopup;
+use crate::popups::confirmation_popup::ConfirmationPopup;
 use crate::editor::Editor;
-use crate::error_popup::ErrorPopup;
+use crate::popups::error_popup::ErrorPopup;
 use crate::input::handle_input;
-use crate::popup::{Popup, PopupResult};
-use crate::ui::ui;
+use crate::popups::popup::{Popup, PopupResult};
+use crate::ui::ui;  
 use color_eyre::Result;
 use ratatui::DefaultTerminal;
 use std::fs;

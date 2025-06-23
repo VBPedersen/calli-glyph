@@ -1,4 +1,4 @@
-use crate::popup::{Popup, PopupResult, PopupType};
+use crate::popups::popup::{Popup, PopupResult, PopupType};
 use crossterm::event::KeyEvent;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::{Color, Line, Span, Style, Text};
@@ -34,9 +34,9 @@ impl Popup for ErrorPopup {
             Line::from(Span::raw(format!("{}", self.error))), // Empty line
             Line::from(Span::styled(" OK ", button_style)),
         ]))
-        .block(popup_block)
-        .style(Style::default().fg(Color::White).bg(Color::Black))
-        .alignment(Alignment::Center);
+            .block(popup_block)
+            .style(Style::default().fg(Color::White).bg(Color::Black))
+            .alignment(Alignment::Center);
 
         // Render the popup in the centered `area`
         frame.render_widget(Clear, area); // Clears the popup area to avoid overlap

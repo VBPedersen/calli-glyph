@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod integration_app_tests {
     use calliglyph::app::*;
-    use calliglyph::popup::PopupResult;
+    use calliglyph::popups::popup::PopupResult;
     use std::fs;
     use std::path::Path;
     use tempfile::NamedTempFile;
