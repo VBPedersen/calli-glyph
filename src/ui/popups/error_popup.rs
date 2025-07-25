@@ -4,7 +4,7 @@ use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::{Color, Line, Span, Style, Text};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use ratatui::Frame;
-use super::super::errors::AppError;
+use crate::core::errors::AppError;
 
 pub struct ErrorPopup {
     pub message: String,

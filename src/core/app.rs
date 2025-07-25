@@ -1,10 +1,10 @@
 use super::clipboard::Clipboard;
 use super::command_line::CommandLine;
-use super::popups::confirmation_popup::ConfirmationPopup;
+use crate::ui::popups::confirmation_popup::ConfirmationPopup;
 use super::editor::Editor;
-use super::popups::error_popup::ErrorPopup;
+use crate::ui::popups::error_popup::ErrorPopup;
 use crate::input::input::handle_input;
-use super::popups::popup::{Popup, PopupResult};
+use crate::ui::popups::popup::{Popup, PopupResult};
 use crate::ui::ui::ui;
 use color_eyre::Result;
 use ratatui::DefaultTerminal;

@@ -1,7 +1,7 @@
 use crate::core::app::ActiveArea;
 use crate::config::{command_binds, key_binds};
-use crate::core::popups::error_popup::ErrorPopup;
-use crate::core::popups::popup::PopupType;
+use crate::ui::popups::error_popup::ErrorPopup;
+use crate::ui::popups::popup::PopupType;
 use crate::core::app::App;
 use crossterm::event;
 use crossterm::event::{
