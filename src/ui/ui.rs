@@ -1,6 +1,6 @@
-use crate::app::{ActiveArea, App};
 use crate::config::editor_settings;
-use crate::cursor::CursorPosition;
+use crate::core::app::{ActiveArea, App};
+use crate::core::cursor::CursorPosition;
 use ratatui::layout::{Alignment, Position, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span, Text};
@@ -15,7 +15,6 @@ use std::vec;
 
 pub fn ui(frame: &mut Frame, app: &mut App) {
     app.terminal_height = frame.area().height as i16;
-
 
     let layout = Layout::default()
         .direction(Direction::Vertical)
@@ -186,12 +185,11 @@ fn editor_side_line(
                 line_nrs.push_line(line);
             }
         } else if dest_to_cursor_y == 0 {
-                let line = Line::from(vec![Span::styled(nr.to_string(), current_line_style)]);
-                line_nrs.push_line(line);
-            } else {
-                line_nrs.push_line(dest_to_cursor_y.to_string());
-            }
-
+            let line = Line::from(vec![Span::styled(nr.to_string(), current_line_style)]);
+            line_nrs.push_line(line);
+        } else {
+            line_nrs.push_line(dest_to_cursor_y.to_string());
+        }
     }
 
     Paragraph::new(line_nrs)
@@ -242,11 +240,11 @@ fn handle_editor_content<'a>(
         editor_text = highlight_text(editor_vec.clone(), selection_start, selection_end);
     } else {
         for (i, s) in editor_vec.into_iter().enumerate() {
-
             let visual_x = app.editor.visual_cursor_x;
 
             // Only scroll the line the cursor is on
-            let line: Line = if i == app.editor.cursor.y as usize && visual_x > editor_width as i16 {
+            let line: Line = if i == app.editor.cursor.y as usize && visual_x > editor_width as i16
+            {
                 let start_idx = (visual_x - editor_width as i16).max(0) as usize;
                 Line::from(
                     get_copy_of_editor_content_at_line_between_cursor_editor_width(s, start_idx),

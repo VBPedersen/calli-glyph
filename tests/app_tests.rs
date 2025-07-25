@@ -1,41 +1,15 @@
 #[cfg(test)]
-mod app_tests {
-    use crate::app::*;
-    use crate::popup::PopupResult;
+mod integration_app_tests {
+    use calliglyph::core::app::*;
+    use calliglyph::ui::popups::popup::PopupResult;
     use std::fs;
     use std::path::Path;
+    use tempfile::NamedTempFile;
 
     //init functions
     fn create_app() -> App {
         let mut app = App::new();
         app
-    }
-    #[test]
-    fn test_toggle_to_command_line() {
-        let mut app = create_app();
-        app.active_area = ActiveArea::Editor;
-        app.editor.cursor.x = 5;
-        app.editor.cursor.y = 3;
-
-        app.toggle_active_area();
-        assert_eq!(app.active_area, ActiveArea::CommandLine);
-        assert_eq!(app.command_line.cursor.x, 0);
-        assert_eq!(app.command_line.cursor.y, 0);
-        assert_eq!(app.editor.cursor.x, 5);
-        assert_eq!(app.editor.cursor.y, 3);
-    }
-
-    #[test]
-    fn test_toggle_to_editor() {
-        let mut app = create_app();
-        app.active_area = ActiveArea::CommandLine;
-        app.editor.cursor.x = 5;
-        app.editor.cursor.y = 3;
-
-        app.toggle_active_area();
-        assert_eq!(app.active_area, ActiveArea::Editor);
-        assert_eq!(app.editor.cursor.x, 5);
-        assert_eq!(app.editor.cursor.y, 3);
     }
 
     fn test_save_path(filename: &str) -> String {
@@ -115,71 +89,12 @@ mod app_tests {
         // Cleanup test file
         fs::remove_file(&save_path).ok();
     }
-}
 
-
-
-#[cfg(test)]
-mod app_command_line_tests {
-    use crate::app::*;
-    use std::fs;
-    use tempfile::NamedTempFile; // Access app.rs logic
-
-    //init functions
     fn create_app_with_editor_content(vec: Vec<String>) -> App {
         let mut app = App::new();
         app.editor.editor_content = vec;
         app
     }
-
-    fn create_app_with_command_input(s: String) -> App {
-        let mut app = App::new();
-        app.command_line.input = s;
-        app
-    }
-
-    //writing chars to command line
-    #[test]
-    fn test_write_char_to_command_line() {
-        let mut app = create_app_with_command_input("".to_string());
-        app.write_char_to_command_line('A');
-
-        assert_eq!(app.command_line.input, "A");
-        assert_eq!(app.command_line.cursor.x, 1);
-    }
-
-    #[test]
-    fn test_write_char_to_command_line_mid_input() {
-        let mut app = create_app_with_command_input("Test".to_string());
-        app.command_line.cursor.x = 2;
-        app.write_char_to_command_line('X');
-
-        assert_eq!(app.command_line.input, "TeXst");
-        assert_eq!(app.command_line.cursor.x, 3);
-    }
-
-    //BACKSPACE in commandline
-
-    #[test]
-    fn test_backspace_at_start() {
-        let mut app = create_app_with_command_input("".to_string());
-        app.command_line.cursor.x = 0;
-        app.backspace_on_command_line();
-
-        assert_eq!(app.command_line.input, "");
-        assert_eq!(app.command_line.cursor.x, 0);
-    }
-
-    #[test]
-    fn test_backspace_in_middle() {
-        let mut app = create_app_with_command_input("Test".to_string());
-        app.command_line.cursor.x = 3;
-        app.backspace_on_command_line();
-
-        assert_eq!(app.command_line.input, "Tet");
-        assert_eq!(app.command_line.cursor.x, 2);
-    }
-
     #[test]
     fn test_save_with_specified_file() {
         let temp_file = NamedTempFile::new().unwrap();
