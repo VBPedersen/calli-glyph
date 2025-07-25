@@ -1,10 +1,11 @@
-
-use crate::config::editor_settings;
 use super::super::cursor::Cursor;
 use super::super::cursor::CursorPosition;
-use super::undo_redo::UndoRedoManager;
+use super::super::errors::EditorError::{
+    ClipboardFailure, RedoFailure, TextSelectionFailure, UndoFailure,
+};
 use super::super::errors::{ClipboardError, EditorError, TextSelectionError};
-use super::super::errors::EditorError::{ClipboardFailure, RedoFailure, TextSelectionFailure, UndoFailure};
+use super::undo_redo::UndoRedoManager;
+use crate::config::editor_settings;
 
 #[derive(Debug, Clone)]
 pub enum EditAction {
@@ -32,9 +33,7 @@ pub enum EditAction {
         start: CursorPosition,
         deleted: Vec<String>,
     },
-
 }
-
 
 /// handles editor content
 #[derive(Debug)]
@@ -47,7 +46,7 @@ pub struct Editor {
     pub editor_width: i16,
     pub scroll_offset: i16,
     pub editor_height: u16,
-    undo_redo_manager: UndoRedoManager
+    undo_redo_manager: UndoRedoManager,
 }
 
 impl Editor {
@@ -65,30 +64,25 @@ impl Editor {
         }
     }
 
-
     //undo manager
     ///undo wrapper function, that calls the UndoRedoManager
     pub fn undo(&mut self) -> Result<(), EditorError> {
-        match self.undo_redo_manager.undo(){
+        match self.undo_redo_manager.undo() {
             Ok(action) => {
                 self.apply_action(&action);
                 Ok(())
-            },
-            Err(e) => {
-                Err(UndoFailure(e))
             }
+            Err(e) => Err(UndoFailure(e)),
         }
     }
     ///redo wrapper function, that calls the UndoRedoManager
     pub fn redo(&mut self) -> Result<(), EditorError> {
-        match self.undo_redo_manager.redo(){
+        match self.undo_redo_manager.redo() {
             Ok(action) => {
                 self.apply_action(&action);
                 Ok(())
-            },
-            Err(e) => {
-                Err(RedoFailure(e))
             }
+            Err(e) => Err(RedoFailure(e)),
         }
     }
 
@@ -103,7 +97,9 @@ impl Editor {
                 self.set_cursor_position(*pos);
                 self.delete_char_at(*pos);
             }
-            EditAction::Replace { start, end, new, .. } => {
+            EditAction::Replace {
+                start, end, new, ..
+            } => {
                 self.set_cursor_position(*start);
                 self.replace_selection_with_text(*start, *end, *new);
             }
@@ -118,16 +114,11 @@ impl Editor {
         }
     }
 
-
-
     //copy, cut and paste
 
     ///copies text within bound of text selected to copied_text
     pub fn copy_selected_text(&mut self) -> Result<Vec<String>, EditorError> {
-        if let (Some(start), Some(end)) = (
-            self.text_selection_start,
-            self.text_selection_end,
-        ) {
+        if let (Some(start), Some(end)) = (self.text_selection_start, self.text_selection_end) {
             let mut selected_text: Vec<String> = Vec::new();
             let lines = &self.editor_content[start.y..=end.y];
 
@@ -149,8 +140,7 @@ impl Editor {
                     selected_text.push(extracted_text);
                 }
             } else {
-                let mut line_chars: Vec<char> =
-                    self.editor_content[start.y].chars().collect();
+                let mut line_chars: Vec<char> = self.editor_content[start.y].chars().collect();
                 let extracted_text: String = line_chars.drain(start.x..end.x).collect();
                 selected_text.push(extracted_text);
             }
@@ -163,10 +153,7 @@ impl Editor {
 
     ///cuts text within bound of text selected to copied_text
     pub fn cut_selected_text(&mut self) -> Result<Vec<String>, EditorError> {
-        if let (Some(start), Some(end)) = (
-            self.text_selection_start,
-            self.text_selection_end,
-        ) {
+        if let (Some(start), Some(end)) = (self.text_selection_start, self.text_selection_end) {
             let mut selected_text: Vec<String> = Vec::new();
             let lines = self.editor_content[start.y..=end.y].as_mut();
             let line_length = lines.len();
@@ -250,8 +237,7 @@ impl Editor {
             }
 
             // Last copied line + remainder of the original line
-            let last_copied_line =
-                &copied_text[copied_text.len() - 1];
+            let last_copied_line = &copied_text[copied_text.len() - 1];
             new_lines.push(format!(
                 "{}{}",
                 last_copied_line,
@@ -259,18 +245,13 @@ impl Editor {
             ));
 
             // Replace the current line and insert new lines
-            self
-                .editor_content
-                .splice(insert_y..=insert_y, new_lines);
+            self.editor_content.splice(insert_y..=insert_y, new_lines);
         }
 
         // Clear copied text after pasting
         //self.copied_text.clear();
         Ok(())
     }
-
-
-
 
     //editor writing
     ///writes char to y position line, with x position
@@ -295,9 +276,7 @@ impl Editor {
         *line = line_chars_vec.into_iter().collect();
 
         self.move_cursor(1, 0);
-        
     }
-
 
     ///replaces all selected text with char to y position line, with x position
     pub fn write_char_text_is_selected(&mut self, c: char) {
@@ -349,7 +328,6 @@ impl Editor {
         *line = line_chars_vec.into_iter().collect();
 
         self.move_cursor(1, 0)
-        
     }
 
     //editor enter
@@ -358,8 +336,7 @@ impl Editor {
         let line = &mut self.editor_content[self.cursor.y as usize];
         //if at end of line len, then just move cursor and make new line, else move text too
         if self.cursor.x >= line.chars().count() as i16 {
-            self
-                .editor_content
+            self.editor_content
                 .insert(self.cursor.y as usize + 1, String::new());
             self.move_cursor(0, 1);
         } else {
@@ -372,20 +349,16 @@ impl Editor {
             self.move_cursor(0, 1);
             self.editor_content
                 .insert(self.cursor.y as usize, String::new());
-            self.editor_content[self.cursor.y as usize] =
-                line_end.into_iter().collect();
+            self.editor_content[self.cursor.y as usize] = line_end.into_iter().collect();
             self.cursor.x = 0;
         }
     }
-
 
     //editor backspace
     ///handles backspace in editor, removes char at y line x position and sets new cursor position
     pub fn backspace_in_editor(&mut self) {
         let mut deleted_char: Option<char> = None;
-        let line_char_count = self.editor_content[self.cursor.y as usize]
-            .chars()
-            .count() as i16;
+        let line_char_count = self.editor_content[self.cursor.y as usize].chars().count() as i16;
         if self.cursor.x > 0 && self.cursor.x <= line_char_count {
             let line = &mut self.editor_content[self.cursor.y as usize];
             let mut line_chars_vec: Vec<char> = line.chars().collect();
@@ -396,9 +369,7 @@ impl Editor {
             //line.remove(self.editor.cursor.x as usize -1);
             self.move_cursor(-1, 0);
         } else if self.cursor.y > 0 {
-            let line = &mut self
-                .editor_content
-                .remove(self.cursor.y as usize);
+            let line = &mut self.editor_content.remove(self.cursor.y as usize);
             let new_x_value = self.editor_content[(self.cursor.y - 1) as usize]
                 .chars()
                 .count() as i16;
@@ -406,12 +377,15 @@ impl Editor {
             self.cursor.x = new_x_value;
             self.editor_content[self.cursor.y as usize].push_str(line);
         }
-        
-        if let Some(char) =  deleted_char {
-            self.undo_redo_manager.record_undo(
-                EditAction::Delete {
-                pos: CursorPosition { x: self.cursor.x as usize, y: self.cursor.y as usize },
-                deleted_char: char.clone() });
+
+        if let Some(char) = deleted_char {
+            self.undo_redo_manager.record_undo(EditAction::Delete {
+                pos: CursorPosition {
+                    x: self.cursor.x as usize,
+                    y: self.cursor.y as usize,
+                },
+                deleted_char: char.clone(),
+            });
         }
     }
 
@@ -451,9 +425,7 @@ impl Editor {
 
     ///handles DELETE action, of deleting char in editor at x +1 position
     pub(crate) fn delete_in_editor(&mut self) {
-        let current_line_len = self.editor_content[self.cursor.y as usize]
-            .chars()
-            .count() as i16;
+        let current_line_len = self.editor_content[self.cursor.y as usize].chars().count() as i16;
 
         if current_line_len == 0 {
             return;
@@ -462,9 +434,7 @@ impl Editor {
         if self.cursor.x >= current_line_len - 1
             && self.editor_content.len() > (self.cursor.y + 1) as usize
         {
-            let line = &mut self
-                .editor_content
-                .remove((self.cursor.y + 1) as usize);
+            let line = &mut self.editor_content.remove((self.cursor.y + 1) as usize);
             self.editor_content[self.cursor.y as usize].push_str(line);
         } else if current_line_len > (self.cursor.x + 1) {
             let line = &mut self.editor_content[self.cursor.y as usize];
@@ -513,9 +483,7 @@ impl Editor {
         self.visual_cursor_x = self.calculate_visual_x() as i16;
     }
 
-
     //editor cursor moving
-
 
     ///moves the cursor in relation to editor content
     pub fn move_cursor(&mut self, x: i16, y: i16) {
@@ -536,10 +504,7 @@ impl Editor {
         if x > 0 && self.cursor.x < max_x_pos {
             self.cursor.x += x;
         } else if x == 1
-            && self.cursor.x
-            >= self.editor_content[self.cursor.y as usize]
-            .chars()
-            .count() as i16
+            && self.cursor.x >= self.editor_content[self.cursor.y as usize].chars().count() as i16
             && self.editor_content.len() > self.cursor.y as usize + 1
         {
             //else if end of line and more lines
@@ -555,9 +520,7 @@ impl Editor {
         } else if self.cursor.x == 0 && x == -1 && self.cursor.y != 0 {
             //else if start of line and more lines
             self.cursor.y -= 1;
-            self.cursor.x = self.editor_content[self.cursor.y as usize]
-                .chars()
-                .count() as i16;
+            self.cursor.x = self.editor_content[self.cursor.y as usize].chars().count() as i16;
             self.visual_cursor_x = self.calculate_visual_x() as i16;
             return;
         }
@@ -572,7 +535,6 @@ impl Editor {
         self.cursor.x = self.cursor.x.clamp(0, max_x_pos);
         self.cursor.y = (self.cursor.y + y).clamp(0, i16::MAX);
         self.visual_cursor_x = self.calculate_visual_x() as i16;
-
     }
 
     ///moves selection cursor
@@ -640,7 +602,6 @@ impl Editor {
         (start, end)
     }
 
-
     //SCROLL
     ///moves the scroll offset
     pub(crate) fn move_scroll_offset(&mut self, offset: i16) {
@@ -681,12 +642,7 @@ impl Editor {
         let bottom = self.cursor.y == self.scroll_offset + (self.editor_height as i16);
         (top, bottom)
     }
-    
-
-
 }
-
-
 
 //██╗  ██╗███████╗██╗     ██████╗ ███████╗██████╗ ███████╗
 //██║  ██║██╔════╝██║     ██╔══██╗██╔════╝██╔══██╗██╔════╝
@@ -730,7 +686,12 @@ impl Editor {
     }
 
     /// Replace a text selection (from start to end) with new text
-    pub(crate) fn replace_selection_with_text(&mut self, start: CursorPosition, end: CursorPosition, new: char) {
+    pub(crate) fn replace_selection_with_text(
+        &mut self,
+        start: CursorPosition,
+        end: CursorPosition,
+        new: char,
+    ) {
         if start.y == end.y {
             if let Some(line) = self.editor_content.get_mut(start.y) {
                 let mut chars: Vec<char> = line.chars().collect();
@@ -766,7 +727,6 @@ impl Editor {
     }
 }
 
-
 impl Default for Editor {
     fn default() -> Self {
         Self::new()
@@ -781,9 +741,9 @@ impl Default for Editor {
 //   ╚═╝   ╚══════╝╚══════╝   ╚═╝   ╚══════╝
 #[cfg(test)]
 mod unit_editor_write_tests {
-    use crate::config::editor_settings;
     use super::super::super::cursor::CursorPosition;
     use super::super::editor::*;
+    use crate::config::editor_settings;
 
     //init functions
     fn create_editor_with_editor_content(vec: Vec<String>) -> Editor {
@@ -890,10 +850,7 @@ mod unit_editor_write_tests {
 
         assert_eq!(editor.cursor.y, 0); // Cursor should stay on line
         assert_eq!(editor.editor_content.len(), 1); // New line added
-        assert_eq!(
-            editor.visual_cursor_x,
-            editor_settings::TAB_WIDTH as i16
-        );
+        assert_eq!(editor.visual_cursor_x, editor_settings::TAB_WIDTH as i16);
     }
 
     #[test]
@@ -903,10 +860,7 @@ mod unit_editor_write_tests {
 
         assert_eq!(editor.cursor.y, 0); // Cursor should stay on line
         assert_eq!(editor.editor_content.len(), 1); // New line added
-        assert_eq!(
-            editor.visual_cursor_x,
-            editor_settings::TAB_WIDTH as i16
-        );
+        assert_eq!(editor.visual_cursor_x, editor_settings::TAB_WIDTH as i16);
     }
 
     #[test]
@@ -963,10 +917,10 @@ mod unit_editor_write_tests {
     }
 }
 #[cfg(test)]
-mod unit_editor_delete_tests{
+mod unit_editor_delete_tests {
     use super::super::super::cursor::CursorPosition;
     use super::super::editor::*;
-    
+
     fn create_editor_with_editor_content(vec: Vec<String>) -> Editor {
         let mut editor = Editor::new();
         editor.editor_content = vec;
@@ -1015,7 +969,7 @@ mod unit_editor_delete_tests{
         // Set a selection range (e.g., "Denmark")
         editor.text_selection_start = Some(CursorPosition { x: 6, y: 0 }); // Start of "Denmark"
         editor.text_selection_end = Some(CursorPosition { x: 13, y: 0 }); // End of "Denmark"
-        // Call the function to simulate a backspace with text selected
+                                                                          // Call the function to simulate a backspace with text selected
         editor.backspace_text_is_selected();
 
         // Assert that the selected text is removed
@@ -1042,7 +996,7 @@ mod unit_editor_delete_tests{
         // Set a selection range (e.g., "Denmark")
         editor.text_selection_start = Some(CursorPosition { x: 6, y: 1 }); // Start of "Denmark"
         editor.text_selection_end = Some(CursorPosition { x: 13, y: 2 }); // End of "Denmark"
-        // Call the function to simulate a backspace with text selected
+                                                                          // Call the function to simulate a backspace with text selected
         editor.backspace_text_is_selected();
 
         assert_eq!(editor.editor_content.len(), 3);
@@ -1147,7 +1101,7 @@ mod unit_editor_delete_tests{
         // Set a selection range (e.g., "Denmark")
         editor.text_selection_start = Some(CursorPosition { x: 6, y: 0 }); // Start of "Denmark"
         editor.text_selection_end = Some(CursorPosition { x: 13, y: 0 }); // End of "Denmark"
-        // Call the function to simulate a backspace with text selected
+                                                                          // Call the function to simulate a backspace with text selected
         editor.delete_text_is_selected();
 
         // Assert that the selected text is removed
@@ -1175,7 +1129,7 @@ mod unit_editor_delete_tests{
         // Set a selection range (e.g., "Denmark")
         editor.text_selection_start = Some(CursorPosition { x: 6, y: 1 }); // Start of "Denmark"
         editor.text_selection_end = Some(CursorPosition { x: 13, y: 2 }); // End of "Denmark"
-        // Call the function to simulate a backspace with text selected
+                                                                          // Call the function to simulate a backspace with text selected
         editor.delete_text_is_selected();
 
         assert_eq!(editor.editor_content.len(), 3);
@@ -1241,11 +1195,10 @@ mod unit_editor_delete_tests{
         assert_eq!(editor.cursor.x, 13);
         assert_eq!(editor.cursor.y, 0);
     }
-    
 }
 
 #[cfg(test)]
-mod unit_editor_cursor_tests{
+mod unit_editor_cursor_tests {
     use super::super::editor::*;
 
     fn create_editor_with_editor_content(vec: Vec<String>) -> Editor {
@@ -1418,8 +1371,6 @@ mod unit_editor_cursor_tests{
         assert_eq!(editor.text_selection_end.unwrap().x, 3);
         assert_eq!(editor.text_selection_end.unwrap().y, 0);
     }
-    
-    
 }
 
 /*
@@ -1533,7 +1484,7 @@ mod unit_editor_undoredo_tests{
         editor.redo().unwrap();
         assert_eq!(editor.editor_content[0], "fox");
     }
-    
+
 
     // ========== InsertLines ==========
     #[test]
@@ -1629,7 +1580,7 @@ mod unit_editor_undoredo_tests{
             start: pos,
             deleted: removed.clone(),
         });
-        
+
         editor.editor_content.clear();
         assert_eq!(editor.editor_content, Vec::<String>::new());
         editor.undo().unwrap();

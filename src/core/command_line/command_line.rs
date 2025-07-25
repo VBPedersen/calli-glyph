@@ -32,14 +32,13 @@ impl CommandLine {
             self.move_cursor(-1);
         }
     }
-    
+
     //cursor
     ///moves cursor by x amounts in commandline
     pub fn move_cursor(&mut self, x: i16) {
         let max_x_pos: i16 = self.input.len() as i16;
         self.cursor.x = (self.cursor.x + x).clamp(0, max_x_pos);
     }
-    
 }
 
 //████████╗███████╗███████╗████████╗███████╗
@@ -50,7 +49,7 @@ impl CommandLine {
 //   ╚═╝   ╚══════╝╚══════╝   ╚═╝   ╚══════╝
 #[cfg(test)]
 mod unit_commandline_command_line_tests {
-    use calliglyph::core::command_line::CommandLine;
+    use super::super::super::super::core::command_line::CommandLine;
 
     fn create_command_line_with_command_input(s: String) -> CommandLine {
         let mut command_line = CommandLine::new();
@@ -99,5 +98,4 @@ mod unit_commandline_command_line_tests {
         assert_eq!(command_line.input, "Tet");
         assert_eq!(command_line.cursor.x, 2);
     }
-
 }

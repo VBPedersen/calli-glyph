@@ -1,13 +1,13 @@
-use crate::core::app::ActiveArea;
 use crate::config::{command_binds, key_binds};
+use crate::core::app::ActiveArea;
+use crate::core::app::App;
+use crate::core::errors::AppError;
 use crate::ui::popups::error_popup::ErrorPopup;
 use crate::ui::popups::popup::PopupType;
-use crate::core::app::App;
 use crossterm::event;
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind,
 };
-use crate::core::errors::AppError;
 
 /// Reads the crossterm events and updates the state of [`App`].
 ///
@@ -72,7 +72,10 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
             }
             key_binds::KEYBIND_SAVE => {
                 if let Err(e) = app.save(vec![]) {
-                    let popup = Box::new(ErrorPopup::new("Failed to Save File", AppError::InternalError(e.to_string())));
+                    let popup = Box::new(ErrorPopup::new(
+                        "Failed to Save File",
+                        AppError::InternalError(e.to_string()),
+                    ));
                     app.open_popup(popup);
                 }
             }

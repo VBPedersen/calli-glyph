@@ -51,9 +51,9 @@ impl Popup for ConfirmationPopup {
                 Span::styled(" No ", no_style),
             ]),
         ]))
-            .block(popup_block)
-            .style(Style::default().fg(Color::White).bg(Color::Black))
-            .alignment(Alignment::Center);
+        .block(popup_block)
+        .style(Style::default().fg(Color::White).bg(Color::Black))
+        .alignment(Alignment::Center);
 
         // Render the popup in the centered `area`
         frame.render_widget(Clear, area); // Clears the popup area to avoid overlap

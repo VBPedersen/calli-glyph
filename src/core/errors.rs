@@ -10,9 +10,7 @@ pub enum AppError {
 
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
-
 }
-
 
 ///general editor errors, from more specific ones
 #[derive(Error, Debug)]
@@ -31,7 +29,6 @@ pub enum EditorError {
 
     #[error("REDO failed: {0}")]
     RedoFailure(#[from] RedoError),
-
 }
 
 #[derive(Debug, Error)]
@@ -47,7 +44,6 @@ pub enum TextSelectionError {
 pub enum ClipboardError {
     #[error("No text currently copied")]
     NoCopiedText,
-
 }
 
 #[derive(Debug, Error)]
@@ -56,7 +52,6 @@ pub enum UndoError {
     NoActionToUndo,
     #[error("failed to undo action")]
     FailedToUndo,
-
 }
 
 #[derive(Debug, Error)]
@@ -65,8 +60,4 @@ pub enum RedoError {
     NoActionToRedo,
     #[error("failed to redo action")]
     FailedToRedo,
-
 }
-
-
-

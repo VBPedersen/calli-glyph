@@ -1,6 +1,5 @@
 pub use core::app::App;
 
-
 //███╗   ███╗ ██████╗ ██████╗ ██╗   ██╗██╗     ███████╗███████╗
 //████╗ ████║██╔═══██╗██╔══██╗██║   ██║██║     ██╔════╝██╔════╝
 //██╔████╔██║██║   ██║██║  ██║██║   ██║██║     █████╗  ███████╗
@@ -8,15 +7,11 @@ pub use core::app::App;
 //██║ ╚═╝ ██║╚██████╔╝██████╔╝╚██████╔╝███████╗███████╗███████║
 //╚═╝     ╚═╝ ╚═════╝ ╚═════╝  ╚═════╝ ╚══════╝╚══════╝╚══════╝
 
-
-pub mod core; //expose app module
 mod config;
+pub mod core; //expose app module
 pub mod input; //expose input module
 
-
 pub mod ui;
-
-
 
 //███╗   ███╗ █████╗ ██╗███╗   ██╗
 //████╗ ████║██╔══██╗██║████╗  ██║
@@ -31,7 +26,6 @@ use ratatui::crossterm::event::EnableMouseCapture;
 use ratatui::crossterm::execute;
 use ratatui::crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen};
 use std::{env, io};
-
 
 fn main() -> color_eyre::Result<()> {
     env::set_var("RUST_BACKTRACE", "1"); //more verbose error codes

@@ -1,5 +1,3 @@
-
-
 //main core editor
 pub mod editor;
 //undo redo utility

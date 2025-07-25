@@ -1,2 +1,2 @@
-pub mod ui;
 pub mod popups;
+pub mod ui;

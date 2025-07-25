@@ -1,6 +1,5 @@
-use super::editor::EditAction;
 use super::super::errors::{RedoError, UndoError};
-
+use super::editor::EditAction;
 
 #[derive(Debug)]
 pub struct UndoRedoManager {
@@ -9,15 +8,13 @@ pub struct UndoRedoManager {
 }
 
 impl UndoRedoManager {
-    
     pub fn new() -> UndoRedoManager {
         Self {
             undo_stack: vec![],
             redo_stack: vec![],
         }
     }
-    
-    
+
     ///records and action done to the undo stack, and clears redo stack.
     pub fn record_undo(&mut self, action: EditAction) {
         self.undo_stack.push(action);
@@ -48,17 +45,36 @@ impl UndoRedoManager {
         }
     }
 
-    
-
     /// returns the reverse action of the given action
     fn reverse_action(&mut self, action: &EditAction) -> EditAction {
         match action {
-            EditAction::Insert { pos, c } => EditAction::Delete { pos: *pos, deleted_char: *c },
-            EditAction::Delete { pos, deleted_char } => EditAction::Insert { pos: *pos, c: *deleted_char },
-            EditAction::Replace { start, end, old, new } =>
-                EditAction::Replace { start: *start, end: *end, old: new.clone(), new: old.clone() },
-            EditAction::InsertLines { start, lines } => EditAction::DeleteLines { start: *start, deleted: lines.clone() },
-            EditAction::DeleteLines { start, deleted } => EditAction::InsertLines { start: *start, lines: deleted.clone() },
+            EditAction::Insert { pos, c } => EditAction::Delete {
+                pos: *pos,
+                deleted_char: *c,
+            },
+            EditAction::Delete { pos, deleted_char } => EditAction::Insert {
+                pos: *pos,
+                c: *deleted_char,
+            },
+            EditAction::Replace {
+                start,
+                end,
+                old,
+                new,
+            } => EditAction::Replace {
+                start: *start,
+                end: *end,
+                old: new.clone(),
+                new: old.clone(),
+            },
+            EditAction::InsertLines { start, lines } => EditAction::DeleteLines {
+                start: *start,
+                deleted: lines.clone(),
+            },
+            EditAction::DeleteLines { start, deleted } => EditAction::InsertLines {
+                start: *start,
+                lines: deleted.clone(),
+            },
         }
     }
 }

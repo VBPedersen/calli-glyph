@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod integration_app_tests {
-    use calliglyph::app::*;
-    use calliglyph::popups::popup::PopupResult;
+    use calliglyph::core::app::*;
+    use calliglyph::ui::popups::popup::PopupResult;
     use std::fs;
     use std::path::Path;
     use tempfile::NamedTempFile;
@@ -28,7 +28,7 @@ mod integration_app_tests {
         let mut app = create_app();
         let save_path = test_save_path("file1.txt");
         app.editor.editor_content = vec![String::from("test")];
-        
+
         app.pending_states
             .push(PendingState::Saving(save_path.clone()));
         app.popup_result = PopupResult::Bool(true);
@@ -89,7 +89,7 @@ mod integration_app_tests {
         // Cleanup test file
         fs::remove_file(&save_path).ok();
     }
-    
+
     fn create_app_with_editor_content(vec: Vec<String>) -> App {
         let mut app = App::new();
         app.editor.editor_content = vec;
@@ -162,4 +162,3 @@ mod integration_app_tests {
         fs::remove_file(temp_file_path).unwrap(); // Clean up
     }
 }
-

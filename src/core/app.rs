@@ -1,9 +1,11 @@
 use super::clipboard::Clipboard;
 use super::command_line::CommandLine;
-use crate::ui::popups::confirmation_popup::ConfirmationPopup;
 use super::editor::Editor;
-use crate::ui::popups::error_popup::ErrorPopup;
+use super::errors::AppError;
+use super::errors::AppError::EditorFailure;
 use crate::input::input::handle_input;
+use crate::ui::popups::confirmation_popup::ConfirmationPopup;
+use crate::ui::popups::error_popup::ErrorPopup;
 use crate::ui::popups::popup::{Popup, PopupResult};
 use crate::ui::ui::ui;
 use color_eyre::Result;
@@ -13,8 +15,6 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 use std::time::{Duration, Instant};
-use super::errors::{AppError};
-use super::errors::AppError::EditorFailure;
 
 #[derive(Debug)]
 pub struct App {
@@ -233,14 +233,12 @@ impl App {
     ///moves logical cursor by x and y, under conditions. and recalculates the visual cursor position
     pub(crate) fn move_cursor_in_editor(&mut self, x: i16, y: i16) {
         self.editor.move_cursor(x, y);
-
     }
 
     ///moves selection cursor
     pub(crate) fn move_selection_cursor(&mut self, x: i16, y: i16) {
         self.editor.move_selection_cursor(x, y);
     }
-
 
     //IN COMMAND LINE
     ///moves cursor by x and y amounts in commandline
@@ -281,7 +279,10 @@ impl App {
             PendingState::Saving(save_path) => {
                 if self.popup_result == PopupResult::Bool(true) {
                     if let Err(e) = self.save(vec![save_path.clone()]) {
-                        let popup = Box::new(ErrorPopup::new("Failed to save file", AppError::InternalError(e.to_string())));
+                        let popup = Box::new(ErrorPopup::new(
+                            "Failed to save file",
+                            AppError::InternalError(e.to_string()),
+                        ));
                         self.open_popup(popup);
                     }
 
@@ -439,8 +440,8 @@ impl App {
     }
 
     ///copies text within bound of text selected to copied_text
-    pub(crate) fn copy_selected_text(&mut self) -> Result<(),AppError> {
-        match self.editor.copy_selected_text(){
+    pub(crate) fn copy_selected_text(&mut self) -> Result<(), AppError> {
+        match self.editor.copy_selected_text() {
             Ok(selected_text) => {
                 //copy to clipboard
                 self.clipboard.copy(&*selected_text);
@@ -448,16 +449,14 @@ impl App {
                 self.editor.text_selection_start = None;
                 self.editor.text_selection_end = None;
                 Ok(())
-            },
-            Err(e) => {
-                Err(EditorFailure(e))
             }
+            Err(e) => Err(EditorFailure(e)),
         }
     }
 
     ///cuts text within bound of text selected to copied_text
-    pub(crate) fn cut_selected_text(&mut self) -> Result<(),AppError> {
-        match self.editor.cut_selected_text(){
+    pub(crate) fn cut_selected_text(&mut self) -> Result<(), AppError> {
+        match self.editor.cut_selected_text() {
             Ok(selected_text) => {
                 //copy to clipboard
                 self.clipboard.copy(&*selected_text);
@@ -465,55 +464,38 @@ impl App {
                 self.editor.text_selection_start = None;
                 self.editor.text_selection_end = None;
                 Ok(())
-            },
-            Err(e) => {
-                Err(EditorFailure(e))
             }
+            Err(e) => Err(EditorFailure(e)),
         }
-
     }
 
     ///pastes text from copied text to editor content
     pub(crate) fn paste_selected_text(&mut self) -> Result<(), AppError> {
-        match self.editor.paste_selected_text(self.clipboard.copied_text.clone()){
-            Ok(()) => {
-                Ok(())
-            },
-            Err(e) => {
-                Err(EditorFailure(e))
-            }
+        match self
+            .editor
+            .paste_selected_text(self.clipboard.copied_text.clone())
+        {
+            Ok(()) => Ok(()),
+            Err(e) => Err(EditorFailure(e)),
         }
     }
 
     ///undos last edit action
-    pub(crate) fn undo_in_editor(&mut self) -> Result<(),AppError> {
-        match self.editor.undo(){
-            Ok(()) => {
-                Ok(())
-            },
-            Err(e) => {
-                Err(EditorFailure(e))
-            }
+    pub(crate) fn undo_in_editor(&mut self) -> Result<(), AppError> {
+        match self.editor.undo() {
+            Ok(()) => Ok(()),
+            Err(e) => Err(EditorFailure(e)),
         }
     }
 
     ///redos last edit action
-    pub(crate) fn redo_in_editor(&mut self) -> Result<(),AppError> {
-        match self.editor.redo(){
-            Ok(()) => {
-                Ok(())
-            },
-            Err(e) => {
-                Err(EditorFailure(e))
-            }
+    pub(crate) fn redo_in_editor(&mut self) -> Result<(), AppError> {
+        match self.editor.redo() {
+            Ok(()) => Ok(()),
+            Err(e) => Err(EditorFailure(e)),
         }
     }
-
 }
-
-
-
-
 
 //████████╗███████╗███████╗████████╗███████╗
 //╚══██╔══╝██╔════╝██╔════╝╚══██╔══╝██╔════╝
@@ -530,7 +512,6 @@ mod unit_app_tests {
         let app = App::new();
         app
     }
-
 
     #[test]
     fn test_toggle_to_command_line() {
@@ -559,13 +540,12 @@ mod unit_app_tests {
         assert_eq!(app.editor.cursor.x, 5);
         assert_eq!(app.editor.cursor.y, 3);
     }
-    
 }
 
 #[cfg(test)]
-mod unit_app_cutcopy_tests{
-    use super::super::cursor::CursorPosition;
+mod unit_app_cutcopy_tests {
     use super::super::app::*;
+    use super::super::cursor::CursorPosition;
 
     fn create_app_with_editor_content(vec: Vec<String>) -> App {
         let mut app = App::new();
@@ -573,7 +553,6 @@ mod unit_app_cutcopy_tests{
         app.editor.editor_height = 10; //since testing doesnt start ui.rs, height isnt set
         app
     }
-
 
     //copy selected text
     #[test]
@@ -828,7 +807,6 @@ mod unit_app_cutcopy_tests{
         app.clipboard.copy(&vec![]);
         app.editor.cursor.x = 5;
         app.editor.cursor.y = 1;
-
 
         assert!(app.paste_selected_text().is_err());
         assert_eq!(
