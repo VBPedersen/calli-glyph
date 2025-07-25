@@ -1,4 +1,4 @@
-use crate::cursor::Cursor;
+use super::super::cursor::Cursor;
 
 #[derive(Debug, Default)]
 pub struct CommandLine {
@@ -25,7 +25,7 @@ impl CommandLine {
         self.move_cursor(1);
     }
     ///backspaces on x position
-    pub(crate) fn backspace(&mut self) {
+    pub fn backspace(&mut self) {
         let line = &mut self.input;
         if self.cursor.x > 0 && self.cursor.x <= line.len() as i16 {
             line.remove(self.cursor.x as usize - 1);
@@ -50,7 +50,7 @@ impl CommandLine {
 //   ╚═╝   ╚══════╝╚══════╝   ╚═╝   ╚══════╝
 #[cfg(test)]
 mod unit_commandline_command_line_tests {
-    use crate::command_line::CommandLine;
+    use calliglyph::core::command_line::CommandLine;
 
     fn create_command_line_with_command_input(s: String) -> CommandLine {
         let mut command_line = CommandLine::new();

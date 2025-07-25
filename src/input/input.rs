@@ -1,13 +1,13 @@
-use crate::app::ActiveArea;
+use crate::core::app::ActiveArea;
 use crate::config::{command_binds, key_binds};
-use crate::popups::error_popup::ErrorPopup;
-use crate::popups::popup::PopupType;
-use crate::app::App;
+use crate::core::popups::error_popup::ErrorPopup;
+use crate::core::popups::popup::PopupType;
+use crate::core::app::App;
 use crossterm::event;
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind,
 };
-use crate::errors::AppError;
+use crate::core::errors::AppError;
 
 /// Reads the crossterm events and updates the state of [`App`].
 ///

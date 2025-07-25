@@ -1,4 +1,4 @@
-pub use app::App;
+pub use core::app::App;
 
 
 //███╗   ███╗ ██████╗ ██████╗ ██╗   ██╗██╗     ███████╗███████╗
@@ -9,19 +9,13 @@ pub use app::App;
 //╚═╝     ╚═╝ ╚═════╝ ╚═════╝  ╚═════╝ ╚══════╝╚══════╝╚══════╝
 
 
-pub mod app; //expose app module
-mod clipboard;
-mod command_line;
+pub mod core; //expose app module
 mod config;
-mod cursor;
-// Declare the 'editor' module. This makes the editor/ directory (via mod.rs) visible.
-mod editor;
-mod popups;
 pub mod input; //expose input module
 
 
 pub mod ui;
-mod errors;
+
 
 
 //███╗   ███╗ █████╗ ██╗███╗   ██╗
@@ -37,6 +31,7 @@ use ratatui::crossterm::event::EnableMouseCapture;
 use ratatui::crossterm::execute;
 use ratatui::crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen};
 use std::{env, io};
+
 
 fn main() -> color_eyre::Result<()> {
     env::set_var("RUST_BACKTRACE", "1"); //more verbose error codes

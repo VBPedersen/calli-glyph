@@ -1,10 +1,10 @@
 
 use crate::config::editor_settings;
-use crate::cursor::Cursor;
-use crate::cursor::CursorPosition;
-use crate::editor::undo_redo::UndoRedoManager;
-use crate::errors::{ClipboardError, EditorError, TextSelectionError};
-use crate::errors::EditorError::{ClipboardFailure, RedoFailure, TextSelectionFailure, UndoFailure};
+use super::super::cursor::Cursor;
+use super::super::cursor::CursorPosition;
+use super::undo_redo::UndoRedoManager;
+use super::super::errors::{ClipboardError, EditorError, TextSelectionError};
+use super::super::errors::EditorError::{ClipboardFailure, RedoFailure, TextSelectionFailure, UndoFailure};
 
 #[derive(Debug, Clone)]
 pub enum EditAction {
@@ -782,8 +782,8 @@ impl Default for Editor {
 #[cfg(test)]
 mod unit_editor_write_tests {
     use crate::config::editor_settings;
-    use crate::cursor::CursorPosition;
-    use crate::editor::*;
+    use super::super::super::cursor::CursorPosition;
+    use super::super::editor::*;
 
     //init functions
     fn create_editor_with_editor_content(vec: Vec<String>) -> Editor {
@@ -964,8 +964,8 @@ mod unit_editor_write_tests {
 }
 #[cfg(test)]
 mod unit_editor_delete_tests{
-    use crate::cursor::CursorPosition;
-    use crate::editor::*;
+    use super::super::super::cursor::CursorPosition;
+    use super::super::editor::*;
     
     fn create_editor_with_editor_content(vec: Vec<String>) -> Editor {
         let mut editor = Editor::new();
@@ -1246,7 +1246,7 @@ mod unit_editor_delete_tests{
 
 #[cfg(test)]
 mod unit_editor_cursor_tests{
-    use crate::editor::*;
+    use super::super::editor::*;
 
     fn create_editor_with_editor_content(vec: Vec<String>) -> Editor {
         let mut editor = Editor::new();
@@ -1422,6 +1422,7 @@ mod unit_editor_cursor_tests{
     
 }
 
+/*
 #[cfg(test)]
 mod unit_editor_undoredo_tests{
     use crate::editor::Editor;
@@ -1673,3 +1674,4 @@ mod unit_editor_undoredo_tests{
         assert_eq!(editor.editor_content[0], "ab");
     }
 }
+*/

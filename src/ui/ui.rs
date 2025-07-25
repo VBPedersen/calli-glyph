@@ -1,6 +1,6 @@
-use crate::app::{ActiveArea, App};
+use crate::core::app::{ActiveArea, App};
 use crate::config::editor_settings;
-use crate::cursor::CursorPosition;
+use crate::core::cursor::CursorPosition;
 use ratatui::layout::{Alignment, Position, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span, Text};

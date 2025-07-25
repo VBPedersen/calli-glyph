@@ -1,11 +1,11 @@
-use crate::clipboard::Clipboard;
-use crate::command_line::CommandLine;
-use crate::popups::confirmation_popup::ConfirmationPopup;
-use crate::editor::Editor;
-use crate::popups::error_popup::ErrorPopup;
-use crate::input::handle_input;
-use crate::popups::popup::{Popup, PopupResult};
-use crate::ui::ui;
+use super::clipboard::Clipboard;
+use super::command_line::CommandLine;
+use super::popups::confirmation_popup::ConfirmationPopup;
+use super::editor::Editor;
+use super::popups::error_popup::ErrorPopup;
+use crate::input::input::handle_input;
+use super::popups::popup::{Popup, PopupResult};
+use crate::ui::ui::ui;
 use color_eyre::Result;
 use ratatui::DefaultTerminal;
 use std::fs;
@@ -13,8 +13,8 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 use std::time::{Duration, Instant};
-use crate::errors::{AppError};
-use crate::errors::AppError::EditorFailure;
+use super::errors::{AppError};
+use super::errors::AppError::EditorFailure;
 
 #[derive(Debug)]
 pub struct App {
@@ -524,7 +524,7 @@ impl App {
 
 #[cfg(test)]
 mod unit_app_tests {
-    use crate::app::*;
+    use super::super::app::*;
 
     fn create_app() -> App {
         let app = App::new();
@@ -564,8 +564,8 @@ mod unit_app_tests {
 
 #[cfg(test)]
 mod unit_app_cutcopy_tests{
-    use crate::cursor::CursorPosition;
-    use crate::app::*;
+    use super::super::cursor::CursorPosition;
+    use super::super::app::*;
 
     fn create_app_with_editor_content(vec: Vec<String>) -> App {
         let mut app = App::new();
