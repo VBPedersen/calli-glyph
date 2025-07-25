@@ -49,7 +49,6 @@ pub mod key_binds {
 
     pub(crate) const KEYBIND_REDO: (KeyModifiers, KeyCode) =
         (KeyModifiers::CONTROL, KeyCode::Char('y'));
-    
 }
 
 //COMMAND BINDS

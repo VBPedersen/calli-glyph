@@ -1,5 +1,5 @@
 [package]
-name = "CalliGlyph"
+name = "calliglyph"
 version = "0.1.0"
 authors = ["Victor B. Pedersen <vpede23@sdu.student.dk>"]
 license = "MIT"

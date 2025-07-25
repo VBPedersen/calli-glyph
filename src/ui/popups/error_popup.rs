@@ -1,11 +1,10 @@
-use crate::popup::{Popup, PopupResult, PopupType};
-use color_eyre::Report;
+use super::popup::{Popup, PopupResult, PopupType};
+use crate::core::errors::AppError;
 use crossterm::event::KeyEvent;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::{Color, Line, Span, Style, Text};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use ratatui::Frame;
-use crate::errors::AppError;
 
 pub struct ErrorPopup {
     pub message: String,
