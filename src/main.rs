@@ -1,20 +1,24 @@
-pub use app::App;
+pub use core::app::App;
 
-pub mod app; //expose app module
-mod clipboard;
-mod command_line;
+//███╗   ███╗ ██████╗ ██████╗ ██╗   ██╗██╗     ███████╗███████╗
+//████╗ ████║██╔═══██╗██╔══██╗██║   ██║██║     ██╔════╝██╔════╝
+//██╔████╔██║██║   ██║██║  ██║██║   ██║██║     █████╗  ███████╗
+//██║╚██╔╝██║██║   ██║██║  ██║██║   ██║██║     ██╔══╝  ╚════██║
+//██║ ╚═╝ ██║╚██████╔╝██████╔╝╚██████╔╝███████╗███████╗███████║
+//╚═╝     ╚═╝ ╚═════╝ ╚═════╝  ╚═════╝ ╚══════╝╚══════╝╚══════╝
+
 mod config;
-mod confirmation_popup;
-mod cursor;
-mod editor;
-mod error_popup;
+pub mod core; //expose app module
 pub mod input; //expose input module
-mod popup;
-#[cfg(test)]
-mod tests;
+
 pub mod ui;
-mod errors;
-//expose ui module
+
+//███╗   ███╗ █████╗ ██╗███╗   ██╗
+//████╗ ████║██╔══██╗██║████╗  ██║
+//██╔████╔██║███████║██║██╔██╗ ██║
+//██║╚██╔╝██║██╔══██║██║██║╚██╗██║
+//██║ ╚═╝ ██║██║  ██║██║██║ ╚████║
+//╚═╝     ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝
 
 use crossterm::event::DisableMouseCapture;
 use crossterm::terminal::LeaveAlternateScreen;
