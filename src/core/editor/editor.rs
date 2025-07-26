@@ -90,23 +90,24 @@ impl Editor {
     fn apply_action(&mut self, action: &EditAction) {
         match action {
             EditAction::Insert { pos, c } => {
-                self.set_cursor_position(*pos);
                 self.insert_char_at(*pos, *c);
+                self.set_cursor_position(*pos);
             }
             EditAction::Delete { pos, .. } => {
-                self.set_cursor_position(*pos);
                 self.delete_char_at(*pos);
+                self.set_cursor_position(*pos);
             }
             EditAction::Replace {
                 start, end, new, ..
             } => {
-                self.set_cursor_position(*start);
                 self.replace_selection_with_text(*start, *end, *new);
+                self.set_cursor_position(*start);
             }
             EditAction::InsertLines { start, lines } => {
-                self.set_cursor_position(*start);
                 self.insert_lines_at(*start, lines.clone());
-            }
+                self.set_cursor_position(*start);
+            }//in delete lines cursor position calculated first, 
+            // as visual x cannot be calculated without specific y line present
             EditAction::DeleteLines { start, deleted } => {
                 self.set_cursor_position(*start);
                 self.delete_lines_at(*start, deleted.len());
@@ -274,6 +275,14 @@ impl Editor {
         line_chars_vec.insert(self.cursor.x as usize, c);
 
         *line = line_chars_vec.into_iter().collect();
+        //record undo action (action done)
+        self.undo_redo_manager.record_undo(EditAction::Insert {
+            pos: CursorPosition {
+                x: self.cursor.x as usize,
+                y: self.cursor.y as usize,
+            },
+            c,
+        });
 
         self.move_cursor(1, 0);
     }
@@ -1373,12 +1382,12 @@ mod unit_editor_cursor_tests {
     }
 }
 
-/*
+
 #[cfg(test)]
 mod unit_editor_undoredo_tests{
-    use crate::editor::Editor;
-    use crate::cursor::CursorPosition;
-    use crate::editor::editor::EditAction;
+    use super::super::editor::Editor;
+    use super::super::super::cursor::CursorPosition;
+    use super::super::editor::EditAction;
 
     //init functions
     fn create_editor_with_editor_content(vec: Vec<String>) -> Editor {
@@ -1625,4 +1634,4 @@ mod unit_editor_undoredo_tests{
         assert_eq!(editor.editor_content[0], "ab");
     }
 }
-*/
+
