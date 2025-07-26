@@ -5,6 +5,7 @@ use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::{Color, Line, Span, Style, Text};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use ratatui::Frame;
+use crate::input::input_action::InputAction;
 
 pub struct ErrorPopup {
     pub message: String,
@@ -43,18 +44,14 @@ impl Popup for ErrorPopup {
         frame.render_widget(popup, area);
     }
 
-    fn handle_key_input(&mut self, key: KeyEvent) -> PopupResult {
-        use crossterm::event::KeyCode;
-
-        match key.code {
-            KeyCode::Enter => {
-                PopupResult::Affirmed // Return Affirmed
-            }
-            _ => PopupResult::None,
-        }
-    }
-
     fn get_popup_type(&self) -> PopupType {
         PopupType::Error
+    }
+
+    fn handle_input_action(&mut self, action: InputAction) -> PopupResult {
+        match action {
+            InputAction::ENTER => PopupResult::Affirmed,
+            _ => PopupResult::None,
+        }
     }
 }

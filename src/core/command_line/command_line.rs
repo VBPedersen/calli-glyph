@@ -1,3 +1,4 @@
+use crate::input::input_action::InputAction;
 use super::super::cursor::Cursor;
 
 #[derive(Debug, Default)]
@@ -14,6 +15,29 @@ impl CommandLine {
         }
     }
 
+    ///function to handle input action on command line,
+    /// responsible for dispatching action to corret internal method.
+    pub fn handle_input_action(&mut self, action: InputAction) {
+        match action {
+            InputAction::MoveCursor(direction) => {}
+            InputAction::MoveSelectionCursor(direction) => {}
+            InputAction::TAB => {}
+            InputAction::ENTER => {}
+            InputAction::BACKSPACE => {}
+            InputAction::DELETE => {}
+            InputAction::SAVE => {}
+            InputAction::COPY => {}
+            InputAction::CUT => {}
+            InputAction::PASTE => {}
+            InputAction::UNDO => {}
+            InputAction::REDO => {}
+            InputAction::ToggleActiveArea => {}
+            InputAction::WriteChar(c) => {}
+            InputAction::QUIT => {}
+            InputAction::NoOp => {}
+        }
+    }
+    
     //writing
     ///writes char to line, with x position
     pub fn write_char(&mut self, c: char) {

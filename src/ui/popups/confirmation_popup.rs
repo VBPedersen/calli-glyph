@@ -5,6 +5,8 @@ use ratatui::prelude::{Color, Style};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use ratatui::Frame;
+use crate::input::input_action::InputAction;
+use crate::input::input_action::Direction;
 
 #[derive(Debug)]
 pub struct ConfirmationPopup {
@@ -60,17 +62,15 @@ impl Popup for ConfirmationPopup {
         frame.render_widget(popup, area);
     }
 
-    fn handle_key_input(&mut self, key: KeyEvent) -> PopupResult {
-        use crossterm::event::KeyCode;
-
-        match key.code {
-            KeyCode::Left | KeyCode::Right => {
-                self.selected_option = !self.selected_option; // Toggle between Yes/No
+    fn handle_input_action(&mut self, action: InputAction) -> PopupResult {
+        match action {
+            InputAction::MoveCursor(direction) => {
+                if direction == Direction::Left || direction == Direction::Right {
+                    self.selected_option = !self.selected_option; // Toggle between Yes/No
+                }
                 PopupResult::None
-            }
-            KeyCode::Enter => {
-                PopupResult::Bool(self.selected_option) // Return true if "Yes" was selected
-            }
+            },
+            InputAction::ENTER => PopupResult::Bool(self.selected_option),
             _ => PopupResult::None,
         }
     }

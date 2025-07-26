@@ -8,6 +8,9 @@ use crossterm::event;
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind,
 };
+use super::input_action::*;
+use crate::config::key_binds::{KEYBIND_DOWN, KEYBIND_ENTER, KEYBIND_LEFT, KEYBIND_RIGHT, KEYBIND_UP};
+
 
 /// Reads the crossterm events and updates the state of [`App`].
 ///
@@ -43,6 +46,9 @@ fn on_scroll_events(app: &mut App, mouse: MouseEvent) {
 /// Handles the key events and updates the state of [`App`].
 fn on_key_event(app: &mut App, key: KeyEvent) {
     //println!("Detected key: {:?}, modifiers: {:?}", key.code, key.modifiers);
+    let input_action: InputAction =  map_key_to_action(app, key);
+    app.process_input_action(input_action);
+    /*
     match app.active_area {
         ActiveArea::Editor => match (key.modifiers, key.code) {
             key_binds::KEYBIND_UP => app.move_all_cursor_editor(0, -1, false),
@@ -136,8 +142,59 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
                 }
             }
         }
+    }*/
+}
+
+
+pub fn map_key_to_action(app: &App, key: KeyEvent) -> InputAction {
+    use key_binds::*;
+
+    match app.active_area {
+        ActiveArea::Editor => match (key.modifiers, key.code) {
+            KEYBIND_UP => InputAction::MoveCursor(Direction::Up),
+            KEYBIND_DOWN => InputAction::MoveCursor(Direction::Down),
+            KEYBIND_LEFT => InputAction::MoveCursor(Direction::Left),
+            KEYBIND_RIGHT => InputAction::MoveCursor(Direction::Right),
+            KEYBIND_SELECTION_UP => InputAction::MoveSelectionCursor(Direction::Up),
+            KEYBIND_SELECTION_DOWN => InputAction::MoveSelectionCursor(Direction::Down),
+            KEYBIND_SELECTION_LEFT => InputAction::MoveSelectionCursor(Direction::Left),
+            KEYBIND_SELECTION_RIGHT => InputAction::MoveSelectionCursor(Direction::Right),
+            KEYBIND_TAB => InputAction::TAB,
+            KEYBIND_ENTER => InputAction::ENTER,
+            KEYBIND_BACKSPACE => InputAction::BACKSPACE,
+            KEYBIND_DELETE => InputAction::DELETE,
+            KEYBIND_SAVE => InputAction::SAVE,
+            KEYBIND_COPY => InputAction::COPY,
+            KEYBIND_CUT => InputAction::CUT,
+            KEYBIND_PASTE => InputAction::PASTE,
+            KEYBIND_UNDO => InputAction::UNDO,
+            KEYBIND_REDO => InputAction::REDO,
+            KEYBIND_TOGGLE_AREA => InputAction::ToggleActiveArea,
+            (_, KeyCode::Char(c)) => InputAction::WriteChar(c),
+            _ => InputAction::NoOp
+        },
+        ActiveArea::CommandLine => match (key.modifiers, key.code) {
+            KEYBIND_LEFT => InputAction::MoveCursor(Direction::Left),
+            KEYBIND_RIGHT => InputAction::MoveCursor(Direction::Right),
+            KEYBIND_BACKSPACE => InputAction::BACKSPACE,
+            KEYBIND_ENTER => InputAction::ENTER,
+            (_, KeyCode::Char(c)) => InputAction::WriteChar(c),
+            (_, KeyCode::Tab | KeyCode::Esc) => InputAction::ToggleActiveArea,
+            (KeyModifiers::CONTROL, KeyCode::Char('c')) => InputAction::QUIT,
+            _ => InputAction::NoOp
+        },
+        ActiveArea::Popup =>  match (key.modifiers, key.code) {
+            KEYBIND_UP => InputAction::MoveCursor(Direction::Up),
+            KEYBIND_DOWN => InputAction::MoveCursor(Direction::Down),
+            KEYBIND_LEFT => InputAction::MoveCursor(Direction::Left),
+            KEYBIND_RIGHT => InputAction::MoveCursor(Direction::Right),
+            KEYBIND_ENTER => InputAction::ENTER,
+            _ => InputAction::NoOp
+        }
     }
 }
+
+
 
 ///handles checking command and executing said command with given args
 fn on_command_enter(app: &mut App) {

@@ -6,6 +6,7 @@ use super::super::errors::EditorError::{
 use super::super::errors::{ClipboardError, EditorError, TextSelectionError};
 use super::undo_redo::UndoRedoManager;
 use crate::config::editor_settings;
+use crate::input::input_action::InputAction;
 
 #[derive(Debug, Clone)]
 pub enum EditAction {
@@ -64,6 +65,32 @@ impl Editor {
         }
     }
 
+    ///function to handle input action on editor,
+    /// responsible for dispatching action to corret internal method.
+    pub fn handle_input_action(&mut self, action: InputAction) {
+        match action {
+            InputAction::MoveCursor(direction) => {}
+            InputAction::MoveSelectionCursor(direction) => {}
+            InputAction::TAB => {}
+            InputAction::ENTER => {}
+            InputAction::BACKSPACE => {}
+            InputAction::DELETE => {}
+            InputAction::SAVE => {}
+            InputAction::COPY => {}
+            InputAction::CUT => {}
+            InputAction::PASTE => {}
+            InputAction::UNDO => {}
+            InputAction::REDO => {}
+            InputAction::ToggleActiveArea => {}
+            InputAction::WriteChar(c) => {}
+            InputAction::QUIT => {}
+            InputAction::NoOp => {}
+        }
+    }
+    
+    
+    
+    
     //undo manager
     ///undo wrapper function, that calls the UndoRedoManager
     pub fn undo(&mut self) -> Result<(), EditorError> {

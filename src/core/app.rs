@@ -6,7 +6,7 @@ use super::errors::AppError::EditorFailure;
 use crate::input::input::handle_input;
 use crate::ui::popups::confirmation_popup::ConfirmationPopup;
 use crate::ui::popups::error_popup::ErrorPopup;
-use crate::ui::popups::popup::{Popup, PopupResult};
+use crate::ui::popups::popup::{Popup, PopupResult, PopupType};
 use crate::ui::ui::ui;
 use color_eyre::Result;
 use ratatui::DefaultTerminal;
@@ -15,7 +15,7 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 use std::time::{Duration, Instant};
-
+use crate::input::input_action::InputAction;
 #[derive(Debug)]
 pub struct App {
     /// Is the application running?
@@ -127,6 +127,29 @@ impl App {
         }
         Ok(())
     }
+    
+    
+    ///function to process input action, responsible for calling the related active area,
+    /// with the gotten input action.
+    pub fn process_input_action(&mut self, action: InputAction) {
+        match self.active_area {
+            ActiveArea::Editor => {self.editor.handle_input_action(action);},
+            ActiveArea::CommandLine => {self.command_line.handle_input_action(action);}
+            ActiveArea::Popup => {
+                if let Some(popup) = self.popup.as_mut() {
+                    let res = popup.handle_input_action(action);
+                    self.popup_result = res;
+
+                    match popup.get_popup_type() {
+                        PopupType::Confirmation => self.handle_confirmation_popup_response(),
+                        PopupType::Error => self.handle_error_popup_response(),
+                        _ => {}
+                    }
+                }
+            }
+        }
+    }
+    
 
     //TEXT OPERATIONS
 
