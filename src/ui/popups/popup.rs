@@ -1,4 +1,3 @@
-use crossterm::event::KeyEvent;
 use ratatui::layout::Rect;
 use ratatui::Frame;
 use std::fmt::{Debug, Formatter};

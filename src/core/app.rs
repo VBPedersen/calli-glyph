@@ -15,6 +15,7 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 use std::time::{Duration, Instant};
+use crate::config::command_binds;
 use crate::input::input_action::InputAction;
 #[derive(Debug)]
 pub struct App {
@@ -143,7 +144,16 @@ impl App {
                     self.open_popup(popup);
                 }
             },
-            ActiveArea::CommandLine => {self.command_line.handle_input_action(action);}
+            ActiveArea::CommandLine => {
+                //check for ENTER on commandline, to execute commands,
+                // since entering on a command needs app related function execution,
+                // else handle input on commandline, like editing command line content.
+                if action == InputAction::ENTER {
+                    self.on_command_enter()
+                } else {
+                    self.command_line.handle_input_action(action)
+                }
+            }
             ActiveArea::Popup => {
                 if let Some(popup) = self.popup.as_mut() {
                     let res = popup.handle_input_action(action);
@@ -164,8 +174,8 @@ impl App {
     /// like quitting should call method quit in app.rs
     fn check_for_app_related_input_actions(&mut self, action: InputAction){
         match action {
-            ///check for Save,
-            ///because saving should be handled by the app centrally.
+            //check for Save,
+            //because saving should be handled by the app centrally.
             InputAction::SAVE => {
                 if let Err(e) = self.save(vec![]) {
                     let popup = Box::new(ErrorPopup::new(
@@ -175,15 +185,58 @@ impl App {
                     self.open_popup(popup);
                 }
             }
-            ///check for active area toggling,
-            ///because toggle active area should be handled by the app centrally.
+            //check for active area toggling,
+            //because toggle active area should be handled by the app centrally.
             InputAction::ToggleActiveArea => { self.toggle_active_area()}
-            ///check for quitting,
-            ///because quitting should be handled by the app centrally
+            //check for quitting,
+            //because quitting should be handled by the app centrally
             InputAction::QUIT => {self.quit()}
             InputAction::NoOp => {}
             _ => {}
         }
+    }
+    
+    
+    //command line command execution
+    ///handles checking command and executing said command with given args
+    fn on_command_enter(&mut self) {
+        match self.split_command_bind_and_args() {
+            Ok((command_bind, command_args)) => match command_bind.as_ref() {
+                command_binds::COMMAND_EXIT_DONT_SAVE => self.quit(),
+                command_binds::COMMAND_SAVE_DONT_EXIT => {
+                    self.save(command_args).expect("TODO: panic message");
+                }
+                command_binds::COMMAND_SAVE_AND_EXIT => {
+                    self.save_and_exit(command_args)
+                        .expect("TODO: panic message");
+                }
+                command_binds::COMMAND_HELP => {}
+                _ => {}
+            },
+            Err(error) => {
+                println!("Error: {}", error);
+            }
+        }
+    }
+
+    ///to split command line text into a command and arguments
+    fn split_command_bind_and_args(&mut self) -> Result<(String, Vec<String>), String> {
+        let mut command_bind: Option<String> = None;
+        let mut command_args = vec![];
+        let mut parts = self.command_line.input.split_whitespace();
+
+        if let Some(first) = parts.next() {
+            if let Some(':') = first.chars().next() {
+                command_bind = Some(first.chars().skip(1).collect());
+            }
+        }
+
+        if let Some(ref cmd) = command_bind {
+            command_args.extend(parts.map(String::from));
+            return Ok((cmd.clone(), command_args));
+        }
+
+        Err("No valid command found".to_string())
     }
     
     //SCROLL
@@ -273,7 +326,7 @@ impl App {
     pub(crate) fn quit(&mut self) {
         self.running = false;
     }
-
+    
     ///saves contents to file, if any file path specified in args then saves to that file,
     /// if not and file path is existing then saves to that, else saves to untitled
     /// command_bind <file_path> --flags
@@ -424,5 +477,54 @@ mod unit_app_tests {
         assert_eq!(app.editor.cursor.y, 3);
     }
 }
+#[cfg(test)]
+mod unit_app_command_tests {
+    use super::super::app::*;
 
+    fn create_app(s: String) -> App {
+        let mut app = App::new();
+        app.command_line.input = s;
+        app
+    }
+
+    #[test]
+    fn test_valid_command_with_args() {
+        let mut app = create_app(":command arg1 arg2".to_string());
+
+        let result = app.split_command_bind_and_args();
+        assert!(result.is_ok());
+        let (cmd, args) = result.unwrap();
+        assert_eq!(cmd, "command");
+        assert_eq!(args, vec!["arg1", "arg2"]);
+    }
+
+    #[test]
+    fn test_valid_command_no_args() {
+        let mut app = create_app(":hello".to_string());
+
+        let result = app.split_command_bind_and_args();
+        assert!(result.is_ok());
+        let (cmd, args) = result.unwrap();
+        assert_eq!(cmd, "hello");
+        assert!(args.is_empty());
+    }
+
+    #[test]
+    fn test_missing_command() {
+        let mut app = create_app("not_a_command arg1".to_string());
+
+        let result = app.split_command_bind_and_args();
+        assert!(result.is_err());
+        assert_eq!(result.err().unwrap(), "No valid command found");
+    }
+
+    #[test]
+    fn test_empty_input() {
+        let mut app = create_app("".to_string());
+
+        let result = app.split_command_bind_and_args();
+        assert!(result.is_err());
+        assert_eq!(result.err().unwrap(), "No valid command found");
+    }
+}
 

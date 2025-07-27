@@ -20,21 +20,11 @@ impl CommandLine {
     pub fn handle_input_action(&mut self, action: InputAction) {
         match action {
             InputAction::MoveCursor(direction) => {
-                let (x,y) = direction.to_vector();
+                let (x,_y) = direction.to_vector();
                 self.move_cursor(x);
             }
-            InputAction::MoveSelectionCursor(direction) => {}
-            InputAction::ENTER => {
-                
-            }
-            InputAction::BACKSPACE => {}
-            InputAction::DELETE => {}
-            InputAction::SAVE => {}
-            InputAction::COPY => {}
-            InputAction::CUT => {}
-            InputAction::PASTE => {}
-            InputAction::UNDO => {}
-            InputAction::REDO => {}
+            InputAction::BACKSPACE => {self.backspace()}
+            InputAction::DELETE => {self.delete()}
             InputAction::WriteChar(c) => { self.write_char(c); }
             InputAction::NoOp => {}
             _ => {}
@@ -57,6 +47,14 @@ impl CommandLine {
         if self.cursor.x > 0 && self.cursor.x <= line.len() as i16 {
             line.remove(self.cursor.x as usize - 1);
             self.move_cursor(-1);
+        }
+    }
+
+    ///deletes on x position
+    pub fn delete(&mut self) {
+        let line = &mut self.input;
+        if line.len() > 0 && self.cursor.x < line.len() as i16 {
+            line.remove(self.cursor.x as usize);
         }
     }
 
@@ -121,6 +119,28 @@ mod unit_commandline_command_line_tests {
         let mut command_line = create_command_line_with_command_input("Test".to_string());
         command_line.cursor.x = 3;
         command_line.backspace();
+
+        assert_eq!(command_line.input, "Tet");
+        assert_eq!(command_line.cursor.x, 2);
+    }
+
+    //DELETE in commandline
+
+    #[test]
+    fn test_delete_at_start() {
+        let mut command_line = create_command_line_with_command_input("".to_string());
+        command_line.cursor.x = 0;
+        command_line.delete();
+
+        assert_eq!(command_line.input, "");
+        assert_eq!(command_line.cursor.x, 0);
+    }
+
+    #[test]
+    fn test_delete_in_middle() {
+        let mut command_line = create_command_line_with_command_input("Test".to_string());
+        command_line.cursor.x = 2;
+        command_line.delete();
 
         assert_eq!(command_line.input, "Tet");
         assert_eq!(command_line.cursor.x, 2);

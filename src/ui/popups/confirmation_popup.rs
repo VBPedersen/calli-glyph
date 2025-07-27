@@ -1,5 +1,4 @@
 use super::popup::{Popup, PopupResult, PopupType};
-use crossterm::event::KeyEvent;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::{Color, Style};
 use ratatui::text::{Line, Span, Text};

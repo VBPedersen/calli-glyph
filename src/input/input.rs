@@ -1,15 +1,11 @@
-use crate::config::{command_binds, key_binds};
+use crate::config::{key_binds};
 use crate::core::app::ActiveArea;
 use crate::core::app::App;
-use crate::core::errors::AppError;
-use crate::ui::popups::error_popup::ErrorPopup;
-use crate::ui::popups::popup::PopupType;
 use crossterm::event;
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind,
 };
 use super::input_action::*;
-use crate::config::key_binds::{KEYBIND_DOWN, KEYBIND_ENTER, KEYBIND_LEFT, KEYBIND_RIGHT, KEYBIND_UP};
 
 
 /// Reads the crossterm events and updates the state of [`App`].
@@ -177,6 +173,7 @@ pub fn map_key_to_action(app: &App, key: KeyEvent) -> InputAction {
             KEYBIND_LEFT => InputAction::MoveCursor(Direction::Left),
             KEYBIND_RIGHT => InputAction::MoveCursor(Direction::Right),
             KEYBIND_BACKSPACE => InputAction::BACKSPACE,
+            KEYBIND_DELETE => InputAction::DELETE,
             KEYBIND_ENTER => InputAction::ENTER,
             (_, KeyCode::Tab | KeyCode::Esc) => InputAction::ToggleActiveArea,
             (KeyModifiers::CONTROL, KeyCode::Char('c')) => InputAction::QUIT,
@@ -196,94 +193,5 @@ pub fn map_key_to_action(app: &App, key: KeyEvent) -> InputAction {
 
 
 
-///handles checking command and executing said command with given args
-fn on_command_enter(app: &mut App) {
-    match split_command_bind_and_args(app) {
-        Ok((command_bind, command_args)) => match command_bind.as_ref() {
-            command_binds::COMMAND_EXIT_DONT_SAVE => app.quit(),
-            command_binds::COMMAND_SAVE_DONT_EXIT => {
-                app.save(command_args).expect("TODO: panic message");
-            }
-            command_binds::COMMAND_SAVE_AND_EXIT => {
-                app.save_and_exit(command_args)
-                    .expect("TODO: panic message");
-            }
-            command_binds::COMMAND_HELP => {}
-            _ => {}
-        },
-        Err(error) => {
-            println!("Error: {}", error);
-        }
-    }
-}
 
-///to split command line text into a command and arguments
-fn split_command_bind_and_args(app: &mut App) -> Result<(String, Vec<String>), String> {
-    let mut command_bind: Option<String> = None;
-    let mut command_args = vec![];
-    let mut parts = app.command_line.input.split_whitespace();
 
-    if let Some(first) = parts.next() {
-        if let Some(':') = first.chars().next() {
-            command_bind = Some(first.chars().skip(1).collect());
-        }
-    }
-
-    if let Some(ref cmd) = command_bind {
-        command_args.extend(parts.map(String::from));
-        return Ok((cmd.clone(), command_args));
-    }
-
-    Err("No valid command found".to_string())
-}
-
-//
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    fn create_app_with_command_input(s: String) -> App {
-        let mut app = App::new();
-        app.command_line.input = s;
-        app
-    }
-    #[test]
-    fn test_valid_command_with_args() {
-        let mut app = create_app_with_command_input(":command arg1 arg2".to_string());
-
-        let result = split_command_bind_and_args(&mut app);
-        assert!(result.is_ok());
-        let (cmd, args) = result.unwrap();
-        assert_eq!(cmd, "command");
-        assert_eq!(args, vec!["arg1", "arg2"]);
-    }
-
-    #[test]
-    fn test_valid_command_no_args() {
-        let mut app = create_app_with_command_input(":hello".to_string());
-
-        let result = split_command_bind_and_args(&mut app);
-        assert!(result.is_ok());
-        let (cmd, args) = result.unwrap();
-        assert_eq!(cmd, "hello");
-        assert!(args.is_empty());
-    }
-
-    #[test]
-    fn test_missing_command() {
-        let mut app = create_app_with_command_input("not_a_command arg1".to_string());
-
-        let result = split_command_bind_and_args(&mut app);
-        assert!(result.is_err());
-        assert_eq!(result.err().unwrap(), "No valid command found");
-    }
-
-    #[test]
-    fn test_empty_input() {
-        let mut app = create_app_with_command_input("".to_string());
-
-        let result = split_command_bind_and_args(&mut app);
-        assert!(result.is_err());
-        assert_eq!(result.err().unwrap(), "No valid command found");
-    }
-}

@@ -1,4 +1,3 @@
-use crossterm::event::KeyCode;
 
 /// A high-level representation of user intent in the TUI.
 #[derive(Debug, Clone, PartialEq)]
