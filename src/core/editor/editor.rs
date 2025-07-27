@@ -1,3 +1,4 @@
+use super::super::super::core::clipboard::Clipboard;
 use super::super::cursor::Cursor;
 use super::super::cursor::CursorPosition;
 use super::super::errors::EditorError::{
@@ -6,6 +7,7 @@ use super::super::errors::EditorError::{
 use super::super::errors::{ClipboardError, EditorError, TextSelectionError};
 use super::undo_redo::UndoRedoManager;
 use crate::config::editor_settings;
+use crate::input::input_action::InputAction;
 
 #[derive(Debug, Clone)]
 pub enum EditAction {
@@ -46,6 +48,7 @@ pub struct Editor {
     pub editor_width: i16,
     pub scroll_offset: i16,
     pub editor_height: u16,
+    pub clipboard: Clipboard,
     undo_redo_manager: UndoRedoManager,
 }
 
@@ -60,7 +63,80 @@ impl Editor {
             editor_width: 0,
             scroll_offset: 0,
             editor_height: 0,
+            clipboard: Clipboard::new(),
             undo_redo_manager: UndoRedoManager::new(),
+        }
+    }
+
+    ///function to handle input action on editor,
+    /// responsible for dispatching action to corret internal method.
+    pub fn handle_input_action(&mut self, action: InputAction) -> Result<(), EditorError> {
+        match action {
+            InputAction::MoveCursor(direction) => {
+                let (x, y) = direction.to_vector();
+                self.move_cursor(x, y);
+                self.text_selection_start = None;
+                self.text_selection_end = None;
+                Ok(())
+            }
+            InputAction::MoveSelectionCursor(direction) => {
+                let (x, y) = direction.to_vector();
+                self.move_selection_cursor(x, y);
+                Ok(())
+            }
+            InputAction::TAB => {
+                self.tab();
+                Ok(())
+            }
+            InputAction::ENTER => {
+                self.enter();
+                Ok(())
+            }
+            InputAction::BACKSPACE => {
+                if self.is_text_selected() {
+                    self.backspace_text_is_selected();
+                } else {
+                    self.backspace();
+                }
+                Ok(())
+            }
+            InputAction::DELETE => {
+                if self.is_text_selected() {
+                    self.delete_text_is_selected();
+                } else {
+                    self.delete();
+                }
+                Ok(())
+            }
+            InputAction::COPY => match self.copy() {
+                Ok(()) => Ok(()),
+                Err(e) => Err(e),
+            },
+            InputAction::CUT => match self.cut() {
+                Ok(()) => Ok(()),
+                Err(e) => Err(e),
+            },
+            InputAction::PASTE => match self.paste() {
+                Ok(()) => Ok(()),
+                Err(e) => Err(e),
+            },
+            InputAction::UNDO => match self.undo() {
+                Ok(()) => Ok(()),
+                Err(e) => Err(e),
+            },
+            InputAction::REDO => match self.redo() {
+                Ok(()) => Ok(()),
+                Err(e) => Err(e),
+            },
+            InputAction::WriteChar(c) => {
+                if self.is_text_selected() {
+                    self.write_char_text_is_selected(c)
+                } else {
+                    self.write_char(c)
+                }
+                Ok(())
+            }
+            _ => Ok(()),
         }
     }
 
@@ -106,7 +182,7 @@ impl Editor {
             EditAction::InsertLines { start, lines } => {
                 self.insert_lines_at(*start, lines.clone());
                 self.set_cursor_position(*start);
-            }//in delete lines cursor position calculated first, 
+            } //in delete lines cursor position calculated first,
             // as visual x cannot be calculated without specific y line present
             EditAction::DeleteLines { start, deleted } => {
                 self.set_cursor_position(*start);
@@ -116,6 +192,21 @@ impl Editor {
     }
 
     //copy, cut and paste
+
+    ///base function for copy that copies if text is selected
+    pub fn copy(&mut self) -> Result<(), EditorError> {
+        match self.copy_selected_text() {
+            Ok(selected_text) => {
+                //copy to clipboard
+                self.clipboard.copy(&*selected_text);
+                //reset text selection
+                self.text_selection_start = None;
+                self.text_selection_end = None;
+                Ok(())
+            }
+            Err(e) => Err(e),
+        }
+    }
 
     ///copies text within bound of text selected to copied_text
     pub fn copy_selected_text(&mut self) -> Result<Vec<String>, EditorError> {
@@ -149,6 +240,21 @@ impl Editor {
             Ok(selected_text)
         } else {
             Err(TextSelectionFailure(TextSelectionError::NoTextSelected))
+        }
+    }
+
+    ///base function for cut that cuts if text is selected
+    pub fn cut(&mut self) -> Result<(), EditorError> {
+        match self.cut_selected_text() {
+            Ok(selected_text) => {
+                //copy to clipboard
+                self.clipboard.copy(&*selected_text);
+                //reset text selection
+                self.text_selection_start = None;
+                self.text_selection_end = None;
+                Ok(())
+            }
+            Err(e) => Err(e),
         }
     }
 
@@ -189,6 +295,14 @@ impl Editor {
             Ok(selected_text)
         } else {
             Err(TextSelectionFailure(TextSelectionError::NoTextSelected))
+        }
+    }
+
+    ///base function for paste
+    pub fn paste(&mut self) -> Result<(), EditorError> {
+        match self.paste_selected_text(self.clipboard.copied_text.clone()) {
+            Ok(()) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 
@@ -365,7 +479,7 @@ impl Editor {
 
     //editor backspace
     ///handles backspace in editor, removes char at y line x position and sets new cursor position
-    pub fn backspace_in_editor(&mut self) {
+    pub fn backspace(&mut self) {
         let mut deleted_char: Option<char> = None;
         let line_char_count = self.editor_content[self.cursor.y as usize].chars().count() as i16;
         if self.cursor.x > 0 && self.cursor.x <= line_char_count {
@@ -433,7 +547,7 @@ impl Editor {
     //editor delete functions
 
     ///handles DELETE action, of deleting char in editor at x +1 position
-    pub(crate) fn delete_in_editor(&mut self) {
+    pub(crate) fn delete(&mut self) {
         let current_line_len = self.editor_content[self.cursor.y as usize].chars().count() as i16;
 
         if current_line_len == 0 {
@@ -661,6 +775,11 @@ impl Editor {
 //╚═╝  ╚═╝╚══════╝╚══════╝╚═╝     ╚══════╝╚═╝  ╚═╝╚══════╝
 
 impl Editor {
+    ///function to check if some text is selected
+    fn is_text_selected(&self) -> bool {
+        self.text_selection_start.is_some() && self.text_selection_end.is_some()
+    }
+
     /// sets cursor position to specified position
     pub(crate) fn set_cursor_position(&mut self, pos: CursorPosition) {
         self.cursor.x = pos.x as i16;
@@ -942,7 +1061,7 @@ mod unit_editor_delete_tests {
     fn test_backspace_in_editor() {
         let mut editor = create_editor_with_editor_content(vec!['a'.to_string()]);
         editor.cursor.x = 1;
-        editor.backspace_in_editor();
+        editor.backspace();
         assert_eq!(editor.editor_content[0], "");
         assert_eq!(editor.cursor.x, 0);
     }
@@ -951,7 +1070,7 @@ mod unit_editor_delete_tests {
     fn test_backspace_in_editor_special_characters() {
         let mut editor = create_editor_with_editor_content(vec!["ᚠΩ₿😎".to_string()]);
         editor.cursor.x = 4;
-        editor.backspace_in_editor();
+        editor.backspace();
         assert_eq!(editor.editor_content[0], "ᚠΩ₿");
         assert_eq!(editor.cursor.x, 3);
     }
@@ -961,7 +1080,7 @@ mod unit_editor_delete_tests {
         let mut editor = create_editor_with_editor_content(vec!["a".to_string(), "b".to_string()]);
         editor.cursor.y = 1;
         editor.cursor.x = 0;
-        editor.backspace_in_editor();
+        editor.backspace();
         assert_eq!(editor.editor_content[0], "ab");
         assert_eq!(editor.editor_content.len(), 1);
         assert_eq!(editor.cursor.x, 1);
@@ -1076,7 +1195,7 @@ mod unit_editor_delete_tests {
     fn test_delete_in_editor() {
         let mut editor = create_editor_with_editor_content(vec!["ab".to_string()]);
         editor.cursor.x = 0;
-        editor.delete_in_editor();
+        editor.delete();
         assert_eq!(editor.editor_content[0], "a");
         assert_eq!(editor.cursor.x, 0);
     }
@@ -1085,7 +1204,7 @@ mod unit_editor_delete_tests {
     fn test_delete_in_editor_special_characters() {
         let mut editor = create_editor_with_editor_content(vec!["ᚠΩ₿😎".to_string()]);
         editor.cursor.x = 2;
-        editor.delete_in_editor();
+        editor.delete();
         assert_eq!(editor.editor_content[0], "ᚠΩ₿");
         assert_eq!(editor.cursor.x, 2);
     }
@@ -1094,7 +1213,7 @@ mod unit_editor_delete_tests {
     fn test_delete_in_editor_should_go_to_previous_line() {
         let mut editor = create_editor_with_editor_content(vec!["a".to_string(), "b".to_string()]);
         editor.cursor.x = 1;
-        editor.delete_in_editor();
+        editor.delete();
         assert_eq!(editor.editor_content[0], "ab");
         assert_eq!(editor.editor_content.len(), 1);
         assert_eq!(editor.cursor.x, 1);
@@ -1381,13 +1500,296 @@ mod unit_editor_cursor_tests {
         assert_eq!(editor.text_selection_end.unwrap().y, 0);
     }
 }
-
-
 #[cfg(test)]
-mod unit_editor_undoredo_tests{
-    use super::super::editor::Editor;
+mod unit_editor_cutcopy_tests {
+    use crate::core::cursor::CursorPosition;
+    use crate::core::editor::Editor;
+
+    fn create_editor_with_editor_content(vec: Vec<String>) -> Editor {
+        let mut editor = Editor::new();
+        editor.editor_content = vec;
+        editor.editor_height = 10; //since testing doesnt start ui.rs, height isnt set
+        editor
+    }
+
+    //copy selected text
+    #[test]
+    fn test_copy_single_line_selection() {
+        let mut app = create_editor_with_editor_content(vec!["Hello, world!".to_string()]);
+        app.text_selection_start = Some(CursorPosition { x: 7, y: 0 });
+        app.text_selection_end = Some(CursorPosition { x: 12, y: 0 });
+
+        let result = app.copy();
+
+        assert!(result.is_ok());
+        assert_eq!(app.clipboard.copied_text, vec!["world".to_string()]);
+    }
+
+    #[test]
+    fn test_copy_multi_line_selection() {
+        let mut app = create_editor_with_editor_content(vec![
+            "Hello,".to_string(),
+            " world!".to_string(),
+            " Rust".to_string(),
+        ]);
+        app.text_selection_start = Some(CursorPosition { x: 4, y: 0 });
+        app.text_selection_end = Some(CursorPosition { x: 3, y: 2 });
+
+        let result = app.copy();
+
+        assert!(result.is_ok());
+        assert_eq!(
+            app.clipboard.copied_text,
+            vec!["o,", " world!", " Ru"]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<String>>()
+        );
+    }
+
+    #[test]
+    fn test_copy_no_selection() {
+        let mut app = create_editor_with_editor_content(vec!["Hello, world!".to_string()]);
+        app.text_selection_start = None;
+        app.text_selection_end = None;
+
+        let result = app.copy();
+
+        assert!(result.is_err());
+        assert!(app.clipboard.copied_text.is_empty());
+    }
+
+    //cut selected text
+    #[test]
+    fn test_cut_single_line_selection() {
+        let mut app = create_editor_with_editor_content(vec!["Hello, world!".to_string()]);
+        app.text_selection_start = Some(CursorPosition { x: 7, y: 0 });
+        app.text_selection_end = Some(CursorPosition { x: 12, y: 0 });
+
+        let result = app.cut();
+
+        assert!(result.is_ok());
+        assert_eq!(app.clipboard.copied_text, vec!["world".to_string()]);
+        assert!(app.text_selection_start.is_none());
+        assert!(app.text_selection_end.is_none());
+    }
+
+    #[test]
+    fn test_cut_multi_line_selection() {
+        let mut app = create_editor_with_editor_content(vec![
+            "Hello,".to_string(),
+            " world!".to_string(),
+            " Rust".to_string(),
+        ]);
+        app.text_selection_start = Some(CursorPosition { x: 4, y: 0 });
+        app.text_selection_end = Some(CursorPosition { x: 3, y: 2 });
+
+        let result = app.cut();
+
+        assert!(result.is_ok());
+        assert_eq!(
+            app.clipboard.copied_text,
+            vec!["o,", " world!", " Ru"]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<String>>()
+        );
+        assert!(app.text_selection_start.is_none());
+        assert!(app.text_selection_end.is_none());
+    }
+
+    #[test]
+    fn test_cut_no_selection() {
+        let mut app = create_editor_with_editor_content(vec!["Hello, world!".to_string()]);
+        app.text_selection_start = None;
+        app.text_selection_end = None;
+
+        let result = app.cut();
+
+        assert!(result.is_err());
+        assert!(app.clipboard.copied_text.is_empty());
+        assert!(app.text_selection_start.is_none());
+        assert!(app.text_selection_end.is_none());
+    }
+
+    //paste selected text
+    #[test]
+    fn test_paste_single_line() {
+        let mut app = create_editor_with_editor_content(vec![
+            "Hello, world!".to_string(),
+            "This is a test.".to_string(),
+            "Another line.".to_string(),
+        ]);
+        app.clipboard.copy(&vec!["PASTED".to_string()]);
+        app.cursor.x = 8;
+        app.cursor.y = 0;
+
+        app.paste().unwrap();
+        assert_eq!(
+            app.editor_content,
+            vec![
+                "Hello, wPASTEDorld!".to_string(),
+                "This is a test.".to_string(),
+                "Another line.".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_paste_multiline() {
+        let mut app = create_editor_with_editor_content(vec![
+            "Hello, world!".to_string(),
+            "This is a test.".to_string(),
+            "Another line.".to_string(),
+        ]);
+        app.clipboard
+            .copy(&vec!["First".to_string(), "Second ".to_string()]);
+        app.cursor.x = 5;
+        app.cursor.y = 1;
+
+        app.paste().unwrap();
+        assert_eq!(
+            app.editor_content,
+            vec![
+                "Hello, world!".to_string(),
+                "This First".to_string(),
+                "Second is a test.".to_string(),
+                "Another line.".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_paste_single_line_special_characters() {
+        let mut app = create_editor_with_editor_content(vec![
+            "Hello, wᚠᚠᚠᚠorld!".to_string(),
+            "This is a test.".to_string(),
+            "Another line.".to_string(),
+        ]);
+        app.clipboard.copy(&vec!["PASTED".to_string()]);
+        app.cursor.x = 10;
+        app.cursor.y = 0;
+
+        app.paste().unwrap();
+        assert_eq!(
+            app.editor_content,
+            vec![
+                "Hello, wᚠᚠPASTEDᚠᚠorld!".to_string(),
+                "This is a test.".to_string(),
+                "Another line.".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_paste_multiline_special_charaters() {
+        let mut app = create_editor_with_editor_content(vec![
+            "Hello, world!".to_string(),
+            "This ᚠᚠᚠᚠis a test.".to_string(),
+            "Another line.".to_string(),
+        ]);
+        app.clipboard
+            .copy(&vec!["First".to_string(), "Second ".to_string()]);
+        app.cursor.x = 7;
+        app.cursor.y = 1;
+
+        app.paste().unwrap();
+        assert_eq!(
+            app.editor_content,
+            vec![
+                "Hello, world!".to_string(),
+                "This ᚠᚠFirst".to_string(),
+                "Second ᚠᚠis a test.".to_string(),
+                "Another line.".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_paste_at_start_of_line() {
+        let mut app = create_editor_with_editor_content(vec![
+            "Hello, world!".to_string(),
+            "This is a test.".to_string(),
+            "Another line.".to_string(),
+        ]);
+        app.clipboard.copy(&vec!["NewStart".to_string()]);
+        app.cursor.x = 0;
+        app.cursor.y = 2;
+
+        app.paste().unwrap();
+
+        assert_eq!(
+            app.editor_content,
+            vec![
+                "Hello, world!".to_string(),
+                "This is a test.".to_string(),
+                "NewStartAnother line.".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_paste_at_end_of_line() {
+        let mut app = create_editor_with_editor_content(vec![
+            "Hello, world!".to_string(),
+            "This is a test.".to_string(),
+            "Another line.".to_string(),
+        ]);
+        app.clipboard.copy(&vec!["END".to_string()]);
+        app.cursor.x = 13;
+        app.cursor.y = 0;
+
+        app.paste().unwrap();
+        assert_eq!(
+            app.editor_content,
+            vec![
+                "Hello, world!END".to_string(),
+                "This is a test.".to_string(),
+                "Another line.".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_paste_with_empty_copied_text() {
+        let mut app = create_editor_with_editor_content(vec![
+            "Hello, world!".to_string(),
+            "This is a test.".to_string(),
+            "Another line.".to_string(),
+        ]);
+        app.clipboard.copy(&vec![]);
+        app.cursor.x = 5;
+        app.cursor.y = 1;
+
+        assert!(app.paste().is_err());
+        assert_eq!(
+            app.editor_content,
+            vec![
+                "Hello, world!".to_string(),
+                "This is a test.".to_string(),
+                "Another line.".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_paste_into_empty_editor() {
+        let mut app = create_editor_with_editor_content(vec![]);
+        app.clipboard
+            .copy(&vec!["Hello".to_string(), "World".to_string()]);
+
+        app.paste().unwrap();
+        assert_eq!(
+            app.editor_content,
+            vec!["Hello".to_string(), "World".to_string()]
+        );
+    }
+}
+#[cfg(test)]
+mod unit_editor_undoredo_tests {
     use super::super::super::cursor::CursorPosition;
     use super::super::editor::EditAction;
+    use super::super::editor::Editor;
 
     //init functions
     fn create_editor_with_editor_content(vec: Vec<String>) -> Editor {
@@ -1428,9 +1830,13 @@ mod unit_editor_undoredo_tests{
             editor.write_char(ch);
         }
         assert_eq!(editor.editor_content[0], "hello");
-        for _ in 0..5 { editor.undo().unwrap(); }
+        for _ in 0..5 {
+            editor.undo().unwrap();
+        }
         assert_eq!(editor.editor_content[0], "");
-        for _ in 0..5 { editor.redo().unwrap(); }
+        for _ in 0..5 {
+            editor.redo().unwrap();
+        }
         assert_eq!(editor.editor_content[0], "hello");
     }
 
@@ -1439,7 +1845,7 @@ mod unit_editor_undoredo_tests{
     fn undo_redo_delete_middle_char() {
         let mut editor = create_editor_with_editor_content(vec!["abcde".to_string()]);
         editor.cursor.x = 3;
-        editor.backspace_in_editor(); // remove 'c'
+        editor.backspace(); // remove 'c'
         assert_eq!(editor.editor_content[0], "abde");
         editor.undo().unwrap();
         assert_eq!(editor.editor_content[0], "abcde");
@@ -1451,7 +1857,7 @@ mod unit_editor_undoredo_tests{
     fn undo_redo_delete_last_char() {
         let mut editor = create_editor_with_editor_content(vec!["test".to_string()]);
         editor.cursor.x = 4;
-        editor.backspace_in_editor(); // remove 't'
+        editor.backspace(); // remove 't'
         assert_eq!(editor.editor_content[0], "tes");
         editor.undo().unwrap();
         assert_eq!(editor.editor_content[0], "test");
@@ -1463,7 +1869,7 @@ mod unit_editor_undoredo_tests{
     fn undo_redo_delete_first_char() {
         let mut editor = create_editor_with_editor_content(vec!["tak".to_string()]);
         editor.cursor.x = 1;
-        editor.backspace_in_editor(); // remove 't'
+        editor.backspace(); // remove 't'
         assert_eq!(editor.editor_content[0], "ak");
         editor.undo().unwrap();
         assert_eq!(editor.editor_content[0], "tak");
@@ -1494,19 +1900,19 @@ mod unit_editor_undoredo_tests{
         assert_eq!(editor.editor_content[0], "fox");
     }
 
-
     // ========== InsertLines ==========
     #[test]
     fn undo_redo_insert_lines_middle() {
-        let mut editor = create_editor_with_editor_content(vec![
-            "zero".to_string(), "three".to_string(),
-        ]);
+        let mut editor =
+            create_editor_with_editor_content(vec!["zero".to_string(), "three".to_string()]);
         let lines = vec!["one".to_string(), "two".to_string()];
         let pos = CursorPosition { x: 0, y: 1 };
-        editor.undo_redo_manager.record_undo(EditAction::InsertLines {
-            start: pos,
-            lines: lines.clone(),
-        });
+        editor
+            .undo_redo_manager
+            .record_undo(EditAction::InsertLines {
+                start: pos,
+                lines: lines.clone(),
+            });
         editor.editor_content.splice(1..1, lines.clone());
         assert_eq!(editor.editor_content, vec!["zero", "one", "two", "three"]);
         editor.undo().unwrap();
@@ -1522,22 +1928,23 @@ mod unit_editor_undoredo_tests{
         let end_lines = vec!["x".to_string(), "y".to_string()];
         // Insert at start
         let pos_start = CursorPosition { x: 0, y: 0 };
-        editor.undo_redo_manager.record_undo(EditAction::InsertLines {
-            start: pos_start,
-            lines: start_lines.clone()
-        });
+        editor
+            .undo_redo_manager
+            .record_undo(EditAction::InsertLines {
+                start: pos_start,
+                lines: start_lines.clone(),
+            });
         editor.editor_content.splice(0..0, start_lines.clone());
         // Insert at end
         let pos_end = CursorPosition { x: 0, y: 3 };
-        editor.undo_redo_manager.record_undo(EditAction::InsertLines {
-            start: pos_end,
-            lines: end_lines.clone()
-        });
+        editor
+            .undo_redo_manager
+            .record_undo(EditAction::InsertLines {
+                start: pos_end,
+                lines: end_lines.clone(),
+            });
         editor.editor_content.splice(3..3, end_lines.clone());
-        assert_eq!(
-            editor.editor_content,
-            vec!["a", "b", "mid", "x", "y"]
-        );
+        assert_eq!(editor.editor_content, vec!["a", "b", "mid", "x", "y"]);
         editor.undo().unwrap();
         assert_eq!(editor.editor_content, vec!["a", "b", "mid"]);
         editor.undo().unwrap();
@@ -1561,17 +1968,16 @@ mod unit_editor_undoredo_tests{
         // Remove b,c,d
         let removed = vec!["b".to_string(), "c".to_string(), "d".to_string()];
         let pos = CursorPosition { x: 0, y: 1 };
-        editor.undo_redo_manager.record_undo(EditAction::DeleteLines {
-            start: pos,
-            deleted: removed.clone(),
-        });
+        editor
+            .undo_redo_manager
+            .record_undo(EditAction::DeleteLines {
+                start: pos,
+                deleted: removed.clone(),
+            });
         editor.editor_content.drain(1..4);
         assert_eq!(editor.editor_content, vec!["a", "e"]);
         editor.undo().unwrap();
-        assert_eq!(
-            editor.editor_content,
-            vec!["a", "b", "c", "d", "e"]
-        );
+        assert_eq!(editor.editor_content, vec!["a", "b", "c", "d", "e"]);
         editor.redo().unwrap();
         assert_eq!(editor.editor_content, vec!["a", "e"]);
     }
@@ -1585,10 +1991,12 @@ mod unit_editor_undoredo_tests{
         ]);
         let removed = editor.editor_content.clone();
         let pos = CursorPosition { x: 0, y: 0 };
-        editor.undo_redo_manager.record_undo(EditAction::DeleteLines {
-            start: pos,
-            deleted: removed.clone(),
-        });
+        editor
+            .undo_redo_manager
+            .record_undo(EditAction::DeleteLines {
+                start: pos,
+                deleted: removed.clone(),
+            });
 
         editor.editor_content.clear();
         assert_eq!(editor.editor_content, Vec::<String>::new());
@@ -1634,4 +2042,3 @@ mod unit_editor_undoredo_tests{
         assert_eq!(editor.editor_content[0], "ab");
     }
 }
-
