@@ -178,9 +178,9 @@ pub fn map_key_to_action(app: &App, key: KeyEvent) -> InputAction {
             KEYBIND_RIGHT => InputAction::MoveCursor(Direction::Right),
             KEYBIND_BACKSPACE => InputAction::BACKSPACE,
             KEYBIND_ENTER => InputAction::ENTER,
-            (_, KeyCode::Char(c)) => InputAction::WriteChar(c),
             (_, KeyCode::Tab | KeyCode::Esc) => InputAction::ToggleActiveArea,
             (KeyModifiers::CONTROL, KeyCode::Char('c')) => InputAction::QUIT,
+            (_, KeyCode::Char(c)) => InputAction::WriteChar(c),
             _ => InputAction::NoOp
         },
         ActiveArea::Popup =>  match (key.modifiers, key.code) {

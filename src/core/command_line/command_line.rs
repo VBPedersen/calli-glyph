@@ -19,10 +19,14 @@ impl CommandLine {
     /// responsible for dispatching action to corret internal method.
     pub fn handle_input_action(&mut self, action: InputAction) {
         match action {
-            InputAction::MoveCursor(direction) => {}
+            InputAction::MoveCursor(direction) => {
+                let (x,y) = direction.to_vector();
+                self.move_cursor(x);
+            }
             InputAction::MoveSelectionCursor(direction) => {}
-            InputAction::TAB => {}
-            InputAction::ENTER => {}
+            InputAction::ENTER => {
+                
+            }
             InputAction::BACKSPACE => {}
             InputAction::DELETE => {}
             InputAction::SAVE => {}
@@ -31,10 +35,9 @@ impl CommandLine {
             InputAction::PASTE => {}
             InputAction::UNDO => {}
             InputAction::REDO => {}
-            InputAction::ToggleActiveArea => {}
-            InputAction::WriteChar(c) => {}
-            InputAction::QUIT => {}
+            InputAction::WriteChar(c) => { self.write_char(c); }
             InputAction::NoOp => {}
+            _ => {}
         }
     }
     

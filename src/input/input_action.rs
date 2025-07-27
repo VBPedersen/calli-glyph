@@ -1,7 +1,7 @@
 use crossterm::event::KeyCode;
 
 /// A high-level representation of user intent in the TUI.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum InputAction {
     MoveCursor(Direction),
     MoveSelectionCursor(Direction),
@@ -31,4 +31,16 @@ pub enum Direction {
     Down,
     Left,
     Right,
+}
+
+///convert direction to (x,y) vector with i16 values
+impl Direction {
+    pub fn to_vector(self) -> (i16, i16) {
+        match self {
+            Direction::Up => (0, -1),
+            Direction::Down => (0, 1),
+            Direction::Left => (-1, 0),
+            Direction::Right => (1, 0),
+        }
+    }
 }

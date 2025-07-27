@@ -132,8 +132,17 @@ impl App {
     ///function to process input action, responsible for calling the related active area,
     /// with the gotten input action.
     pub fn process_input_action(&mut self, action: InputAction) {
+        self.check_for_app_related_input_actions(action.clone());
         match self.active_area {
-            ActiveArea::Editor => {self.editor.handle_input_action(action);},
+            ActiveArea::Editor => {
+                if let Err(e) = self.editor.handle_input_action(action) {
+                    let popup = Box::new(ErrorPopup::new(
+                        "Editor Error",
+                        EditorFailure(e),
+                    ));
+                    self.open_popup(popup);
+                }
+            },
             ActiveArea::CommandLine => {self.command_line.handle_input_action(action);}
             ActiveArea::Popup => {
                 if let Some(popup) = self.popup.as_mut() {
@@ -150,125 +159,33 @@ impl App {
         }
     }
     
-
-    //TEXT OPERATIONS
-
-    fn is_text_selected(&self) -> bool {
-        self.editor.text_selection_start.is_some() && self.editor.text_selection_end.is_some()
-    }
-
-    //IN EDITOR
-
-    ///wrapper function to either call write char with selected text or function write char,
-    /// where text isn't selected
-    pub(crate) fn write_all_char_in_editor(&mut self, c: char) {
-        if self.is_text_selected() {
-            self.write_char_in_editor_text_is_selected(c)
-        } else {
-            self.write_char_in_editor(c)
+    ///function to check for app related input actions,
+    /// i.e. input action that should result in app related functionality,
+    /// like quitting should call method quit in app.rs
+    fn check_for_app_related_input_actions(&mut self, action: InputAction){
+        match action {
+            ///check for Save,
+            ///because saving should be handled by the app centrally.
+            InputAction::SAVE => {
+                if let Err(e) = self.save(vec![]) {
+                    let popup = Box::new(ErrorPopup::new(
+                        "Failed to Save File",
+                        AppError::InternalError(e.to_string()),
+                    ));
+                    self.open_popup(popup);
+                }
+            }
+            ///check for active area toggling,
+            ///because toggle active area should be handled by the app centrally.
+            InputAction::ToggleActiveArea => { self.toggle_active_area()}
+            ///check for quitting,
+            ///because quitting should be handled by the app centrally
+            InputAction::QUIT => {self.quit()}
+            InputAction::NoOp => {}
+            _ => {}
         }
     }
-
-    ///replaces all selected text with char to y position line, with x position
-    fn write_char_in_editor_text_is_selected(&mut self, c: char) {
-        self.editor.write_char_text_is_selected(c);
-    }
-
-    ///writes char to y position line, with x position
-    pub(crate) fn write_char_in_editor(&mut self, c: char) {
-        self.editor.write_char(c);
-    }
-
-    ///wrapper function to either call backspace in editor with selected text or function backspace_in_editor,
-    /// where text isn't selected
-    pub(crate) fn backspace_all_in_editor(&mut self) {
-        if self.is_text_selected() {
-            self.backspace_in_editor_text_is_selected();
-        } else {
-            self.backspace_in_editor();
-        }
-    }
-
-    ///handles backspace in editor, removes char at y line x position and sets new cursor position
-    pub(crate) fn backspace_in_editor_text_is_selected(&mut self) {
-        self.editor.backspace_text_is_selected();
-    }
-
-    ///handles backspace in editor, removes char at y line x position and sets new cursor position
-    pub(crate) fn backspace_in_editor(&mut self) {
-        self.editor.backspace_in_editor();
-    }
-
-    ///wrapper function to either call backspace in editor with selected text or function backspace_in_editor,
-    /// where text isn't selected
-    pub(crate) fn delete_all_in_editor(&mut self) {
-        if self.is_text_selected() {
-            self.delete_in_editor_text_is_selected();
-        } else {
-            self.delete_in_editor();
-        }
-    }
-
-    ///handles delete in editor, removes char at y line x position and sets new cursor position
-    pub(crate) fn delete_in_editor_text_is_selected(&mut self) {
-        self.editor.delete_text_is_selected()
-    }
-
-    ///handles DELETE action, of deleting char in editor at x +1 position
-    pub(crate) fn delete_in_editor(&mut self) {
-        self.editor.delete_in_editor();
-    }
-
-    ///handles TAB action in editor, by writing \t to editor content.
-    pub(crate) fn tab_in_editor(&mut self) {
-        self.editor.tab();
-    }
-
-    ///handles enter new line, with possible move of text
-    pub(crate) fn enter_in_editor(&mut self) {
-        self.editor.enter();
-    }
-
-    //IN COMMANDLINE
-
-    /// writes char to the commandline content at x position, and moves cursor
-    pub(crate) fn write_char_to_command_line(&mut self, c: char) {
-        self.command_line.write_char(c);
-    }
-
-    pub(crate) fn backspace_on_command_line(&mut self) {
-        self.command_line.backspace();
-    }
-
-    //CURSOR
-
-    ///wrapper function to either call move text selection cursor in editor or call to move cursor in editor,
-    pub(crate) fn move_all_cursor_editor(&mut self, x: i16, y: i16, shift_held: bool) {
-        if shift_held {
-            self.move_selection_cursor(x, y);
-        } else {
-            self.move_cursor_in_editor(x, y);
-            self.editor.text_selection_start = None;
-            self.editor.text_selection_end = None;
-        }
-    }
-
-    ///moves logical cursor by x and y, under conditions. and recalculates the visual cursor position
-    pub(crate) fn move_cursor_in_editor(&mut self, x: i16, y: i16) {
-        self.editor.move_cursor(x, y);
-    }
-
-    ///moves selection cursor
-    pub(crate) fn move_selection_cursor(&mut self, x: i16, y: i16) {
-        self.editor.move_selection_cursor(x, y);
-    }
-
-    //IN COMMAND LINE
-    ///moves cursor by x and y amounts in commandline
-    pub(crate) fn move_cursor_in_command_line(&mut self, x: i16) {
-        self.command_line.move_cursor(x);
-    }
-
+    
     //SCROLL
     ///moves the scroll offset
     pub(crate) fn move_scroll_offset(&mut self, offset: i16) {
@@ -461,63 +378,6 @@ impl App {
             Ok(false)
         }
     }
-
-    ///copies text within bound of text selected to copied_text
-    pub(crate) fn copy_selected_text(&mut self) -> Result<(), AppError> {
-        match self.editor.copy_selected_text() {
-            Ok(selected_text) => {
-                //copy to clipboard
-                self.clipboard.copy(&*selected_text);
-                //reset text selection
-                self.editor.text_selection_start = None;
-                self.editor.text_selection_end = None;
-                Ok(())
-            }
-            Err(e) => Err(EditorFailure(e)),
-        }
-    }
-
-    ///cuts text within bound of text selected to copied_text
-    pub(crate) fn cut_selected_text(&mut self) -> Result<(), AppError> {
-        match self.editor.cut_selected_text() {
-            Ok(selected_text) => {
-                //copy to clipboard
-                self.clipboard.copy(&*selected_text);
-                //reset text selection
-                self.editor.text_selection_start = None;
-                self.editor.text_selection_end = None;
-                Ok(())
-            }
-            Err(e) => Err(EditorFailure(e)),
-        }
-    }
-
-    ///pastes text from copied text to editor content
-    pub(crate) fn paste_selected_text(&mut self) -> Result<(), AppError> {
-        match self
-            .editor
-            .paste_selected_text(self.clipboard.copied_text.clone())
-        {
-            Ok(()) => Ok(()),
-            Err(e) => Err(EditorFailure(e)),
-        }
-    }
-
-    ///undos last edit action
-    pub(crate) fn undo_in_editor(&mut self) -> Result<(), AppError> {
-        match self.editor.undo() {
-            Ok(()) => Ok(()),
-            Err(e) => Err(EditorFailure(e)),
-        }
-    }
-
-    ///redos last edit action
-    pub(crate) fn redo_in_editor(&mut self) -> Result<(), AppError> {
-        match self.editor.redo() {
-            Ok(()) => Ok(()),
-            Err(e) => Err(EditorFailure(e)),
-        }
-    }
 }
 
 //████████╗███████╗███████╗████████╗███████╗
@@ -565,294 +425,4 @@ mod unit_app_tests {
     }
 }
 
-#[cfg(test)]
-mod unit_app_cutcopy_tests {
-    use super::super::app::*;
-    use super::super::cursor::CursorPosition;
 
-    fn create_app_with_editor_content(vec: Vec<String>) -> App {
-        let mut app = App::new();
-        app.editor.editor_content = vec;
-        app.editor.editor_height = 10; //since testing doesnt start ui.rs, height isnt set
-        app
-    }
-
-    //copy selected text
-    #[test]
-    fn test_copy_single_line_selection() {
-        let mut app = create_app_with_editor_content(vec!["Hello, world!".to_string()]);
-        app.editor.text_selection_start = Some(CursorPosition { x: 7, y: 0 });
-        app.editor.text_selection_end = Some(CursorPosition { x: 12, y: 0 });
-
-        let result = app.copy_selected_text();
-
-        assert!(result.is_ok());
-        assert_eq!(app.clipboard.copied_text, vec!["world".to_string()]);
-    }
-
-    #[test]
-    fn test_copy_multi_line_selection() {
-        let mut app = create_app_with_editor_content(vec![
-            "Hello,".to_string(),
-            " world!".to_string(),
-            " Rust".to_string(),
-        ]);
-        app.editor.text_selection_start = Some(CursorPosition { x: 4, y: 0 });
-        app.editor.text_selection_end = Some(CursorPosition { x: 3, y: 2 });
-
-        let result = app.copy_selected_text();
-
-        assert!(result.is_ok());
-        assert_eq!(
-            app.clipboard.copied_text,
-            vec!["o,", " world!", " Ru"]
-                .into_iter()
-                .map(String::from)
-                .collect::<Vec<String>>()
-        );
-    }
-
-    #[test]
-    fn test_copy_no_selection() {
-        let mut app = create_app_with_editor_content(vec!["Hello, world!".to_string()]);
-        app.editor.text_selection_start = None;
-        app.editor.text_selection_end = None;
-
-        let result = app.copy_selected_text();
-
-        assert!(result.is_err());
-        assert!(app.clipboard.copied_text.is_empty());
-    }
-
-    //cut selected text
-    #[test]
-    fn test_cut_single_line_selection() {
-        let mut app = create_app_with_editor_content(vec!["Hello, world!".to_string()]);
-        app.editor.text_selection_start = Some(CursorPosition { x: 7, y: 0 });
-        app.editor.text_selection_end = Some(CursorPosition { x: 12, y: 0 });
-
-        let result = app.cut_selected_text();
-
-        assert!(result.is_ok());
-        assert_eq!(app.clipboard.copied_text, vec!["world".to_string()]);
-        assert!(app.editor.text_selection_start.is_none());
-        assert!(app.editor.text_selection_end.is_none());
-    }
-
-    #[test]
-    fn test_cut_multi_line_selection() {
-        let mut app = create_app_with_editor_content(vec![
-            "Hello,".to_string(),
-            " world!".to_string(),
-            " Rust".to_string(),
-        ]);
-        app.editor.text_selection_start = Some(CursorPosition { x: 4, y: 0 });
-        app.editor.text_selection_end = Some(CursorPosition { x: 3, y: 2 });
-
-        let result = app.cut_selected_text();
-
-        assert!(result.is_ok());
-        assert_eq!(
-            app.clipboard.copied_text,
-            vec!["o,", " world!", " Ru"]
-                .into_iter()
-                .map(String::from)
-                .collect::<Vec<String>>()
-        );
-        assert!(app.editor.text_selection_start.is_none());
-        assert!(app.editor.text_selection_end.is_none());
-    }
-
-    #[test]
-    fn test_cut_no_selection() {
-        let mut app = create_app_with_editor_content(vec!["Hello, world!".to_string()]);
-        app.editor.text_selection_start = None;
-        app.editor.text_selection_end = None;
-
-        let result = app.cut_selected_text();
-
-        assert!(result.is_err());
-        assert!(app.clipboard.copied_text.is_empty());
-        assert!(app.editor.text_selection_start.is_none());
-        assert!(app.editor.text_selection_end.is_none());
-    }
-
-    //paste selected text
-    #[test]
-    fn test_paste_single_line() {
-        let mut app = create_app_with_editor_content(vec![
-            "Hello, world!".to_string(),
-            "This is a test.".to_string(),
-            "Another line.".to_string(),
-        ]);
-        app.clipboard.copy(&vec!["PASTED".to_string()]);
-        app.editor.cursor.x = 8;
-        app.editor.cursor.y = 0;
-
-        app.paste_selected_text().unwrap();
-
-        assert_eq!(
-            app.editor.editor_content,
-            vec![
-                "Hello, wPASTEDorld!".to_string(),
-                "This is a test.".to_string(),
-                "Another line.".to_string(),
-            ]
-        );
-    }
-
-    #[test]
-    fn test_paste_multiline() {
-        let mut app = create_app_with_editor_content(vec![
-            "Hello, world!".to_string(),
-            "This is a test.".to_string(),
-            "Another line.".to_string(),
-        ]);
-        app.clipboard
-            .copy(&vec!["First".to_string(), "Second ".to_string()]);
-        app.editor.cursor.x = 5;
-        app.editor.cursor.y = 1;
-
-        app.paste_selected_text().unwrap();
-
-        assert_eq!(
-            app.editor.editor_content,
-            vec![
-                "Hello, world!".to_string(),
-                "This First".to_string(),
-                "Second is a test.".to_string(),
-                "Another line.".to_string(),
-            ]
-        );
-    }
-
-    #[test]
-    fn test_paste_single_line_special_characters() {
-        let mut app = create_app_with_editor_content(vec![
-            "Hello, wᚠᚠᚠᚠorld!".to_string(),
-            "This is a test.".to_string(),
-            "Another line.".to_string(),
-        ]);
-        app.clipboard.copy(&vec!["PASTED".to_string()]);
-        app.editor.cursor.x = 10;
-        app.editor.cursor.y = 0;
-
-        app.paste_selected_text().unwrap();
-
-        assert_eq!(
-            app.editor.editor_content,
-            vec![
-                "Hello, wᚠᚠPASTEDᚠᚠorld!".to_string(),
-                "This is a test.".to_string(),
-                "Another line.".to_string(),
-            ]
-        );
-    }
-
-    #[test]
-    fn test_paste_multiline_special_charaters() {
-        let mut app = create_app_with_editor_content(vec![
-            "Hello, world!".to_string(),
-            "This ᚠᚠᚠᚠis a test.".to_string(),
-            "Another line.".to_string(),
-        ]);
-        app.clipboard
-            .copy(&vec!["First".to_string(), "Second ".to_string()]);
-        app.editor.cursor.x = 7;
-        app.editor.cursor.y = 1;
-
-        app.paste_selected_text().unwrap();
-
-        assert_eq!(
-            app.editor.editor_content,
-            vec![
-                "Hello, world!".to_string(),
-                "This ᚠᚠFirst".to_string(),
-                "Second ᚠᚠis a test.".to_string(),
-                "Another line.".to_string(),
-            ]
-        );
-    }
-
-    #[test]
-    fn test_paste_at_start_of_line() {
-        let mut app = create_app_with_editor_content(vec![
-            "Hello, world!".to_string(),
-            "This is a test.".to_string(),
-            "Another line.".to_string(),
-        ]);
-        app.clipboard.copy(&vec!["NewStart".to_string()]);
-        app.editor.cursor.x = 0;
-        app.editor.cursor.y = 2;
-
-        app.paste_selected_text().unwrap();
-
-        assert_eq!(
-            app.editor.editor_content,
-            vec![
-                "Hello, world!".to_string(),
-                "This is a test.".to_string(),
-                "NewStartAnother line.".to_string(),
-            ]
-        );
-    }
-
-    #[test]
-    fn test_paste_at_end_of_line() {
-        let mut app = create_app_with_editor_content(vec![
-            "Hello, world!".to_string(),
-            "This is a test.".to_string(),
-            "Another line.".to_string(),
-        ]);
-        app.clipboard.copy(&vec!["END".to_string()]);
-        app.editor.cursor.x = 13;
-        app.editor.cursor.y = 0;
-
-        app.paste_selected_text().unwrap();
-
-        assert_eq!(
-            app.editor.editor_content,
-            vec![
-                "Hello, world!END".to_string(),
-                "This is a test.".to_string(),
-                "Another line.".to_string(),
-            ]
-        );
-    }
-
-    #[test]
-    fn test_paste_with_empty_copied_text() {
-        let mut app = create_app_with_editor_content(vec![
-            "Hello, world!".to_string(),
-            "This is a test.".to_string(),
-            "Another line.".to_string(),
-        ]);
-        app.clipboard.copy(&vec![]);
-        app.editor.cursor.x = 5;
-        app.editor.cursor.y = 1;
-
-        assert!(app.paste_selected_text().is_err());
-        assert_eq!(
-            app.editor.editor_content,
-            vec![
-                "Hello, world!".to_string(),
-                "This is a test.".to_string(),
-                "Another line.".to_string(),
-            ]
-        );
-    }
-
-    #[test]
-    fn test_paste_into_empty_editor() {
-        let mut app = create_app_with_editor_content(vec![]);
-        app.clipboard
-            .copy(&vec!["Hello".to_string(), "World".to_string()]);
-
-        app.paste_selected_text().unwrap();
-
-        assert_eq!(
-            app.editor.editor_content,
-            vec!["Hello".to_string(), "World".to_string()]
-        );
-    }
-}
