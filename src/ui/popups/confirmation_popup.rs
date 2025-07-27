@@ -1,11 +1,11 @@
 use super::popup::{Popup, PopupResult, PopupType};
+use crate::input::input_action::Direction;
+use crate::input::input_action::InputAction;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::{Color, Style};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use ratatui::Frame;
-use crate::input::input_action::InputAction;
-use crate::input::input_action::Direction;
 
 #[derive(Debug)]
 pub struct ConfirmationPopup {
@@ -68,7 +68,7 @@ impl Popup for ConfirmationPopup {
                     self.selected_option = !self.selected_option; // Toggle between Yes/No
                 }
                 PopupResult::None
-            },
+            }
             InputAction::ENTER => PopupResult::Bool(self.selected_option),
             _ => PopupResult::None,
         }

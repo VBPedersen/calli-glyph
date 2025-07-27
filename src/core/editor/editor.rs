@@ -74,7 +74,7 @@ impl Editor {
         match action {
             InputAction::MoveCursor(direction) => {
                 let (x, y) = direction.to_vector();
-                self.move_cursor(x,y);
+                self.move_cursor(x, y);
                 self.text_selection_start = None;
                 self.text_selection_end = None;
                 Ok(())
@@ -108,36 +108,26 @@ impl Editor {
                 }
                 Ok(())
             }
-            InputAction::COPY => {
-                match self.copy() {
-                    Ok(()) => Ok(()),
-                    Err(e) => Err(e),
-                }
-            }
-            InputAction::CUT => {
-                match self.cut() {
-                    Ok(()) => Ok(()),
-                    Err(e) => Err(e),
-                }
-            }
-            InputAction::PASTE => {
-                match self.paste() {
-                    Ok(()) => Ok(()),
-                    Err(e) => Err(e),
-                }
-            }
-            InputAction::UNDO => {
-                match self.undo() {
-                    Ok(()) => Ok(()),
-                    Err(e) => Err(e),
-                }
-            }
-            InputAction::REDO => {
-                match self.redo() {
-                    Ok(()) => Ok(()),
-                    Err(e) => Err(e),
-                }
-            }
+            InputAction::COPY => match self.copy() {
+                Ok(()) => Ok(()),
+                Err(e) => Err(e),
+            },
+            InputAction::CUT => match self.cut() {
+                Ok(()) => Ok(()),
+                Err(e) => Err(e),
+            },
+            InputAction::PASTE => match self.paste() {
+                Ok(()) => Ok(()),
+                Err(e) => Err(e),
+            },
+            InputAction::UNDO => match self.undo() {
+                Ok(()) => Ok(()),
+                Err(e) => Err(e),
+            },
+            InputAction::REDO => match self.redo() {
+                Ok(()) => Ok(()),
+                Err(e) => Err(e),
+            },
             InputAction::WriteChar(c) => {
                 if self.is_text_selected() {
                     self.write_char_text_is_selected(c)
@@ -146,13 +136,10 @@ impl Editor {
                 }
                 Ok(())
             }
-            _ => Ok(())
+            _ => Ok(()),
         }
     }
-    
-    
-    
-    
+
     //undo manager
     ///undo wrapper function, that calls the UndoRedoManager
     pub fn undo(&mut self) -> Result<(), EditorError> {
@@ -195,7 +182,7 @@ impl Editor {
             EditAction::InsertLines { start, lines } => {
                 self.insert_lines_at(*start, lines.clone());
                 self.set_cursor_position(*start);
-            }//in delete lines cursor position calculated first, 
+            } //in delete lines cursor position calculated first,
             // as visual x cannot be calculated without specific y line present
             EditAction::DeleteLines { start, deleted } => {
                 self.set_cursor_position(*start);
@@ -203,10 +190,9 @@ impl Editor {
             }
         }
     }
-    
-    
+
     //copy, cut and paste
-    
+
     ///base function for copy that copies if text is selected
     pub fn copy(&mut self) -> Result<(), EditorError> {
         match self.copy_selected_text() {
@@ -221,7 +207,7 @@ impl Editor {
             Err(e) => Err(e),
         }
     }
-    
+
     ///copies text within bound of text selected to copied_text
     pub fn copy_selected_text(&mut self) -> Result<Vec<String>, EditorError> {
         if let (Some(start), Some(end)) = (self.text_selection_start, self.text_selection_end) {
@@ -271,7 +257,7 @@ impl Editor {
             Err(e) => Err(e),
         }
     }
-    
+
     ///cuts text within bound of text selected to copied_text
     pub fn cut_selected_text(&mut self) -> Result<Vec<String>, EditorError> {
         if let (Some(start), Some(end)) = (self.text_selection_start, self.text_selection_end) {
@@ -319,7 +305,7 @@ impl Editor {
             Err(e) => Err(e),
         }
     }
-    
+
     ///pastes text from copied text to editor content
     pub fn paste_selected_text(&mut self, copied_text: Vec<String>) -> Result<(), EditorError> {
         //if no text in copied text
@@ -1516,8 +1502,8 @@ mod unit_editor_cursor_tests {
 }
 #[cfg(test)]
 mod unit_editor_cutcopy_tests {
-    use crate::core::editor::Editor;
     use crate::core::cursor::CursorPosition;
+    use crate::core::editor::Editor;
 
     fn create_editor_with_editor_content(vec: Vec<String>) -> Editor {
         let mut editor = Editor::new();
@@ -1800,10 +1786,10 @@ mod unit_editor_cutcopy_tests {
     }
 }
 #[cfg(test)]
-mod unit_editor_undoredo_tests{
-    use super::super::editor::Editor;
+mod unit_editor_undoredo_tests {
     use super::super::super::cursor::CursorPosition;
     use super::super::editor::EditAction;
+    use super::super::editor::Editor;
 
     //init functions
     fn create_editor_with_editor_content(vec: Vec<String>) -> Editor {
@@ -1844,9 +1830,13 @@ mod unit_editor_undoredo_tests{
             editor.write_char(ch);
         }
         assert_eq!(editor.editor_content[0], "hello");
-        for _ in 0..5 { editor.undo().unwrap(); }
+        for _ in 0..5 {
+            editor.undo().unwrap();
+        }
         assert_eq!(editor.editor_content[0], "");
-        for _ in 0..5 { editor.redo().unwrap(); }
+        for _ in 0..5 {
+            editor.redo().unwrap();
+        }
         assert_eq!(editor.editor_content[0], "hello");
     }
 
@@ -1910,19 +1900,19 @@ mod unit_editor_undoredo_tests{
         assert_eq!(editor.editor_content[0], "fox");
     }
 
-
     // ========== InsertLines ==========
     #[test]
     fn undo_redo_insert_lines_middle() {
-        let mut editor = create_editor_with_editor_content(vec![
-            "zero".to_string(), "three".to_string(),
-        ]);
+        let mut editor =
+            create_editor_with_editor_content(vec!["zero".to_string(), "three".to_string()]);
         let lines = vec!["one".to_string(), "two".to_string()];
         let pos = CursorPosition { x: 0, y: 1 };
-        editor.undo_redo_manager.record_undo(EditAction::InsertLines {
-            start: pos,
-            lines: lines.clone(),
-        });
+        editor
+            .undo_redo_manager
+            .record_undo(EditAction::InsertLines {
+                start: pos,
+                lines: lines.clone(),
+            });
         editor.editor_content.splice(1..1, lines.clone());
         assert_eq!(editor.editor_content, vec!["zero", "one", "two", "three"]);
         editor.undo().unwrap();
@@ -1938,22 +1928,23 @@ mod unit_editor_undoredo_tests{
         let end_lines = vec!["x".to_string(), "y".to_string()];
         // Insert at start
         let pos_start = CursorPosition { x: 0, y: 0 };
-        editor.undo_redo_manager.record_undo(EditAction::InsertLines {
-            start: pos_start,
-            lines: start_lines.clone()
-        });
+        editor
+            .undo_redo_manager
+            .record_undo(EditAction::InsertLines {
+                start: pos_start,
+                lines: start_lines.clone(),
+            });
         editor.editor_content.splice(0..0, start_lines.clone());
         // Insert at end
         let pos_end = CursorPosition { x: 0, y: 3 };
-        editor.undo_redo_manager.record_undo(EditAction::InsertLines {
-            start: pos_end,
-            lines: end_lines.clone()
-        });
+        editor
+            .undo_redo_manager
+            .record_undo(EditAction::InsertLines {
+                start: pos_end,
+                lines: end_lines.clone(),
+            });
         editor.editor_content.splice(3..3, end_lines.clone());
-        assert_eq!(
-            editor.editor_content,
-            vec!["a", "b", "mid", "x", "y"]
-        );
+        assert_eq!(editor.editor_content, vec!["a", "b", "mid", "x", "y"]);
         editor.undo().unwrap();
         assert_eq!(editor.editor_content, vec!["a", "b", "mid"]);
         editor.undo().unwrap();
@@ -1977,17 +1968,16 @@ mod unit_editor_undoredo_tests{
         // Remove b,c,d
         let removed = vec!["b".to_string(), "c".to_string(), "d".to_string()];
         let pos = CursorPosition { x: 0, y: 1 };
-        editor.undo_redo_manager.record_undo(EditAction::DeleteLines {
-            start: pos,
-            deleted: removed.clone(),
-        });
+        editor
+            .undo_redo_manager
+            .record_undo(EditAction::DeleteLines {
+                start: pos,
+                deleted: removed.clone(),
+            });
         editor.editor_content.drain(1..4);
         assert_eq!(editor.editor_content, vec!["a", "e"]);
         editor.undo().unwrap();
-        assert_eq!(
-            editor.editor_content,
-            vec!["a", "b", "c", "d", "e"]
-        );
+        assert_eq!(editor.editor_content, vec!["a", "b", "c", "d", "e"]);
         editor.redo().unwrap();
         assert_eq!(editor.editor_content, vec!["a", "e"]);
     }
@@ -2001,10 +1991,12 @@ mod unit_editor_undoredo_tests{
         ]);
         let removed = editor.editor_content.clone();
         let pos = CursorPosition { x: 0, y: 0 };
-        editor.undo_redo_manager.record_undo(EditAction::DeleteLines {
-            start: pos,
-            deleted: removed.clone(),
-        });
+        editor
+            .undo_redo_manager
+            .record_undo(EditAction::DeleteLines {
+                start: pos,
+                deleted: removed.clone(),
+            });
 
         editor.editor_content.clear();
         assert_eq!(editor.editor_content, Vec::<String>::new());
@@ -2050,4 +2042,3 @@ mod unit_editor_undoredo_tests{
         assert_eq!(editor.editor_content[0], "ab");
     }
 }
-

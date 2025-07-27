@@ -1,5 +1,5 @@
-use crate::input::input_action::InputAction;
 use super::super::cursor::Cursor;
+use crate::input::input_action::InputAction;
 
 #[derive(Debug, Default)]
 pub struct CommandLine {
@@ -20,17 +20,19 @@ impl CommandLine {
     pub fn handle_input_action(&mut self, action: InputAction) {
         match action {
             InputAction::MoveCursor(direction) => {
-                let (x,_y) = direction.to_vector();
+                let (x, _y) = direction.to_vector();
                 self.move_cursor(x);
             }
-            InputAction::BACKSPACE => {self.backspace()}
-            InputAction::DELETE => {self.delete()}
-            InputAction::WriteChar(c) => { self.write_char(c); }
+            InputAction::BACKSPACE => self.backspace(),
+            InputAction::DELETE => self.delete(),
+            InputAction::WriteChar(c) => {
+                self.write_char(c);
+            }
             InputAction::NoOp => {}
             _ => {}
         }
     }
-    
+
     //writing
     ///writes char to line, with x position
     pub fn write_char(&mut self, c: char) {

@@ -3,7 +3,9 @@ use super::command_line::CommandLine;
 use super::editor::Editor;
 use super::errors::AppError;
 use super::errors::AppError::EditorFailure;
+use crate::config::command_binds;
 use crate::input::input::handle_input;
+use crate::input::input_action::InputAction;
 use crate::ui::popups::confirmation_popup::ConfirmationPopup;
 use crate::ui::popups::error_popup::ErrorPopup;
 use crate::ui::popups::popup::{Popup, PopupResult, PopupType};
@@ -15,8 +17,6 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 use std::time::{Duration, Instant};
-use crate::config::command_binds;
-use crate::input::input_action::InputAction;
 #[derive(Debug)]
 pub struct App {
     /// Is the application running?
@@ -128,8 +128,7 @@ impl App {
         }
         Ok(())
     }
-    
-    
+
     ///function to process input action, responsible for calling the related active area,
     /// with the gotten input action.
     pub fn process_input_action(&mut self, action: InputAction) {
@@ -137,13 +136,10 @@ impl App {
         match self.active_area {
             ActiveArea::Editor => {
                 if let Err(e) = self.editor.handle_input_action(action) {
-                    let popup = Box::new(ErrorPopup::new(
-                        "Editor Error",
-                        EditorFailure(e),
-                    ));
+                    let popup = Box::new(ErrorPopup::new("Editor Error", EditorFailure(e)));
                     self.open_popup(popup);
                 }
-            },
+            }
             ActiveArea::CommandLine => {
                 //check for ENTER on commandline, to execute commands,
                 // since entering on a command needs app related function execution,
@@ -168,11 +164,11 @@ impl App {
             }
         }
     }
-    
+
     ///function to check for app related input actions,
     /// i.e. input action that should result in app related functionality,
     /// like quitting should call method quit in app.rs
-    fn check_for_app_related_input_actions(&mut self, action: InputAction){
+    fn check_for_app_related_input_actions(&mut self, action: InputAction) {
         match action {
             //check for Save,
             //because saving should be handled by the app centrally.
@@ -187,16 +183,15 @@ impl App {
             }
             //check for active area toggling,
             //because toggle active area should be handled by the app centrally.
-            InputAction::ToggleActiveArea => { self.toggle_active_area()}
+            InputAction::ToggleActiveArea => self.toggle_active_area(),
             //check for quitting,
             //because quitting should be handled by the app centrally
-            InputAction::QUIT => {self.quit()}
+            InputAction::QUIT => self.quit(),
             InputAction::NoOp => {}
             _ => {}
         }
     }
-    
-    
+
     //command line command execution
     ///handles checking command and executing said command with given args
     fn on_command_enter(&mut self) {
@@ -238,7 +233,7 @@ impl App {
 
         Err("No valid command found".to_string())
     }
-    
+
     //SCROLL
     ///moves the scroll offset
     pub(crate) fn move_scroll_offset(&mut self, offset: i16) {
@@ -326,7 +321,7 @@ impl App {
     pub(crate) fn quit(&mut self) {
         self.running = false;
     }
-    
+
     ///saves contents to file, if any file path specified in args then saves to that file,
     /// if not and file path is existing then saves to that, else saves to untitled
     /// command_bind <file_path> --flags
@@ -527,4 +522,3 @@ mod unit_app_command_tests {
         assert_eq!(result.err().unwrap(), "No valid command found");
     }
 }
-

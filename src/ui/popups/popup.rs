@@ -1,7 +1,7 @@
+use crate::input::input_action::InputAction;
 use ratatui::layout::Rect;
 use ratatui::Frame;
 use std::fmt::{Debug, Formatter};
-use crate::input::input_action::InputAction;
 
 pub trait Popup {
     fn render(&self, frame: &mut Frame, area: Rect);

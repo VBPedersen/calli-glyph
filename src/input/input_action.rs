@@ -1,4 +1,3 @@
-
 /// A high-level representation of user intent in the TUI.
 #[derive(Debug, Clone, PartialEq)]
 pub enum InputAction {
@@ -20,11 +19,8 @@ pub enum InputAction {
     NoOp,
 }
 
-
-
-
 ///direction enum to use in action enum values
-#[derive(Clone, Debug,PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Direction {
     Up,
     Down,

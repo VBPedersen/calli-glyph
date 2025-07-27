@@ -1,12 +1,11 @@
-use crate::config::{key_binds};
+use super::input_action::*;
+use crate::config::key_binds;
 use crate::core::app::ActiveArea;
 use crate::core::app::App;
 use crossterm::event;
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind,
 };
-use super::input_action::*;
-
 
 /// Reads the crossterm events and updates the state of [`App`].
 ///
@@ -42,7 +41,7 @@ fn on_scroll_events(app: &mut App, mouse: MouseEvent) {
 /// Handles the key events and updates the state of [`App`].
 fn on_key_event(app: &mut App, key: KeyEvent) {
     //println!("Detected key: {:?}, modifiers: {:?}", key.code, key.modifiers);
-    let input_action: InputAction =  map_key_to_action(app, key);
+    let input_action: InputAction = map_key_to_action(app, key);
     app.process_input_action(input_action);
     /*
     match app.active_area {
@@ -141,7 +140,6 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
     }*/
 }
 
-
 pub fn map_key_to_action(app: &App, key: KeyEvent) -> InputAction {
     use key_binds::*;
 
@@ -167,7 +165,7 @@ pub fn map_key_to_action(app: &App, key: KeyEvent) -> InputAction {
             KEYBIND_REDO => InputAction::REDO,
             KEYBIND_TOGGLE_AREA => InputAction::ToggleActiveArea,
             (_, KeyCode::Char(c)) => InputAction::WriteChar(c),
-            _ => InputAction::NoOp
+            _ => InputAction::NoOp,
         },
         ActiveArea::CommandLine => match (key.modifiers, key.code) {
             KEYBIND_LEFT => InputAction::MoveCursor(Direction::Left),
@@ -178,20 +176,15 @@ pub fn map_key_to_action(app: &App, key: KeyEvent) -> InputAction {
             (_, KeyCode::Tab | KeyCode::Esc) => InputAction::ToggleActiveArea,
             (KeyModifiers::CONTROL, KeyCode::Char('c')) => InputAction::QUIT,
             (_, KeyCode::Char(c)) => InputAction::WriteChar(c),
-            _ => InputAction::NoOp
+            _ => InputAction::NoOp,
         },
-        ActiveArea::Popup =>  match (key.modifiers, key.code) {
+        ActiveArea::Popup => match (key.modifiers, key.code) {
             KEYBIND_UP => InputAction::MoveCursor(Direction::Up),
             KEYBIND_DOWN => InputAction::MoveCursor(Direction::Down),
             KEYBIND_LEFT => InputAction::MoveCursor(Direction::Left),
             KEYBIND_RIGHT => InputAction::MoveCursor(Direction::Right),
             KEYBIND_ENTER => InputAction::ENTER,
-            _ => InputAction::NoOp
-        }
+            _ => InputAction::NoOp,
+        },
     }
 }
-
-
-
-
-

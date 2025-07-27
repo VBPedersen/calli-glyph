@@ -1,10 +1,10 @@
 use super::popup::{Popup, PopupResult, PopupType};
 use crate::core::errors::AppError;
+use crate::input::input_action::InputAction;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::{Color, Line, Span, Style, Text};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use ratatui::Frame;
-use crate::input::input_action::InputAction;
 
 pub struct ErrorPopup {
     pub message: String,
