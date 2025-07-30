@@ -605,14 +605,17 @@ impl Editor {
         if lines_length > 1 {
             for (y, line) in lines.iter_mut().enumerate() {
                 let mut line_chars_vec: Vec<char> = line.chars().collect();
-
-                //last line selected
-                if y == lines_length - 1 {
-                    //line_chars_vec.drain(0..end.x);
-                    line_chars_vec[0..end.x].fill(' ');
-                } else {
-                    //line_chars_vec[start.x..line.chars().count()].fill(' ');
+                //first line
+                if y == 0 {
                     line_chars_vec.drain(start.x..line.chars().count());
+                } else if y == lines_length - 1 { //last line selected
+                    //line_chars_vec.drain(0..end.x);   this takes away the chars
+                    //this solution replaces with whitespace
+                    for i in 0..end.x.min(line_chars_vec.len()) {
+                        line_chars_vec[i] = ' ';
+                    }
+                } else {
+                    line_chars_vec.drain(0..line.chars().count());
                 }
 
                 *line = line_chars_vec.into_iter().collect();
@@ -1330,6 +1333,38 @@ mod unit_editor_delete_tests {
         // Assert that the cursor is moved to the correct position
         assert_eq!(editor.cursor.x, 13);
         assert_eq!(editor.cursor.y, 2);
+    }
+
+    #[test]
+    fn test_delete_in_editor_text_is_selected_multiple_lines_4lines_middle_selected() {
+        // Initialize the editor with some content
+        let mut editor = create_editor_with_editor_content(vec![
+            "first line".to_string(),
+            "test".to_string(),
+            "Hello Denmark".to_string(),
+            "Hello Sudetenland".to_string(),
+        ]);
+
+        // Set a selection range (e.g., "Denmark")
+        editor.text_selection_start = Some(CursorPosition { x: 2, y: 1 }); // middle of "test"
+        editor.text_selection_end = Some(CursorPosition { x: 13, y: 3 }); // End of "sudeten"
+        // Call the function to simulate a backspace with text selected
+        editor.delete_text_is_selected();
+
+        assert_eq!(editor.editor_content.len(), 4);
+
+        // Assert that the selected text is removed
+        assert_eq!(editor.editor_content[1], "te");
+        assert_eq!(editor.editor_content[2], "");
+        assert_eq!(editor.editor_content[3], "             land");
+
+        // Assert that the selection is cleared after the operation
+        assert!(editor.text_selection_start.is_none());
+        assert!(editor.text_selection_end.is_none());
+
+        // Assert that the cursor is moved to the correct position
+        assert_eq!(editor.cursor.x, 13);
+        assert_eq!(editor.cursor.y, 3);
     }
 
     #[test]
