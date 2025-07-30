@@ -450,6 +450,13 @@ impl Editor {
 
         *line = line_chars_vec.into_iter().collect();
 
+        self.undo_redo_manager.record_undo(EditAction::Insert {
+            pos: CursorPosition {
+                x: self.cursor.x as usize,
+                y: self.cursor.y as usize,
+            },
+            c: '\t',
+        });
         self.move_cursor(1, 0)
     }
 
@@ -461,6 +468,14 @@ impl Editor {
         if self.cursor.x >= line.chars().count() as i16 {
             self.editor_content
                 .insert(self.cursor.y as usize + 1, String::new());
+            //record undo
+            self.undo_redo_manager.record_undo(EditAction::InsertLines {
+                start: CursorPosition {
+                    x: self.cursor.x as usize,
+                    y: self.cursor.y as usize,
+                },
+                lines: vec![String::new()],
+            });
             self.move_cursor(0, 1);
         } else {
             //split current line and remove split part
@@ -519,17 +534,28 @@ impl Editor {
         let lines = &mut self.editor_content[start.y..=end.y];
         let lines_length = lines.len();
         if lines_length > 1 {
+            let mut line_indexes_to_remove:Vec<u16> = vec![];
             for (y, line) in lines.iter_mut().enumerate() {
+                //println!("{:?} {:?}", y, line);
                 let mut line_chars_vec: Vec<char> = line.chars().collect();
-                //last line selected
-                if y == lines_length - 1 {
+                //first line
+                if y == 0 {
+                    line_chars_vec.drain(start.x..line.chars().count());
+                } else if y == lines_length - 1 { //last line selected
                     line_chars_vec.drain(0..end.x);
                 } else {
-                    line_chars_vec.drain(start.x..line.chars().count());
+                    line_chars_vec.drain(0..line.chars().count());
+                    line_indexes_to_remove.push((start.y + y) as u16);
                 }
-
                 *line = line_chars_vec.into_iter().collect();
             }
+            // remove the lines that became empty in reverse order
+            for &i in line_indexes_to_remove.iter().rev() {
+                self.editor_content.remove(i as usize);
+            }
+            //move content of last line selected to first line start point
+            let line = &mut self.editor_content.remove(end.y - line_indexes_to_remove.len());
+            self.editor_content[start.y].push_str(line);
         } else {
             let line = &mut self.editor_content[start.y];
             let mut line_chars_vec: Vec<char> = line.chars().collect();
@@ -1123,15 +1149,15 @@ mod unit_editor_delete_tests {
 
         // Set a selection range (e.g., "Denmark")
         editor.text_selection_start = Some(CursorPosition { x: 6, y: 1 }); // Start of "Denmark"
-        editor.text_selection_end = Some(CursorPosition { x: 13, y: 2 }); // End of "Denmark"
+        editor.text_selection_end = Some(CursorPosition { x: 13, y: 2 }); // End of "sudeten"
                                                                           // Call the function to simulate a backspace with text selected
         editor.backspace_text_is_selected();
 
-        assert_eq!(editor.editor_content.len(), 3);
+        assert_eq!(editor.editor_content.len(), 2);
 
         // Assert that the selected text is removed
         assert_eq!(editor.editor_content[0], "test");
-        assert_eq!(editor.editor_content[1], "Hello ");
+        assert_eq!(editor.editor_content[1], "Hello land");
 
         // Assert that the selection is cleared after the operation
         assert!(editor.text_selection_start.is_none());
@@ -1139,6 +1165,36 @@ mod unit_editor_delete_tests {
 
         // Assert that the cursor is moved to the correct position
         assert_eq!(editor.cursor.x, 6);
+        assert_eq!(editor.cursor.y, 1);
+    }
+
+    #[test]
+    fn test_backspace_in_editor_text_is_selected_multiple_lines_4lines_middle_selected() {
+        // Initialize the editor with some content
+        let mut editor = create_editor_with_editor_content(vec![
+            "first line".to_string(),
+            "test".to_string(),
+            "Hello Denmark".to_string(),
+            "Hello Sudetenland".to_string(),
+        ]);
+
+        // Set a selection range (e.g., "Denmark")
+        editor.text_selection_start = Some(CursorPosition { x: 2, y: 1 }); // middle of "test"
+        editor.text_selection_end = Some(CursorPosition { x: 13, y: 3 }); // End of "sudeten"
+        // Call the function to simulate a backspace with text selected
+        editor.backspace_text_is_selected();
+
+        assert_eq!(editor.editor_content.len(), 2);
+
+        // Assert that the selected text is removed
+        assert_eq!(editor.editor_content[1], "teland");
+
+        // Assert that the selection is cleared after the operation
+        assert!(editor.text_selection_start.is_none());
+        assert!(editor.text_selection_end.is_none());
+
+        // Assert that the cursor is moved to the correct position
+        assert_eq!(editor.cursor.x, 2);
         assert_eq!(editor.cursor.y, 1);
     }
 
