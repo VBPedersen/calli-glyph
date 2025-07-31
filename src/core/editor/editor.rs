@@ -408,23 +408,29 @@ impl Editor {
         let lines = &mut self.editor_content[start.y..=end.y];
         let lines_length = lines.len();
         if lines_length > 1 {
+            let mut line_indexes_to_remove:Vec<u16> = vec![];
             for (y, line) in lines.iter_mut().enumerate() {
+                //println!("{:?} {:?}", y, line);
                 let mut line_chars_vec: Vec<char> = line.chars().collect();
-
-                //last line selected
-                if y == lines_length - 1 {
+                //first line
+                if y == 0 {
+                    line_chars_vec.drain(start.x..line.chars().count());
+                    line_chars_vec.insert(start.x, c); //write chat to start position
+                } else if y == lines_length - 1 { //last line selected
                     line_chars_vec.drain(0..end.x);
                 } else {
-                    line_chars_vec.drain(start.x..line.chars().count());
+                    line_chars_vec.drain(0..line.chars().count());
+                    line_indexes_to_remove.push((start.y + y) as u16);
                 }
-
-                //start line selected
-                if y == 0 {
-                    line_chars_vec.insert(start.x, c);
-                }
-
                 *line = line_chars_vec.into_iter().collect();
             }
+            // remove the lines that became empty in reverse order
+            for &i in line_indexes_to_remove.iter().rev() {
+                self.editor_content.remove(i as usize);
+            }
+            //move content of last line selected to first line start point
+            let line = &mut self.editor_content.remove(end.y - line_indexes_to_remove.len());
+            self.editor_content[start.y].push_str(line);
         } else {
             let line = &mut self.editor_content[start.y];
             let mut line_chars_vec: Vec<char> = line.chars().collect();
@@ -962,8 +968,8 @@ mod unit_editor_write_tests {
     #[test]
     fn test_write_char_with_selected_text() {
         let mut editor = create_editor_with_editor_content(vec!["Hello Denmark".to_string()]);
-        editor.text_selection_start = Option::Some(CursorPosition { x: 6, y: 0 });
-        editor.text_selection_end = Option::Some(CursorPosition { x: 13, y: 0 });
+        editor.text_selection_start = Some(CursorPosition { x: 6, y: 0 });
+        editor.text_selection_end = Some(CursorPosition { x: 13, y: 0 });
         editor.cursor.x = 6;
         editor.write_char_text_is_selected('W');
         assert_eq!(editor.editor_content[0], "Hello W");
@@ -977,21 +983,51 @@ mod unit_editor_write_tests {
             "Hello Denmark".to_string(),
             "Hello Sudetenland".to_string(),
         ]);
-        editor.text_selection_start = Option::Some(CursorPosition { x: 6, y: 1 });
-        editor.text_selection_end = Option::Some(CursorPosition { x: 13, y: 2 });
+        editor.text_selection_start = Some(CursorPosition { x: 6, y: 1 });
+        editor.text_selection_end = Some(CursorPosition { x: 13, y: 2 });
         editor.cursor.x = 6;
         editor.write_char_text_is_selected('W');
         assert_eq!(editor.editor_content[0], "test");
-        assert_eq!(editor.editor_content[1], "Hello W");
-        assert_eq!(editor.editor_content[2], "land");
+        assert_eq!(editor.editor_content[1], "Hello Wland");
         assert_eq!(editor.cursor.x, 7);
+    }
+
+    #[test]
+    fn test_backspace_in_editor_text_is_selected_multiple_lines_4lines_middle_selected() {
+        // Initialize the editor with some content
+        let mut editor = create_editor_with_editor_content(vec![
+            "first line".to_string(),
+            "test".to_string(),
+            "Hello Denmark".to_string(),
+            "Hello Sudetenland".to_string(),
+        ]);
+
+        // Set a selection range (e.g., "Denmark")
+        editor.text_selection_start = Some(CursorPosition { x: 2, y: 1 }); // middle of "test"
+        editor.text_selection_end = Some(CursorPosition { x: 13, y: 3 }); // End of "sudeten"
+        // Call the function to simulate a backspace with text selected
+        editor.backspace_text_is_selected();
+
+        assert_eq!(editor.editor_content.len(), 2);
+        
+        assert_eq!(editor.editor_content[0], "first line");
+        // Assert that the selected text is removed
+        assert_eq!(editor.editor_content[1], "teland");
+
+        // Assert that the selection is cleared after the operation
+        assert!(editor.text_selection_start.is_none());
+        assert!(editor.text_selection_end.is_none());
+
+        // Assert that the cursor is moved to the correct position
+        assert_eq!(editor.cursor.x, 2);
+        assert_eq!(editor.cursor.y, 1);
     }
 
     #[test]
     fn test_write_char_with_selected_text_special_characters() {
         let mut editor = create_editor_with_editor_content(vec!["ᚠΩ₿😎".to_string()]);
-        editor.text_selection_start = Option::Some(CursorPosition { x: 1, y: 0 });
-        editor.text_selection_end = Option::Some(CursorPosition { x: 2, y: 0 });
+        editor.text_selection_start = Some(CursorPosition { x: 1, y: 0 });
+        editor.text_selection_end = Some(CursorPosition { x: 2, y: 0 });
         editor.cursor.x = 1;
 
         editor.write_char_text_is_selected('a');
