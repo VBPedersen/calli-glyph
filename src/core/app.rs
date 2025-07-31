@@ -1,9 +1,8 @@
 use super::clipboard::Clipboard;
-use super::command_line::CommandLine;
+use super::command_line::{command_executor, CommandLine};
 use super::editor::Editor;
-use super::errors::AppError;
-use super::errors::AppError::EditorFailure;
-use crate::config::command_binds;
+use super::errors::error::AppError;
+use super::errors::error::AppError::EditorFailure;
 use crate::input::input::handle_input;
 use crate::input::input_action::InputAction;
 use crate::ui::popups::confirmation_popup::ConfirmationPopup;
@@ -195,43 +194,24 @@ impl App {
     //command line command execution
     ///handles checking command and executing said command with given args
     fn on_command_enter(&mut self) {
-        match self.split_command_bind_and_args() {
-            Ok((command_bind, command_args)) => match command_bind.as_ref() {
-                command_binds::COMMAND_EXIT_DONT_SAVE => self.quit(),
-                command_binds::COMMAND_SAVE_DONT_EXIT => {
-                    self.save(command_args).expect("TODO: panic message");
+        //split commandline input to command and arguments
+        match self.command_line.split_command_bind_and_args() {
+            //if successful use the executor to execute commands
+            //open popup for error if execution unsuccessful
+            Ok((command, command_args)) => {
+                if let Err(e) = command_executor::execute(self,command,command_args) {
+                    let popup = Box::new(ErrorPopup::new(
+                        "Failed to execute command",
+                        AppError::CommandFailure(e),
+                    ));
+                    self.open_popup(popup);
                 }
-                command_binds::COMMAND_SAVE_AND_EXIT => {
-                    self.save_and_exit(command_args)
-                        .expect("TODO: panic message");
-                }
-                command_binds::COMMAND_HELP => {}
-                _ => {}
-            },
+                
+            }
             Err(error) => {
                 println!("Error: {}", error);
             }
         }
-    }
-
-    ///to split command line text into a command and arguments
-    fn split_command_bind_and_args(&mut self) -> Result<(String, Vec<String>), String> {
-        let mut command_bind: Option<String> = None;
-        let mut command_args = vec![];
-        let mut parts = self.command_line.input.split_whitespace();
-
-        if let Some(first) = parts.next() {
-            if let Some(':') = first.chars().next() {
-                command_bind = Some(first.chars().skip(1).collect());
-            }
-        }
-
-        if let Some(ref cmd) = command_bind {
-            command_args.extend(parts.map(String::from));
-            return Ok((cmd.clone(), command_args));
-        }
-
-        Err("No valid command found".to_string())
     }
 
     //SCROLL
@@ -486,7 +466,7 @@ mod unit_app_command_tests {
     fn test_valid_command_with_args() {
         let mut app = create_app(":command arg1 arg2".to_string());
 
-        let result = app.split_command_bind_and_args();
+        let result = app.command_line.split_command_bind_and_args();
         assert!(result.is_ok());
         let (cmd, args) = result.unwrap();
         assert_eq!(cmd, "command");
@@ -497,7 +477,7 @@ mod unit_app_command_tests {
     fn test_valid_command_no_args() {
         let mut app = create_app(":hello".to_string());
 
-        let result = app.split_command_bind_and_args();
+        let result = app.command_line.split_command_bind_and_args();
         assert!(result.is_ok());
         let (cmd, args) = result.unwrap();
         assert_eq!(cmd, "hello");
@@ -508,7 +488,7 @@ mod unit_app_command_tests {
     fn test_missing_command() {
         let mut app = create_app("not_a_command arg1".to_string());
 
-        let result = app.split_command_bind_and_args();
+        let result = app.command_line.split_command_bind_and_args();
         assert!(result.is_err());
         assert_eq!(result.err().unwrap(), "No valid command found");
     }
@@ -517,7 +497,7 @@ mod unit_app_command_tests {
     fn test_empty_input() {
         let mut app = create_app("".to_string());
 
-        let result = app.split_command_bind_and_args();
+        let result = app.command_line.split_command_bind_and_args();
         assert!(result.is_err());
         assert_eq!(result.err().unwrap(), "No valid command found");
     }

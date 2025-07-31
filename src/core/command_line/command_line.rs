@@ -33,6 +33,26 @@ impl CommandLine {
         }
     }
 
+    ///to split command line text into a command and arguments
+    pub fn split_command_bind_and_args(&mut self) -> Result<(String, Vec<String>), String> {
+        let mut command_bind: Option<String> = None;
+        let mut command_args = vec![];
+        let mut parts = self.input.split_whitespace();
+
+        if let Some(first) = parts.next() {
+            if let Some(':') = first.chars().next() {
+                command_bind = Some(first.chars().skip(1).collect());
+            }
+        }
+
+        if let Some(ref cmd) = command_bind {
+            command_args.extend(parts.map(String::from));
+            return Ok((cmd.clone(), command_args));
+        }
+
+        Err("No valid command found".to_string())
+    }
+
     //writing
     ///writes char to line, with x position
     pub fn write_char(&mut self, c: char) {

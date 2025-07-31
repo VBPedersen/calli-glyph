@@ -1,10 +1,10 @@
 use super::super::super::core::clipboard::Clipboard;
 use super::super::cursor::Cursor;
 use super::super::cursor::CursorPosition;
-use super::super::errors::EditorError::{
+use super::super::errors::editor_errors::EditorError::{
     ClipboardFailure, RedoFailure, TextSelectionFailure, UndoFailure,
 };
-use super::super::errors::{ClipboardError, EditorError, TextSelectionError};
+use super::super::errors::editor_errors::{ClipboardError, EditorError, TextSelectionError};
 use super::undo_redo::UndoRedoManager;
 use crate::config::editor_settings;
 use crate::input::input_action::InputAction;
@@ -1009,7 +1009,7 @@ mod unit_editor_write_tests {
         editor.backspace_text_is_selected();
 
         assert_eq!(editor.editor_content.len(), 2);
-        
+
         assert_eq!(editor.editor_content[0], "first line");
         // Assert that the selected text is removed
         assert_eq!(editor.editor_content[1], "teland");

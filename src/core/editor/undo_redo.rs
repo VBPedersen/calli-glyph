@@ -1,4 +1,4 @@
-use super::super::errors::{RedoError, UndoError};
+use super::super::errors::editor_errors::{RedoError, UndoError};
 use super::editor::EditAction;
 
 #[derive(Debug)]

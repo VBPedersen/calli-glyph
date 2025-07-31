@@ -1,17 +1,5 @@
 use thiserror::Error;
 
-#[derive(Error, Debug)]
-pub enum AppError {
-    #[error("EditorError: {0}")]
-    EditorFailure(#[from] EditorError),
-
-    #[error("Internal error: {0}")]
-    InternalError(String),
-
-    #[error("IO error: {0}")]
-    IoError(#[from] std::io::Error),
-}
-
 ///general editor errors, from more specific ones
 #[derive(Error, Debug)]
 pub enum EditorError {

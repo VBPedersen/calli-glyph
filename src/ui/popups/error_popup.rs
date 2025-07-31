@@ -1,5 +1,5 @@
 use super::popup::{Popup, PopupResult, PopupType};
-use crate::core::errors::AppError;
+use crate::core::errors::error::AppError;
 use crate::input::input_action::InputAction;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::{Color, Line, Span, Style, Text};
