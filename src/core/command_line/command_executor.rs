@@ -1,18 +1,22 @@
-use crate::config::command_binds;
 use crate::core::app::App;
+use crate::core::command_line::command::Command;
+use crate::core::command_line::commands;
 use crate::core::errors::command_errors::CommandError;
 
-pub fn execute(app: &mut App, command : String, args: Vec<String>) -> Result<(), CommandError> {
-    match command.as_ref() {
-        command_binds::COMMAND_EXIT_DONT_SAVE => Ok(app.quit()),
-        command_binds::COMMAND_SAVE_DONT_EXIT => {
-            Ok(app.save(args).expect("save failed"))
+pub fn execute_command(app: &mut App, command: Command) -> Result<(), CommandError> {
+    match command {
+        Command::Save { args, flags } => commands::file::save_command(app, args, flags),
+        Command::SaveAndExit { args, flags } => commands::quit::save_and_exit_command(app, args, flags),
+        Command::QuitForce => {
+            app.quit();
+            Ok(())
         }
-        command_binds::COMMAND_SAVE_AND_EXIT => {
-            Ok(app.save_and_exit(args)
-                .expect("save and exit failed"))
+        Command::Help => {
+            // TODO: Show help popup or render help screen
+            Ok(())
         }
-        command_binds::COMMAND_HELP => {Ok(())}
-        _ => {Ok(())}
+        Command::Unknown { name, .. } => {
+            Err(CommandError::UnknownCommand(name))
+        }
     }
 }

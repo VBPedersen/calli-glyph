@@ -17,7 +17,7 @@ impl Debug for dyn Popup {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum PopupResult {
     None,
     Bool(bool),

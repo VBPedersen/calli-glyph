@@ -45,7 +45,7 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
     app.process_input_action(input_action);
 }
 
-pub fn map_key_to_action(app: &App, key: KeyEvent) -> InputAction {
+fn map_key_to_action(app: &App, key: KeyEvent) -> InputAction {
     use key_binds::*;
 
     match app.active_area {
@@ -62,7 +62,6 @@ pub fn map_key_to_action(app: &App, key: KeyEvent) -> InputAction {
             KEYBIND_ENTER => InputAction::ENTER,
             KEYBIND_BACKSPACE => InputAction::BACKSPACE,
             KEYBIND_DELETE => InputAction::DELETE,
-            KEYBIND_SAVE => InputAction::SAVE,
             KEYBIND_COPY => InputAction::COPY,
             KEYBIND_CUT => InputAction::CUT,
             KEYBIND_PASTE => InputAction::PASTE,

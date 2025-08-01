@@ -7,7 +7,6 @@ pub enum InputAction {
     ENTER,
     BACKSPACE,
     DELETE,
-    SAVE,
     COPY,
     CUT,
     PASTE,

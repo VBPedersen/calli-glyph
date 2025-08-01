@@ -1,5 +1,5 @@
 use super::clipboard::Clipboard;
-use super::command_line::{command_executor, CommandLine};
+use super::command_line::{command, command_executor, CommandLine};
 use super::editor::Editor;
 use super::errors::error::AppError;
 use super::errors::error::AppError::EditorFailure;
@@ -20,7 +20,7 @@ use std::time::{Duration, Instant};
 pub struct App {
     /// Is the application running?
     running: bool,
-    pub(crate) active_area: ActiveArea,
+    pub active_area: ActiveArea,
     pub editor: Editor,
     pub command_line: CommandLine,
     pub(crate) cursor_visible: bool,
@@ -41,7 +41,7 @@ pub enum PendingState {
 }
 
 #[derive(PartialEq, Debug, Default)]
-pub(crate) enum ActiveArea {
+pub enum ActiveArea {
     #[default]
     Editor,
     CommandLine,
@@ -169,17 +169,6 @@ impl App {
     /// like quitting should call method quit in app.rs
     fn check_for_app_related_input_actions(&mut self, action: InputAction) {
         match action {
-            //check for Save,
-            //because saving should be handled by the app centrally.
-            InputAction::SAVE => {
-                if let Err(e) = self.save(vec![]) {
-                    let popup = Box::new(ErrorPopup::new(
-                        "Failed to Save File",
-                        AppError::InternalError(e.to_string()),
-                    ));
-                    self.open_popup(popup);
-                }
-            }
             //check for active area toggling,
             //because toggle active area should be handled by the app centrally.
             InputAction::ToggleActiveArea => self.toggle_active_area(),
@@ -195,21 +184,19 @@ impl App {
     ///handles checking command and executing said command with given args
     fn on_command_enter(&mut self) {
         //split commandline input to command and arguments
+        //if successful parse to command and use the executor to execute commands
+        //open popup for error if execution unsuccessful
         match self.command_line.split_command_bind_and_args() {
-            //if successful use the executor to execute commands
-            //open popup for error if execution unsuccessful
-            Ok((command, command_args)) => {
-                if let Err(e) = command_executor::execute(self,command,command_args) {
-                    let popup = Box::new(ErrorPopup::new(
-                        "Failed to execute command",
-                        AppError::CommandFailure(e),
-                    ));
+            Ok((bind, args)) => {
+                let command = command::parse_command(bind, args);
+                if let Err(e) = command_executor::execute_command(self, command) {
+                    let popup = Box::new(ErrorPopup::new("Command Failed", AppError::CommandFailure(e)));
                     self.open_popup(popup);
                 }
-                
             }
             Err(error) => {
-                println!("Error: {}", error);
+                let popup = Box::new(ErrorPopup::new("Command Parse Failed", AppError::InternalError(error.to_string())));
+                self.open_popup(popup);
             }
         }
     }
@@ -235,45 +222,47 @@ impl App {
         }
     }
 
+
+
     ///handles creating popup to confirm if file should be overridden
     pub fn handle_confirmation_popup_response(&mut self) {
-        //get first state in vec, match the state and if needed checks next state after that
-        if self.pending_states.is_empty() {
-            return;
-        }
-
-        let state = self.pending_states.first().unwrap();
-        match state {
-            PendingState::Saving(save_path) => {
-                if self.popup_result == PopupResult::Bool(true) {
-                    if let Err(e) = self.save(vec![save_path.clone()]) {
-                        let popup = Box::new(ErrorPopup::new(
-                            "Failed to save file",
-                            AppError::InternalError(e.to_string()),
-                        ));
-                        self.open_popup(popup);
+        if let Some(pending) = self.pending_states.first() {
+            println!("Confirmation Popup response:{:?}", self.pending_states);
+            match (pending, self.popup_result.clone()) {
+                (PendingState::Saving(path), PopupResult::Bool(true)) => {
+                    match self.save_to_path(path.clone()) {
+                        Ok(()) => {
+                            self.pending_states.remove(0);
+                            self.close_popup();
+                        }
+                        Err(e) => {
+                            let popup = Box::new(ErrorPopup::new(
+                                "Failed to save file",
+                                AppError::InternalError(e.to_string()),
+                            ));
+                            self.open_popup(popup);
+                            // Keep the pending state so user can retry
+                        }
                     }
-
-                    self.popup_result = PopupResult::None;
-                    self.close_popup();
+                },
+                (PendingState::Quitting, _) => {
+                    self.pending_states.clear();
+                    self.quit()
+                },
+                (_, PopupResult::Bool(false)) => {
                     self.pending_states.remove(0);
-                    //if next state is quit, then quit
-                    if !self.pending_states.is_empty()
-                        && self.pending_states[0] == PendingState::Quitting
-                    {
-                        self.pending_states.clear();
-                        self.quit()
-                    }
-                } else if self.popup_result == PopupResult::Bool(false) {
-                    self.popup_result = PopupResult::None;
-                    self.close_popup();
+                    self.close_popup(); // user canceled
+
                 }
+                _ => {}
             }
-            PendingState::Quitting => {
-                self.pending_states.clear();
-                self.quit()
+
+            self.popup_result = PopupResult::None;
+
+            // Check again if there's more to do (like Quitting after Saving)
+            if !self.pending_states.is_empty() {
+                self.handle_confirmation_popup_response();
             }
-            _ => {}
         }
     }
 
@@ -302,88 +291,26 @@ impl App {
         self.running = false;
     }
 
-    ///saves contents to file, if any file path specified in args then saves to that file,
-    /// if not and file path is existing then saves to that, else saves to untitled
-    /// command_bind <file_path> --flags
-    pub fn save(&mut self, args: Vec<String>) -> Result<()> {
-        let path;
-        let mut path_is_current_file: bool = false;
-        let has_changes: bool;
-        let mut force_flag: bool = false;
-
+    ///saves contents to file at path
+    pub fn save_to_path(&mut self, path: String) -> Result<(), AppError> {
         let new_content = self.editor.editor_content.join("\n");
 
-        //if file path to save on is set in command args
-        if !args.is_empty() {
-            path = args.first().unwrap().clone();
-            force_flag = args.contains(&"--force".to_string());
-        } else if self.file_path.is_some() {
-            path = self.file_path.clone().unwrap();
-            path_is_current_file = true;
-        } else {
-            path = "untitled".to_string();
-        }
-
         let path_ref = Path::new(&path);
-
-        // Check if file exists
-        if path_ref.exists() {
-            has_changes = self.file_has_changes(new_content.clone(), path.clone())?;
-            //if path is the current file, has changes and force is false
-            // and no confirmation has been asked, then make user confirm
-            if !path_is_current_file
-                && has_changes
-                && !force_flag
-                && self.popup_result == PopupResult::None
-            {
-                let popup = Box::new(ConfirmationPopup::new("Confirm Overwrite of file"));
-                self.open_popup(popup);
-                self.pending_states.push(PendingState::Saving(path));
-                return Ok(());
-            }
-        } else {
-            has_changes = !new_content.is_empty();
-            // If file doesn't exist, ensure the parent directory exists
-            if let Some(parent) = path_ref.parent() {
-                fs::create_dir_all(parent)?;
-            }
+        if let Some(parent) = path_ref.parent() {
+            fs::create_dir_all(parent)?;
         }
 
-        //if file has changes write these to file
-        if has_changes {
-            let file = OpenOptions::new()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .open(path)?;
-            let mut buff_write_file = BufWriter::new(file);
-            buff_write_file.write_all(new_content.as_bytes())?;
-            buff_write_file.flush()?;
-            Ok(())
-        } else {
-            Ok(())
-        }
-    }
+        let file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&path)?;
+        let mut writer = BufWriter::new(file);
+        writer.write_all(new_content.as_bytes())?;
+        writer.flush()?;
 
-    ///saves file and exits window
-    pub(crate) fn save_and_exit(&mut self, args: Vec<String>) -> Result<()> {
-        match self.save(args) {
-            Ok(_) => {
-                // If a save confirmation is needed, push Quit AFTER Saving
-                if self
-                    .pending_states
-                    .iter()
-                    .any(|s| matches!(s, PendingState::Saving(_)))
-                {
-                    self.pending_states.push(PendingState::Quitting); // Add Quit to the queue
-                    return Ok(());
-                }
-                self.quit();
-
-                Ok(())
-            }
-            Err(e) => Err(e),
-        }
+        self.file_path = Some(path); // optionally update file_path
+        Ok(())
     }
 
     ///checks if file has changes and returns boolean
