@@ -9,15 +9,12 @@ pub enum CommandError {
 
     /// The command was recognized but its arguments were invalid
     #[error("Invalid arguments for command '{command}': {reason}")]
-    InvalidArguments {
-        command: String,
-        reason: String,
-    },
-    
+    InvalidArguments { command: String, reason: String },
+
     /// A required component (e.g. editor or file) was not available
     #[error("Missing required context: {0}")]
     MissingContext(String),
-    
+
     /// Something failed internally during execution
     #[error("Command execution failed: {0}")]
     ExecutionFailed(String),

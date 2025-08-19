@@ -1,7 +1,6 @@
-use thiserror::Error;
 use super::command_errors::CommandError;
 use super::editor_errors::EditorError;
-
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum AppError {
@@ -17,5 +16,3 @@ pub enum AppError {
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
 }
-
-

@@ -190,12 +190,18 @@ impl App {
             Ok((bind, args)) => {
                 let command = command::parse_command(bind, args);
                 if let Err(e) = command_executor::execute_command(self, command) {
-                    let popup = Box::new(ErrorPopup::new("Command Failed", AppError::CommandFailure(e)));
+                    let popup = Box::new(ErrorPopup::new(
+                        "Command Failed",
+                        AppError::CommandFailure(e),
+                    ));
                     self.open_popup(popup);
                 }
             }
             Err(error) => {
-                let popup = Box::new(ErrorPopup::new("Command Parse Failed", AppError::InternalError(error.to_string())));
+                let popup = Box::new(ErrorPopup::new(
+                    "Command Parse Failed",
+                    AppError::InternalError(error.to_string()),
+                ));
                 self.open_popup(popup);
             }
         }
@@ -222,8 +228,6 @@ impl App {
         }
     }
 
-
-
     ///handles creating popup to confirm if file should be overridden
     pub fn handle_confirmation_popup_response(&mut self) {
         if let Some(pending) = self.pending_states.first() {
@@ -244,15 +248,14 @@ impl App {
                             // Keep the pending state so user can retry
                         }
                     }
-                },
+                }
                 (PendingState::Quitting, _) => {
                     self.pending_states.clear();
                     self.quit()
-                },
+                }
                 (_, PopupResult::Bool(false)) => {
                     self.pending_states.remove(0);
                     self.close_popup(); // user canceled
-
                 }
                 _ => {}
             }

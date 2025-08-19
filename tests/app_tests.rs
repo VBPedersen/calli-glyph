@@ -1,14 +1,14 @@
 #[cfg(test)]
 mod integration_app_tests {
+    use calliglyph::config::command_binds::*;
     use calliglyph::core::app::*;
+    use calliglyph::core::command_line::commands;
+    use calliglyph::core::command_line::commands::file;
+    use calliglyph::input::input_action::InputAction;
     use calliglyph::ui::popups::popup::PopupResult;
     use std::fs;
     use std::path::Path;
     use tempfile::NamedTempFile;
-    use calliglyph::core::command_line::commands;
-    use calliglyph::core::command_line::commands::file;
-    use calliglyph::config::command_binds::*;
-    use calliglyph::input::input_action::InputAction;
 
     //init functions
     fn create_app() -> App {
@@ -69,7 +69,7 @@ mod integration_app_tests {
     fn test_quit_state_calls_quit() {
         let mut app = create_app();
         app.pending_states.push(PendingState::Quitting);
-        
+
         app.handle_confirmation_popup_response();
         assert!(app.pending_states.is_empty()); // Ensuring quit state was processed
     }
@@ -107,7 +107,11 @@ mod integration_app_tests {
         let mut app = create_app_with_editor_content(vec!["Test content".to_string()]);
         app.file_path = None;
         app.active_area = ActiveArea::CommandLine;
-        app.command_line.input = ":".to_owned()+COMMAND_SAVE_DONT_EXIT + " "+ temp_file.path().to_str().unwrap() + " --force";
+        app.command_line.input = ":".to_owned()
+            + COMMAND_SAVE_DONT_EXIT
+            + " "
+            + temp_file.path().to_str().unwrap()
+            + " --force";
         app.process_input_action(InputAction::ENTER);
 
         let saved_content = fs::read_to_string(file_path).unwrap();
@@ -118,13 +122,13 @@ mod integration_app_tests {
     fn test_save_with_existing_file_path() {
         let temp_file = NamedTempFile::new().unwrap();
         let file_path = temp_file.path().to_str().unwrap().to_string();
-        
+
         let mut app = create_app_with_editor_content(vec!["New content".to_string()]);
         app.file_path = Some(file_path.clone());
         app.active_area = ActiveArea::CommandLine;
-        app.command_line.input = ":".to_owned()+COMMAND_SAVE_DONT_EXIT + " --force";
+        app.command_line.input = ":".to_owned() + COMMAND_SAVE_DONT_EXIT + " --force";
         app.process_input_action(InputAction::ENTER);
-        
+
         let saved_content = fs::read_to_string(file_path).unwrap();
         assert_eq!(saved_content, "New content");
     }
@@ -132,11 +136,11 @@ mod integration_app_tests {
     #[test]
     fn test_save_with_no_file_path_defaults_to_untitled() {
         let mut app = create_app_with_editor_content(vec!["Default content".to_string()]);
-        
+
         app.active_area = ActiveArea::CommandLine;
-        app.command_line.input = ":".to_owned()+COMMAND_SAVE_DONT_EXIT + " --force";
+        app.command_line.input = ":".to_owned() + COMMAND_SAVE_DONT_EXIT + " --force";
         app.process_input_action(InputAction::ENTER);
-        
+
         let saved_content = fs::read_to_string("untitled").unwrap();
         assert_eq!(saved_content, "Default content");
 
@@ -151,9 +155,13 @@ mod integration_app_tests {
         let mut app = create_app_with_editor_content(vec!["Unchanged content".to_string()]);
         app.file_path = Some(file_path.clone());
         app.active_area = ActiveArea::CommandLine;
-        app.command_line.input = ":".to_owned()+COMMAND_SAVE_DONT_EXIT + " "+ temp_file.path().to_str().unwrap() + " --force";
+        app.command_line.input = ":".to_owned()
+            + COMMAND_SAVE_DONT_EXIT
+            + " "
+            + temp_file.path().to_str().unwrap()
+            + " --force";
         app.process_input_action(InputAction::ENTER);
-        
+
         let saved_content = fs::read_to_string(file_path).unwrap();
         assert_eq!(saved_content, "Unchanged content"); // No overwrite happened
     }
@@ -164,7 +172,8 @@ mod integration_app_tests {
         let mut app = create_app_with_editor_content(vec!["Hello World!".to_string()]);
         app.file_path = None;
         app.active_area = ActiveArea::CommandLine;
-        app.command_line.input = ":".to_owned()+COMMAND_SAVE_DONT_EXIT + " "+ temp_file_path.as_str() + " --force";
+        app.command_line.input =
+            ":".to_owned() + COMMAND_SAVE_DONT_EXIT + " " + temp_file_path.as_str() + " --force";
         app.process_input_action(InputAction::ENTER);
 
         let saved_content = fs::read_to_string(&temp_file_path).unwrap();

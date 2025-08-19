@@ -1,14 +1,18 @@
 // commands related to closing app, quit, exit, save_and_quit
 
-use std::collections::HashSet;
-use crate::core::command_line::command::CommandFlag;
-use crate::core::app::PendingState;
 use crate::core::app::App;
+use crate::core::app::PendingState;
+use crate::core::command_line::command::CommandFlag;
 use crate::core::command_line::commands::file;
 use crate::core::errors::command_errors::CommandError;
+use std::collections::HashSet;
 
-pub(crate) fn save_and_exit_command(app: &mut App, args: Vec<String>, flags: HashSet<CommandFlag>) -> Result<(), CommandError> {
-    match file::save_command(app,args,flags) {
+pub(crate) fn save_and_exit_command(
+    app: &mut App,
+    args: Vec<String>,
+    flags: HashSet<CommandFlag>,
+) -> Result<(), CommandError> {
+    match file::save_command(app, args, flags) {
         Ok(_) => {
             // If a save confirmation is needed, push Quit AFTER Saving
             if app

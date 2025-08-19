@@ -408,7 +408,7 @@ impl Editor {
         let lines = &mut self.editor_content[start.y..=end.y];
         let lines_length = lines.len();
         if lines_length > 1 {
-            let mut line_indexes_to_remove:Vec<u16> = vec![];
+            let mut line_indexes_to_remove: Vec<u16> = vec![];
             for (y, line) in lines.iter_mut().enumerate() {
                 //println!("{:?} {:?}", y, line);
                 let mut line_chars_vec: Vec<char> = line.chars().collect();
@@ -416,7 +416,8 @@ impl Editor {
                 if y == 0 {
                     line_chars_vec.drain(start.x..line.chars().count());
                     line_chars_vec.insert(start.x, c); //write chat to start position
-                } else if y == lines_length - 1 { //last line selected
+                } else if y == lines_length - 1 {
+                    //last line selected
                     line_chars_vec.drain(0..end.x);
                 } else {
                     line_chars_vec.drain(0..line.chars().count());
@@ -429,7 +430,9 @@ impl Editor {
                 self.editor_content.remove(i as usize);
             }
             //move content of last line selected to first line start point
-            let line = &mut self.editor_content.remove(end.y - line_indexes_to_remove.len());
+            let line = &mut self
+                .editor_content
+                .remove(end.y - line_indexes_to_remove.len());
             self.editor_content[start.y].push_str(line);
         } else {
             let line = &mut self.editor_content[start.y];
@@ -540,14 +543,15 @@ impl Editor {
         let lines = &mut self.editor_content[start.y..=end.y];
         let lines_length = lines.len();
         if lines_length > 1 {
-            let mut line_indexes_to_remove:Vec<u16> = vec![];
+            let mut line_indexes_to_remove: Vec<u16> = vec![];
             for (y, line) in lines.iter_mut().enumerate() {
                 //println!("{:?} {:?}", y, line);
                 let mut line_chars_vec: Vec<char> = line.chars().collect();
                 //first line
                 if y == 0 {
                     line_chars_vec.drain(start.x..line.chars().count());
-                } else if y == lines_length - 1 { //last line selected
+                } else if y == lines_length - 1 {
+                    //last line selected
                     line_chars_vec.drain(0..end.x);
                 } else {
                     line_chars_vec.drain(0..line.chars().count());
@@ -560,7 +564,9 @@ impl Editor {
                 self.editor_content.remove(i as usize);
             }
             //move content of last line selected to first line start point
-            let line = &mut self.editor_content.remove(end.y - line_indexes_to_remove.len());
+            let line = &mut self
+                .editor_content
+                .remove(end.y - line_indexes_to_remove.len());
             self.editor_content[start.y].push_str(line);
         } else {
             let line = &mut self.editor_content[start.y];
@@ -614,7 +620,8 @@ impl Editor {
                 //first line
                 if y == 0 {
                     line_chars_vec.drain(start.x..line.chars().count());
-                } else if y == lines_length - 1 { //last line selected
+                } else if y == lines_length - 1 {
+                    //last line selected
                     //line_chars_vec.drain(0..end.x);   this takes away the chars
                     //this solution replaces with whitespace
                     for i in 0..end.x.min(line_chars_vec.len()) {
@@ -1005,7 +1012,7 @@ mod unit_editor_write_tests {
         // Set a selection range (e.g., "Denmark")
         editor.text_selection_start = Some(CursorPosition { x: 2, y: 1 }); // middle of "test"
         editor.text_selection_end = Some(CursorPosition { x: 13, y: 3 }); // End of "sudeten"
-        // Call the function to simulate a backspace with text selected
+                                                                          // Call the function to simulate a backspace with text selected
         editor.backspace_text_is_selected();
 
         assert_eq!(editor.editor_content.len(), 2);
@@ -1220,7 +1227,7 @@ mod unit_editor_delete_tests {
         // Set a selection range (e.g., "Denmark")
         editor.text_selection_start = Some(CursorPosition { x: 2, y: 1 }); // middle of "test"
         editor.text_selection_end = Some(CursorPosition { x: 13, y: 3 }); // End of "sudeten"
-        // Call the function to simulate a backspace with text selected
+                                                                          // Call the function to simulate a backspace with text selected
         editor.backspace_text_is_selected();
 
         assert_eq!(editor.editor_content.len(), 2);
@@ -1384,7 +1391,7 @@ mod unit_editor_delete_tests {
         // Set a selection range (e.g., "Denmark")
         editor.text_selection_start = Some(CursorPosition { x: 2, y: 1 }); // middle of "test"
         editor.text_selection_end = Some(CursorPosition { x: 13, y: 3 }); // End of "sudeten"
-        // Call the function to simulate a backspace with text selected
+                                                                          // Call the function to simulate a backspace with text selected
         editor.delete_text_is_selected();
 
         assert_eq!(editor.editor_content.len(), 4);
