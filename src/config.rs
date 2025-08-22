@@ -1,15 +1,13 @@
-
-
 //EDITOR SETTINGS
 pub mod editor_settings {
     pub const TAB_WIDTH: u16 = 4;
 }
 
 // KEYBINDS
-#[allow(dead_code)]  //don't need warnings for unused keybinds
+#[allow(dead_code)] //don't need warnings for unused keybinds
 pub mod key_binds {
     use crossterm::event::{KeyCode, KeyModifiers};
-    
+
     pub const KEYBIND_TOGGLE_AREA: (KeyModifiers, KeyCode) = (KeyModifiers::NONE, KeyCode::Esc);
     pub const KEYBIND_BACKSPACE: (KeyModifiers, KeyCode) = (KeyModifiers::NONE, KeyCode::Backspace);
     pub const KEYBIND_TAB: (KeyModifiers, KeyCode) = (KeyModifiers::NONE, KeyCode::Tab);

@@ -8,6 +8,7 @@ use super::super::errors::editor_errors::{ClipboardError, EditorError, TextSelec
 use super::undo_redo::UndoRedoManager;
 use crate::config::editor_settings;
 use crate::input::input_action::InputAction;
+use std::ops::Add;
 
 #[derive(Debug, Clone)]
 pub enum EditAction {
@@ -69,7 +70,7 @@ impl Editor {
     }
 
     ///function to handle input action on editor,
-    /// responsible for dispatching action to corret internal method.
+    /// responsible for dispatching action to correct internal method.
     pub fn handle_input_action(&mut self, action: InputAction) -> Result<(), EditorError> {
         match action {
             InputAction::MoveCursor(direction) => {
@@ -167,25 +168,32 @@ impl Editor {
         match action {
             EditAction::Insert { pos, c } => {
                 self.insert_char_at(*pos, *c);
-                self.set_cursor_position(*pos);
+                self.set_cursor_position(pos);
             }
             EditAction::Delete { pos, .. } => {
                 self.delete_char_at(*pos);
-                self.set_cursor_position(*pos);
+                self.set_cursor_position(pos);
             }
             EditAction::Replace {
                 start, end, new, ..
             } => {
                 self.replace_selection_with_text(*start, *end, *new);
-                self.set_cursor_position(*start);
+                self.set_cursor_position(start);
             }
             EditAction::InsertLines { start, lines } => {
                 self.insert_lines_at(*start, lines.clone());
-                self.set_cursor_position(*start);
+                //get additive position to get new cursor pos at end of insertion
+                let last_line_len = lines.last().map(|s| s.len()).unwrap_or(0);
+                let additive_pos = CursorPosition {
+                    x: last_line_len,
+                    y: lines.len(),
+                };
+                let end: CursorPosition = *start + additive_pos;
+                self.set_cursor_position(&end);
             } //in delete lines cursor position calculated first,
             // as visual x cannot be calculated without specific y line present
             EditAction::DeleteLines { start, deleted } => {
-                self.set_cursor_position(*start);
+                self.set_cursor_position(start);
                 self.delete_lines_at(*start, deleted.len());
             }
         }
@@ -410,7 +418,6 @@ impl Editor {
         if lines_length > 1 {
             let mut line_indexes_to_remove: Vec<u16> = vec![];
             for (y, line) in lines.iter_mut().enumerate() {
-                //println!("{:?} {:?}", y, line);
                 let mut line_chars_vec: Vec<char> = line.chars().collect();
                 //first line
                 if y == 0 {
@@ -545,7 +552,6 @@ impl Editor {
         if lines_length > 1 {
             let mut line_indexes_to_remove: Vec<u16> = vec![];
             for (y, line) in lines.iter_mut().enumerate() {
-                //println!("{:?} {:?}", y, line);
                 let mut line_chars_vec: Vec<char> = line.chars().collect();
                 //first line
                 if y == 0 {
@@ -823,7 +829,7 @@ impl Editor {
     }
 
     /// sets cursor position to specified position
-    pub(crate) fn set_cursor_position(&mut self, pos: CursorPosition) {
+    pub(crate) fn set_cursor_position(&mut self, pos: &CursorPosition) {
         self.cursor.x = pos.x as i16;
         self.cursor.y = pos.y as i16;
         self.visual_cursor_x = self.calculate_visual_x() as i16;

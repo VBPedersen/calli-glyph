@@ -1,3 +1,5 @@
+use std::ops::Add;
+
 /// handles cursor
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Cursor {
@@ -15,4 +17,15 @@ impl Cursor {
 pub struct CursorPosition {
     pub(crate) x: usize,
     pub(crate) y: usize,
+}
+
+impl Add<CursorPosition> for CursorPosition {
+    type Output = Self;
+
+    fn add(self, other: CursorPosition) -> Self {
+        Self {
+            x: self.x + other.x,
+            y: self.y + other.y,
+        }
+    }
 }

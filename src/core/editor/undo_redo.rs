@@ -26,7 +26,6 @@ impl UndoRedoManager {
     pub fn undo(&mut self) -> Result<EditAction, UndoError> {
         if let Some(last_action) = self.undo_stack.pop() {
             let action_reversed = self.reverse_action(&last_action);
-            //self.apply_action(editor,&action_reversed);
             self.redo_stack.push(last_action);
             Ok(action_reversed)
         } else {
@@ -37,7 +36,6 @@ impl UndoRedoManager {
     /// redo's last action of user
     pub fn redo(&mut self) -> Result<EditAction, RedoError> {
         if let Some(last_action) = self.redo_stack.pop() {
-            //self.apply_action(editor, &last_action);
             self.undo_stack.push(last_action.clone());
             Ok(last_action)
         } else {
