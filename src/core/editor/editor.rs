@@ -8,7 +8,6 @@ use super::super::errors::editor_errors::{ClipboardError, EditorError, TextSelec
 use super::undo_redo::UndoRedoManager;
 use crate::config::editor_settings;
 use crate::input::input_action::InputAction;
-use std::ops::Add;
 
 #[derive(Debug, Clone)]
 pub enum EditAction {
@@ -186,7 +185,7 @@ impl Editor {
                 let last_line_len = lines.last().map(|s| s.len()).unwrap_or(0);
                 let additive_pos = CursorPosition {
                     x: last_line_len,
-                    y: lines.len(),
+                    y: lines.iter().count(),
                 };
                 let end: CursorPosition = *start + additive_pos;
                 self.set_cursor_position(&end);
@@ -830,8 +829,17 @@ impl Editor {
 
     /// sets cursor position to specified position
     pub(crate) fn set_cursor_position(&mut self, pos: &CursorPosition) {
-        self.cursor.x = pos.x as i16;
-        self.cursor.y = pos.y as i16;
+        //clamp set position to at maximum go to last position available
+        //y is len of editor -1
+        self.cursor.y = (pos.y as i16).clamp(0, self.editor_content.len() as i16 - 1);
+        //length of cursor.y line , aka nr. of chars on line.
+        let line_len = self
+            .editor_content
+            .get(self.cursor.y as usize)
+            .map(|s| s.len())
+            .unwrap_or(0);
+        self.cursor.x = (pos.x as i16).clamp(0, line_len as i16);
+        //calculate visual x pos again.
         self.visual_cursor_x = self.calculate_visual_x() as i16;
     }
 
