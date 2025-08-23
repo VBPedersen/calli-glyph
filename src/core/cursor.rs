@@ -24,8 +24,8 @@ impl Add<CursorPosition> for CursorPosition {
 
     fn add(self, other: CursorPosition) -> Self {
         Self {
-            x: self.x + other.x,
-            y: self.y + other.y,
+            x: self.x.saturating_add(other.x),
+            y: self.y.saturating_add(other.y),
         }
     }
 }
@@ -35,8 +35,8 @@ impl Sub<CursorPosition> for CursorPosition {
 
     fn sub(self, other: CursorPosition) -> Self {
         Self {
-            x: self.x - other.x,
-            y: self.y - other.y,
+            x: self.x.saturating_sub(other.x),
+            y: self.y.saturating_sub(other.y),
         }
     }
 }

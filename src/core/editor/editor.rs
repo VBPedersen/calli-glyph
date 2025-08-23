@@ -1,4 +1,3 @@
-use std::ops::Sub;
 use super::super::super::core::clipboard::Clipboard;
 use super::super::cursor::Cursor;
 use super::super::cursor::CursorPosition;
@@ -524,6 +523,8 @@ impl Editor {
     pub fn backspace(&mut self) {
         let mut deleted_char: Option<char> = None;
         let line_char_count = self.editor_content[self.cursor.y as usize].chars().count() as i16;
+        //if x is more than 0 and less than max line index : should delete char and move back
+        // else if y is more than 0, move line up
         if self.cursor.x > 0 && self.cursor.x <= line_char_count {
             let line = &mut self.editor_content[self.cursor.y as usize];
             let mut line_chars_vec: Vec<char> = line.chars().collect();
