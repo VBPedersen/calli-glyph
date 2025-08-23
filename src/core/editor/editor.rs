@@ -52,7 +52,6 @@ pub struct Editor {
     undo_redo_manager: UndoRedoManager,
 }
 
-
 impl Editor {
     pub fn new() -> Self {
         Self {
@@ -488,7 +487,6 @@ impl Editor {
     //editor enter
     ///handles enter new line, with possible move of text
     pub fn enter(&mut self) {
-
         let line = &mut self.editor_content[self.cursor.y as usize];
         //if at end of line len, then just move cursor and make new line, else move text too
         if self.cursor.x >= line.chars().count() as i16 {
@@ -622,7 +620,6 @@ impl Editor {
                 },
                 deleted: vec![(*line).parse().unwrap()],
             });
-
         } else if current_line_len > (self.cursor.x + 1) {
             let line = &mut self.editor_content[self.cursor.y as usize];
             let mut line_chars_vec: Vec<char> = line.chars().collect();
@@ -639,7 +636,6 @@ impl Editor {
             *line = line_chars_vec.into_iter().collect();
             //line.remove((self.editor.cursor.x+1) as usize);
         }
-
     }
 
     ///handles delete in editor, removes char at y line x position and sets new cursor position
