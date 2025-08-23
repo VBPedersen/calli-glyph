@@ -1,3 +1,4 @@
+use std::ops::Sub;
 use super::super::super::core::clipboard::Clipboard;
 use super::super::cursor::Cursor;
 use super::super::cursor::CursorPosition;
@@ -51,6 +52,7 @@ pub struct Editor {
     pub clipboard: Clipboard,
     undo_redo_manager: UndoRedoManager,
 }
+
 
 impl Editor {
     pub fn new() -> Self {
@@ -194,7 +196,14 @@ impl Editor {
             } //in delete lines cursor position calculated first,
             // as visual x cannot be calculated without specific y line present
             EditAction::DeleteLines { start, deleted } => {
-                self.set_cursor_position(start);
+                //get additive position to get new cursor pos at end of insertion
+                let last_line_len = deleted.last().map(|s| s.len()).unwrap_or(0);
+                let negated_pos = CursorPosition {
+                    x: last_line_len,
+                    y: deleted.iter().count(),
+                };
+                let end: CursorPosition = *start - negated_pos;
+                self.set_cursor_position(&end);
                 self.delete_lines_at(*start, deleted.len());
             }
         }
@@ -480,6 +489,7 @@ impl Editor {
     //editor enter
     ///handles enter new line, with possible move of text
     pub fn enter(&mut self) {
+
         let line = &mut self.editor_content[self.cursor.y as usize];
         //if at end of line len, then just move cursor and make new line, else move text too
         if self.cursor.x >= line.chars().count() as i16 {
@@ -604,11 +614,19 @@ impl Editor {
         {
             let line = &mut self.editor_content.remove((self.cursor.y + 1) as usize);
             self.editor_content[self.cursor.y as usize].push_str(line);
+            self.undo_redo_manager.record_undo(EditAction::DeleteLines {
+                start: CursorPosition {
+                    x: self.cursor.x as usize,
+                    y: self.cursor.y as usize,
+                },
+                deleted: vec![(*line).parse().unwrap()],
+            });
+
         } else if current_line_len > (self.cursor.x + 1) {
             let line = &mut self.editor_content[self.cursor.y as usize];
             let mut line_chars_vec: Vec<char> = line.chars().collect();
             let char = line_chars_vec.remove(self.cursor.x as usize + 1);
-            
+
             self.undo_redo_manager.record_undo(EditAction::Delete {
                 pos: CursorPosition {
                     x: self.cursor.x as usize + 1,
@@ -616,11 +634,11 @@ impl Editor {
                 },
                 deleted_char: char.clone(),
             });
-            
+
             *line = line_chars_vec.into_iter().collect();
             //line.remove((self.editor.cursor.x+1) as usize);
         }
-        
+
     }
 
     ///handles delete in editor, removes char at y line x position and sets new cursor position

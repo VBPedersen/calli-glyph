@@ -1,4 +1,4 @@
-use std::ops::Add;
+use std::ops::{Add, Sub};
 
 /// handles cursor
 #[derive(Debug, Clone, Copy, Default)]
@@ -26,6 +26,17 @@ impl Add<CursorPosition> for CursorPosition {
         Self {
             x: self.x + other.x,
             y: self.y + other.y,
+        }
+    }
+}
+
+impl Sub<CursorPosition> for CursorPosition {
+    type Output = Self;
+
+    fn sub(self, other: CursorPosition) -> Self {
+        Self {
+            x: self.x - other.x,
+            y: self.y - other.y,
         }
     }
 }
