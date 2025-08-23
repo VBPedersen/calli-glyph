@@ -167,7 +167,12 @@ impl Editor {
         match action {
             EditAction::Insert { pos, c } => {
                 self.insert_char_at(*pos, *c);
-                self.set_cursor_position(pos);
+                let additive_pos = CursorPosition {
+                    x: pos.x + 1,
+                    y: 0,
+                };
+                let end: CursorPosition = *pos + additive_pos;
+                self.set_cursor_position(&end);
             }
             EditAction::Delete { pos, .. } => {
                 self.delete_char_at(*pos);
@@ -487,7 +492,7 @@ impl Editor {
             self.undo_redo_manager.record_undo(EditAction::InsertLines {
                 start: CursorPosition {
                     x: self.cursor.x as usize,
-                    y: self.cursor.y as usize,
+                    y: self.cursor.y as usize + 1, //+1 y to insert after current index
                 },
                 lines: vec![String::new()],
             });
@@ -892,6 +897,7 @@ impl Editor {
 
     /// Insert multiple lines at a position
     pub(crate) fn insert_lines_at(&mut self, start: CursorPosition, lines: Vec<String>) {
+        //calculate start y to insert
         let y = start.y.min(self.editor_content.len());
         for (i, line) in lines.into_iter().enumerate() {
             self.editor_content.insert(y + i, line);
