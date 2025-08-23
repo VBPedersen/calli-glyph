@@ -607,12 +607,20 @@ impl Editor {
         } else if current_line_len > (self.cursor.x + 1) {
             let line = &mut self.editor_content[self.cursor.y as usize];
             let mut line_chars_vec: Vec<char> = line.chars().collect();
-
-            line_chars_vec.remove(self.cursor.x as usize + 1);
-
+            let char = line_chars_vec.remove(self.cursor.x as usize + 1);
+            
+            self.undo_redo_manager.record_undo(EditAction::Delete {
+                pos: CursorPosition {
+                    x: self.cursor.x as usize + 1,
+                    y: self.cursor.y as usize,
+                },
+                deleted_char: char.clone(),
+            });
+            
             *line = line_chars_vec.into_iter().collect();
             //line.remove((self.editor.cursor.x+1) as usize);
         }
+        
     }
 
     ///handles delete in editor, removes char at y line x position and sets new cursor position

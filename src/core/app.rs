@@ -5,7 +5,6 @@ use super::errors::error::AppError;
 use super::errors::error::AppError::EditorFailure;
 use crate::input::input::handle_input;
 use crate::input::input_action::InputAction;
-use crate::ui::popups::confirmation_popup::ConfirmationPopup;
 use crate::ui::popups::error_popup::ErrorPopup;
 use crate::ui::popups::popup::{Popup, PopupResult, PopupType};
 use crate::ui::ui::ui;
