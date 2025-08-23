@@ -167,10 +167,7 @@ impl Editor {
         match action {
             EditAction::Insert { pos, c } => {
                 self.insert_char_at(*pos, *c);
-                let additive_pos = CursorPosition {
-                    x: pos.x + 1,
-                    y: 0,
-                };
+                let additive_pos = CursorPosition { x: pos.x + 1, y: 0 };
                 let end: CursorPosition = *pos + additive_pos;
                 self.set_cursor_position(&end);
             }
