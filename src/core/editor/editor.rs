@@ -35,6 +35,17 @@ pub enum EditAction {
         start: CursorPosition,
         deleted: Vec<String>,
     },
+    //line split operation, splits line in two and moves right line down
+    SplitLine {
+        pos: CursorPosition, // cursor position where the split happened
+        left: String,        // text before the split
+        right: String,       // text after the split
+    },
+    //line join operation
+    JoinLine {
+        pos: CursorPosition, // position of the split
+        merged: String,      // the full merged text
+    },
 }
 
 /// handles editor content
@@ -203,6 +214,27 @@ impl Editor {
                 let end: CursorPosition = *start - negated_pos;
                 self.set_cursor_position(&end);
                 self.delete_lines_at(*start, deleted.len());
+            }
+            EditAction::SplitLine { pos, left, right } => {
+                // overwrite current line with the left part
+                self.editor_content[pos.y] = left.clone();
+
+                // insert the right part as a new line
+                self.editor_content.insert(pos.y + 1, right.clone());
+
+                //at start of new line
+                let temp_pos = CursorPosition { x: 0, y: pos.y + 1 };
+
+                self.set_cursor_position(&temp_pos);
+            }
+            EditAction::JoinLine { pos, merged } => {
+                // overwrite current line with the merged part
+                self.editor_content[pos.y] = merged.clone();
+
+                // remove next line
+                self.editor_content.remove(pos.y + 1);
+
+                self.set_cursor_position(pos);
             }
         }
     }
@@ -505,14 +537,27 @@ impl Editor {
             //split current line and remove split part
             let mut line_chars_vec: Vec<char> = line.chars().collect();
             let line_end = line_chars_vec.split_off(self.cursor.x as usize);
-            *line = line_chars_vec.into_iter().collect();
+            let left: String = line_chars_vec.into_iter().collect();
+            let right: String = line_end.clone().into_iter().collect();
+
+            *line = left.clone();
 
             //move down and insert split line to next line
             self.move_cursor(0, 1);
             self.editor_content
                 .insert(self.cursor.y as usize, String::new());
-            self.editor_content[self.cursor.y as usize] = line_end.into_iter().collect();
+            self.editor_content[self.cursor.y as usize] = right.clone();
             self.cursor.x = 0;
+
+            // record undo
+            self.undo_redo_manager.record_undo(EditAction::SplitLine {
+                pos: CursorPosition {
+                    x: left.len(),
+                    y: (self.cursor.y - 1) as usize, // original line before split
+                },
+                left,
+                right,
+            });
         }
     }
 
@@ -2178,6 +2223,252 @@ mod unit_editor_undoredo_tests {
         assert_eq!(editor.editor_content, vec!["1", "2", "3"]);
         editor.redo().unwrap();
         assert_eq!(editor.editor_content, Vec::<String>::new());
+    }
+
+    // ========== SplitLine & JoinLine ==========
+
+    #[test]
+    fn undo_redo_split_line_middle() {
+        let mut editor = create_editor_with_editor_content(vec!["hello world".to_string()]);
+        let pos = CursorPosition { x: 5, y: 0 };
+
+        // Record SplitLine
+        let left = "hello".to_string();
+        let right = " world".to_string();
+        editor.undo_redo_manager.record_undo(EditAction::SplitLine {
+            pos,
+            left: left.clone(),
+            right: right.clone(),
+        });
+
+        // Apply manually
+        editor.editor_content[0] = left.clone();
+        editor.editor_content.insert(1, right.clone());
+
+        assert_eq!(editor.editor_content, vec!["hello", " world"]);
+
+        // Undo should merge back
+        editor.undo().unwrap();
+        assert_eq!(editor.editor_content, vec!["hello world"]);
+
+        // Redo should split again
+        editor.redo().unwrap();
+        assert_eq!(editor.editor_content, vec!["hello", " world"]);
+    }
+
+    #[test]
+    fn undo_redo_split_line_start() {
+        let mut editor = create_editor_with_editor_content(vec!["abc".to_string()]);
+        let pos = CursorPosition { x: 0, y: 0 };
+
+        let left = "".to_string();
+        let right = "abc".to_string();
+        editor.undo_redo_manager.record_undo(EditAction::SplitLine {
+            pos,
+            left: left.clone(),
+            right: right.clone(),
+        });
+
+        editor.editor_content[0] = left.clone();
+        editor.editor_content.insert(1, right.clone());
+
+        assert_eq!(editor.editor_content, vec!["", "abc"]);
+
+        editor.undo().unwrap();
+        assert_eq!(editor.editor_content, vec!["abc"]);
+
+        editor.redo().unwrap();
+        assert_eq!(editor.editor_content, vec!["", "abc"]);
+    }
+
+    #[test]
+    fn undo_redo_split_line_end() {
+        let mut editor = create_editor_with_editor_content(vec!["abc".to_string()]);
+        let pos = CursorPosition { x: 3, y: 0 };
+
+        let left = "abc".to_string();
+        let right = "".to_string();
+        editor.undo_redo_manager.record_undo(EditAction::SplitLine {
+            pos,
+            left: left.clone(),
+            right: right.clone(),
+        });
+
+        editor.editor_content[0] = left.clone();
+        editor.editor_content.insert(1, right.clone());
+
+        assert_eq!(editor.editor_content, vec!["abc", ""]);
+
+        editor.undo().unwrap();
+        assert_eq!(editor.editor_content, vec!["abc"]);
+
+        editor.redo().unwrap();
+        assert_eq!(editor.editor_content, vec!["abc", ""]);
+    }
+
+    #[test]
+    fn undo_redo_join_line() {
+        let mut editor =
+            create_editor_with_editor_content(vec!["foo".to_string(), "bar".to_string()]);
+        let pos = CursorPosition { x: 3, y: 0 };
+
+        let merged = "foobar".to_string();
+        editor.undo_redo_manager.record_undo(EditAction::JoinLine {
+            pos,
+            merged: merged.clone(),
+        });
+
+        editor.editor_content[0] = merged.clone();
+        editor.editor_content.remove(1);
+
+        assert_eq!(editor.editor_content, vec!["foobar"]);
+
+        editor.undo().unwrap();
+        assert_eq!(editor.editor_content, vec!["foo", "bar"]);
+
+        editor.redo().unwrap();
+        assert_eq!(editor.editor_content, vec!["foobar"]);
+    }
+
+    // ========== Additional SplitLine & JoinLine Tests ==========
+
+    #[test]
+    fn undo_redo_split_empty_line() {
+        let mut editor = create_editor_with_editor_content(vec!["".to_string()]);
+        let pos = CursorPosition { x: 0, y: 0 };
+
+        let left = "".to_string();
+        let right = "".to_string();
+        editor.undo_redo_manager.record_undo(EditAction::SplitLine {
+            pos,
+            left: left.clone(),
+            right: right.clone(),
+        });
+
+        editor.editor_content[0] = left.clone();
+        editor.editor_content.insert(1, right.clone());
+
+        assert_eq!(editor.editor_content, vec!["", ""]);
+
+        editor.undo().unwrap();
+        assert_eq!(editor.editor_content, vec![""]);
+
+        editor.redo().unwrap();
+        assert_eq!(editor.editor_content, vec!["", ""]);
+    }
+
+    #[test]
+    fn undo_redo_join_empty_lines() {
+        let mut editor = create_editor_with_editor_content(vec!["".to_string(), "".to_string()]);
+        let pos = CursorPosition { x: 0, y: 0 };
+
+        let merged = "".to_string();
+        editor.undo_redo_manager.record_undo(EditAction::JoinLine {
+            pos,
+            merged: merged.clone(),
+        });
+
+        editor.editor_content[0] = merged.clone();
+        editor.editor_content.remove(1);
+
+        assert_eq!(editor.editor_content, vec![""]);
+
+        editor.undo().unwrap();
+        assert_eq!(editor.editor_content, vec!["", ""]);
+
+        editor.redo().unwrap();
+        assert_eq!(editor.editor_content, vec![""]);
+    }
+
+    #[test]
+    fn undo_redo_split_line_multiple_lines() {
+        let mut editor =
+            create_editor_with_editor_content(vec!["first".to_string(), "second".to_string()]);
+        let pos = CursorPosition { x: 3, y: 1 };
+
+        let left = "sec".to_string();
+        let right = "ond".to_string();
+        editor.undo_redo_manager.record_undo(EditAction::SplitLine {
+            pos,
+            left: left.clone(),
+            right: right.clone(),
+        });
+
+        editor.editor_content[1] = left.clone();
+        editor.editor_content.insert(2, right.clone());
+
+        assert_eq!(editor.editor_content, vec!["first", "sec", "ond"]);
+
+        editor.undo().unwrap();
+        assert_eq!(editor.editor_content, vec!["first", "second"]);
+
+        editor.redo().unwrap();
+        assert_eq!(editor.editor_content, vec!["first", "sec", "ond"]);
+    }
+
+    #[test]
+    fn undo_redo_join_lines_with_whitespace() {
+        let mut editor =
+            create_editor_with_editor_content(vec!["foo ".to_string(), " bar".to_string()]);
+        let pos = CursorPosition { x: 4, y: 0 };
+
+        let merged = "foo  bar".to_string();
+        editor.undo_redo_manager.record_undo(EditAction::JoinLine {
+            pos,
+            merged: merged.clone(),
+        });
+
+        editor.editor_content[0] = merged.clone();
+        editor.editor_content.remove(1);
+
+        assert_eq!(editor.editor_content, vec!["foo  bar"]);
+
+        editor.undo().unwrap();
+        assert_eq!(editor.editor_content, vec!["foo ", " bar"]);
+
+        editor.redo().unwrap();
+        assert_eq!(editor.editor_content, vec!["foo  bar"]);
+    }
+
+    #[test]
+    fn undo_redo_split_and_join_sequential() {
+        let mut editor = create_editor_with_editor_content(vec!["abc".to_string()]);
+
+        // Split
+        let split_pos = CursorPosition { x: 1, y: 0 };
+        let left = "a".to_string();
+        let right = "bc".to_string();
+        editor.undo_redo_manager.record_undo(EditAction::SplitLine {
+            pos: split_pos,
+            left: left.clone(),
+            right: right.clone(),
+        });
+        editor.editor_content[0] = left.clone();
+        editor.editor_content.insert(1, right.clone());
+
+        // Join immediately after
+        let join_pos = CursorPosition { x: 1, y: 0 };
+        let merged = "abc".to_string();
+        editor.undo_redo_manager.record_undo(EditAction::JoinLine {
+            pos: join_pos,
+            merged: merged.clone(),
+        });
+        editor.editor_content[0] = merged.clone();
+        editor.editor_content.remove(1);
+
+        assert_eq!(editor.editor_content, vec!["abc"]);
+
+        editor.undo().unwrap(); // Undo join
+        assert_eq!(editor.editor_content, vec!["a", "bc"]);
+
+        editor.undo().unwrap(); // Undo split
+        assert_eq!(editor.editor_content, vec!["abc"]);
+
+        editor.redo().unwrap(); // Redo split
+        assert_eq!(editor.editor_content, vec!["a", "bc"]);
+
+        editor.redo().unwrap(); // Redo join
+        assert_eq!(editor.editor_content, vec!["abc"]);
     }
 
     // ========== Edge and Stack Cases ==========

@@ -73,6 +73,15 @@ impl UndoRedoManager {
                 start: *start,
                 lines: deleted.clone(),
             },
+            EditAction::SplitLine { pos, left, right } => EditAction::JoinLine {
+                pos: *pos,
+                merged: format!("{}{}", left, right),
+            },
+            EditAction::JoinLine { pos, merged } => EditAction::SplitLine {
+                pos: *pos,
+                left: merged[..pos.x].to_string(),
+                right: merged[pos.x..].to_string(),
+            },
         }
     }
 }
