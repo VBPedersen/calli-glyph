@@ -2,8 +2,6 @@
 mod integration_app_tests {
     use calliglyph::config::command_binds::*;
     use calliglyph::core::app::*;
-    use calliglyph::core::command_line::commands;
-    use calliglyph::core::command_line::commands::file;
     use calliglyph::input::input_action::InputAction;
     use calliglyph::ui::popups::popup::PopupResult;
     use std::fs;

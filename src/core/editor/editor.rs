@@ -547,8 +547,9 @@ impl Editor {
             self.editor_content
                 .insert(self.cursor.y as usize, String::new());
             self.editor_content[self.cursor.y as usize] = right.clone();
+            //enter to split line, should go to start of line
             self.cursor.x = 0;
-
+            self.visual_cursor_x = self.calculate_visual_x() as i16;
             // record undo
             self.undo_redo_manager.record_undo(EditAction::SplitLine {
                 pos: CursorPosition {
