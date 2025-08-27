@@ -26,13 +26,32 @@ pub enum EditAction {
         old: char,
         new: char,
     },
-    // multi-char operations
+    ReplaceRange {
+        start: CursorPosition,
+        end: CursorPosition,
+        old: Vec<String>,
+        new: Vec<String>,
+    },
+    // Insert lines of strings
     InsertLines {
         start: CursorPosition,
         lines: Vec<String>,
     },
+    // Delete lines of strings
     DeleteLines {
         start: CursorPosition,
+        deleted: Vec<String>,
+    },
+    // Insert strings from start position
+    InsertRange {
+        start: CursorPosition,
+        end: CursorPosition,
+        lines: Vec<String>,
+    },
+    // delete strings from start position
+    DeleteRange {
+        start: CursorPosition,
+        end: CursorPosition,
         deleted: Vec<String>,
     },
     //line split operation, splits line in two and moves right line down
@@ -175,6 +194,27 @@ impl Editor {
 
     /// applies an EditAction
     fn apply_action(&mut self, action: &EditAction) {
+        println!("");
+        println!("");
+        println!("");
+        println!("");
+        println!("");
+        println!("");
+        println!("");
+        println!("");
+        println!("");
+        println!("");
+        println!("");
+        println!("");
+        println!("");
+        println!("");
+        println!("");
+        println!("");
+        println!("");
+        println!("");
+        println!("");
+        println!("");
+        println!("Applying action: {:?}", action);
         match action {
             EditAction::Insert { pos, c } => {
                 self.insert_char_at(*pos, *c);
@@ -189,8 +229,20 @@ impl Editor {
             EditAction::Replace {
                 start, end, new, ..
             } => {
-                self.replace_selection_with_text(*start, *end, *new);
+                self.replace_selection_with_char(*start, *end, *new);
                 self.set_cursor_position(start);
+            }
+            EditAction::ReplaceRange { start, end, old, new } => {
+                // replace text from start..end with new
+                self.replace_selection_with_lines(*start, *end, new.clone());
+                // move cursor to end of inserted range (or start if empty)
+                let last_line_len = new.last().map(|s| s.len()).unwrap_or(0);
+                let additive_pos = CursorPosition {
+                    x: last_line_len,
+                    y: new.iter().count(),
+                };
+                let end: CursorPosition = *start + additive_pos;
+                self.set_cursor_position(&end);
             }
             EditAction::InsertLines { start, lines } => {
                 self.insert_lines_at(*start, lines.clone());
@@ -214,6 +266,23 @@ impl Editor {
                 let end: CursorPosition = *start - negated_pos;
                 self.set_cursor_position(&end);
                 self.delete_lines_at(*start, deleted.len());
+            }
+            EditAction::InsertRange { start, end, lines } => {
+                self.insert_text_at(start, lines);
+                //get additive position to get new cursor pos at end of insertion
+                let last_line_len = lines.last().map(|s| s.len()).unwrap_or(0);
+                let additive_pos = CursorPosition {
+                    x: last_line_len,
+                    y: lines.iter().count(),
+                };
+                let end: CursorPosition = *start + additive_pos;
+                self.set_cursor_position(&end);
+
+            }
+            EditAction::DeleteRange { start, end, deleted} => {
+                self.delete_text_at_range(start,end);
+
+                self.set_cursor_position(start);
             }
             EditAction::SplitLine { pos, left, right } => {
                 // overwrite current line with the left part
@@ -319,6 +388,7 @@ impl Editor {
 
                     //if first line drain all from start x,
                     // else if last line drain to end .x, else drain all
+
                     if y == 0 {
                         extracted_text = line_chars.drain(start.x..).collect();
                     } else if y == line_length - 1 {
@@ -330,6 +400,7 @@ impl Editor {
                     selected_text.push(extracted_text);
                     *line = line_chars.into_iter().collect();
                 }
+
             } else {
                 let lines = self.editor_content[start.y..start.y + 1].as_mut();
                 let line = lines.iter_mut().next().unwrap();
@@ -338,7 +409,16 @@ impl Editor {
                 selected_text.push(extracted_text);
 
                 *line = line_chars.into_iter().collect();
+
+
             }
+
+            // record undo (DeleteRange)
+            self.undo_redo_manager.record_undo(EditAction::DeleteRange {
+                start,
+                end,
+                deleted: selected_text.clone(),
+            });
 
             Ok(selected_text)
         } else {
@@ -940,8 +1020,8 @@ impl Editor {
         }
     }
 
-    /// Replace a text selection (from start to end) with new text
-    pub(crate) fn replace_selection_with_text(
+    /// Replace a text selection (from start to end) with new char
+    pub(crate) fn replace_selection_with_char(
         &mut self,
         start: CursorPosition,
         end: CursorPosition,
@@ -958,7 +1038,130 @@ impl Editor {
                 *line = chars.into_iter().collect();
             }
         }
-        // For multi-line selection, you may wish to expand further as needed.
+    }
+
+    /// Replace a selection with lines of String
+    fn replace_selection_with_lines(
+        &mut self,
+        start: CursorPosition,
+        end: CursorPosition,
+        new_lines: Vec<String>,
+    ) {
+        if start.y == end.y {
+            // Single line selection
+            if let Some(line) = self.editor_content.get_mut(start.y) {
+                let mut chars: Vec<char> = line.chars().collect();
+                let end_x = end.x.min(chars.len()); // prevent out of bounds
+                chars.splice(start.x..end_x, new_lines.join("\n").chars());
+                *line = chars.into_iter().collect();
+            }
+        } else {
+            // Multi-line selection
+            let max_y = self.editor_content.len().saturating_sub(1);
+
+            let start_y = start.y.min(max_y);
+            let end_y = end.y.min(max_y);
+
+            self.editor_content.drain(start_y..=end_y);
+
+            for (i, line) in new_lines.into_iter().enumerate() {
+                self.editor_content.insert(start_y + i, line);
+            }
+        }
+    }
+
+    ///insert text lines at position without just inserting as lines,
+    ///but if necessary, between already present text
+    fn insert_text_at(&mut self, start: &CursorPosition, lines: &Vec<String>) {
+        if lines.is_empty() {
+            return;
+        }
+
+        // single-line insert
+        if lines.len() == 1 {
+            if let Some(line) = self.editor_content.get_mut(start.y) {
+                let mut chars: Vec<char> = line.chars().collect();
+                let x = start.x.min(chars.len()); // clamp to line length
+                chars.splice(x..x, lines[0].chars());
+                *line = chars.into_iter().collect();
+            }
+        } else {
+            // multi-line insert
+            if let Some(line) = self.editor_content.get_mut(start.y) {
+                let mut chars: Vec<char> = line.chars().collect();
+                let x = start.x.min(chars.len());
+
+                // split the line at insertion point
+                let right_half: String = chars.split_off(x).into_iter().collect();
+                let left_half: String = chars.into_iter().collect();
+
+                // replace current line with left + first insert line
+                self.editor_content[start.y] = format!("{}{}", left_half, lines[0]);
+
+                // insert middle lines (if any)
+                for (i, middle) in lines.iter().skip(1).take(lines.len() - 2).enumerate() {
+                    self.editor_content.insert(start.y + 1 + i, middle.clone());
+                }
+
+                // append last insert line + right half
+                let last_index = start.y + lines.len() - 1;
+                let last_insert = lines.last().unwrap();
+                let final_line = format!("{}{}", last_insert, right_half);
+
+                if last_index < self.editor_content.len() {
+                    self.editor_content[last_index] = final_line;
+                } else {
+                    self.editor_content.push(final_line);
+                }
+            }
+        }
+    }
+
+    ///delete text lines at start to end,
+    fn delete_text_at_range(&mut self, start: &CursorPosition, end: &CursorPosition) {
+        if start.y == end.y {
+            // deleting within a single line
+            if let Some(line) = self.editor_content.get_mut(start.y) {
+                let mut chars: Vec<char> = line.chars().collect();
+                let range_start = start.x.min(chars.len());
+                let range_end = end.x.min(chars.len());
+                if range_start < range_end {
+                    chars.drain(range_start..range_end);
+                    *line = chars.into_iter().collect();
+                }
+            }
+        } else {
+            // deleting across multiple lines
+
+            // get suffix of last line
+            let suffix = if let Some(last_line) = self.editor_content.get(end.y) {
+                last_line.chars().skip(end.x).collect::<String>()
+            } else {
+                String::new()
+            };
+
+            if start.x == 0 {
+                // delete the first line entirely
+                self.editor_content.drain(start.y..=end.y);
+                if !suffix.is_empty() {
+                    self.editor_content.insert(start.y, suffix);
+                }
+            } else {
+                // truncate first line
+                if let Some(first_line) = self.editor_content.get_mut(start.y) {
+                    let mut first_chars: Vec<char> = first_line.chars().collect();
+                    first_chars.truncate(start.x);
+                    *first_line = first_chars.into_iter().collect();
+                    // append suffix from last line
+                    first_line.push_str(&suffix);
+                }
+
+                // remove all lines in between start.y and end.y (excluding start.y)
+                if end.y > start.y {
+                    self.editor_content.drain(start.y + 1..=end.y);
+                }
+            }
+        }
     }
 
     /// Insert multiple lines at a position
@@ -981,6 +1184,8 @@ impl Editor {
             }
         }
     }
+
+
 }
 
 impl Default for Editor {
@@ -2225,6 +2430,117 @@ mod unit_editor_undoredo_tests {
         editor.redo().unwrap();
         assert_eq!(editor.editor_content, Vec::<String>::new());
     }
+
+    // ========== InsertRange ==========
+
+    #[test]
+    fn undo_redo_insert_range_single_line() {
+        let mut editor = create_editor_with_editor_content(vec!["hello world".to_string()]);
+        let pos = CursorPosition { x: 6, y: 0 }; // after "hello "
+        let text = vec!["beautiful ".to_string()];
+
+        editor.undo_redo_manager.record_undo(EditAction::InsertRange {
+            start: pos,
+            end: CursorPosition { x: pos.x + 10, y: 0 }, // "beautiful ".len()
+            lines: text.clone(),
+        });
+
+        // apply insertion manually
+        editor.editor_content[0].insert_str(6, &text[0]);
+        assert_eq!(editor.editor_content, vec!["hello beautiful world"]);
+
+        // undo -> original
+        editor.undo().unwrap();
+        assert_eq!(editor.editor_content, vec!["hello world"]);
+
+        // redo -> insertion again
+        editor.redo().unwrap();
+        assert_eq!(editor.editor_content, vec!["hello beautiful world"]);
+    }
+
+    #[test]
+    fn undo_redo_insert_range_multi_line() {
+        let mut editor = create_editor_with_editor_content(vec!["a".to_string(),"b".to_string(), "c".to_string(), "d".to_string()]);
+        let start = CursorPosition { x: 0, y: 1 };
+        let end = CursorPosition { x: 1, y: 2 };
+        let new = vec!["b".to_string(), "c".to_string()];
+
+        editor.undo_redo_manager.record_undo(EditAction::InsertRange {
+            start,
+            end,
+            lines: new.clone(),
+        });
+
+        // apply manually: result should be a, b, c, d
+
+        assert_eq!(editor.editor_content, vec!["a", "b", "c", "d"]);
+
+        editor.undo().unwrap();
+        assert_eq!(editor.editor_content, vec!["a", "d"]);
+
+        editor.redo().unwrap();
+        assert_eq!(editor.editor_content, vec!["a", "b", "c", "d"]);
+    }
+
+    // ========== DeleteRange ==========
+
+    #[test]
+    fn undo_redo_delete_range_single_line() {
+        let mut editor = create_editor_with_editor_content(vec!["abcdef".to_string()]);
+        let start = CursorPosition { x: 2, y: 0 };
+        let end = CursorPosition { x: 5, y: 0 };
+
+        let old = vec!["cde".to_string()];
+        editor.undo_redo_manager.record_undo(EditAction::DeleteRange {
+            start,
+            end,
+            deleted:  old.clone(),
+        });
+
+        // delete manually
+        editor.editor_content[0].replace_range(2..5, "");
+        assert_eq!(editor.editor_content, vec!["abf"]);
+
+        editor.undo().unwrap();
+        assert_eq!(editor.editor_content, vec!["abcdef"]);
+
+        editor.redo().unwrap();
+        assert_eq!(editor.editor_content, vec!["abf"]);
+    }
+
+    #[test]
+    fn undo_redo_delete_range_multi_line() {
+        let mut editor = create_editor_with_editor_content(vec![
+            "abc".to_string(),
+            "def".to_string(),
+            "ghi".to_string(),
+        ]);
+        let start = CursorPosition { x: 1, y: 0 }; // after 'a'
+        let end = CursorPosition { x: 2, y: 2 };   // inside 'ghi'
+
+        let old = vec![
+            "bc".to_string(),  // from first line
+            "def".to_string(), // middle line
+            "gh".to_string(),  // from last line
+        ];
+        editor.undo_redo_manager.record_undo(EditAction::DeleteRange {
+            start,
+            end,
+            deleted: old.clone(),
+        });
+
+        // apply manually: "abc", "def", "ghi" => delete selection => "ai"
+        editor.editor_content = vec!["ai".to_string()];
+        assert_eq!(editor.editor_content, vec!["ai"]);
+
+        editor.undo().unwrap();
+        assert_eq!(editor.editor_content, vec!["abc", "def", "ghi"]);
+
+        editor.redo().unwrap();
+        assert_eq!(editor.editor_content, vec!["ai"]);
+    }
+
+
 
     // ========== SplitLine & JoinLine ==========
 

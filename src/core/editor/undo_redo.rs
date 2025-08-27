@@ -65,6 +65,12 @@ impl UndoRedoManager {
                 old: new.clone(),
                 new: old.clone(),
             },
+            EditAction::ReplaceRange { start, end, old, new } => EditAction::ReplaceRange {
+                start: *start,
+                end: *end,
+                old: new.clone(),
+                new: old.clone(),
+            },
             EditAction::InsertLines { start, lines } => EditAction::DeleteLines {
                 start: *start,
                 deleted: lines.clone(),
@@ -72,6 +78,16 @@ impl UndoRedoManager {
             EditAction::DeleteLines { start, deleted } => EditAction::InsertLines {
                 start: *start,
                 lines: deleted.clone(),
+            },
+            EditAction::DeleteRange { start, end, deleted } => EditAction::InsertRange { 
+                start: *start,
+                end: *end,
+                lines: deleted.clone() 
+            },
+            EditAction::InsertRange { start, end, lines } => EditAction::DeleteRange { 
+                start: *start,
+                end: *end,
+                deleted: lines.clone() 
             },
             EditAction::SplitLine { pos, left, right } => EditAction::JoinLine {
                 pos: *pos,
