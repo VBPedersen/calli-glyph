@@ -251,7 +251,11 @@ impl Editor {
                 self.set_cursor_position(&end);
                 self.delete_lines_at(*start, deleted.len());
             }
-            EditAction::InsertRange { start, end: _end, lines } => {
+            EditAction::InsertRange {
+                start,
+                end: _end,
+                lines,
+            } => {
                 self.insert_text_at(start, lines);
                 //get additive position to get new cursor pos at end of insertion
                 let last_line_len = lines.last().map(|s| s.len()).unwrap_or(0);
