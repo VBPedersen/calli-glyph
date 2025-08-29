@@ -214,7 +214,7 @@ impl Editor {
             EditAction::ReplaceRange {
                 start,
                 end,
-                old,
+                old: _old,
                 new,
             } => {
                 // replace text from start..end with new
@@ -251,7 +251,7 @@ impl Editor {
                 self.set_cursor_position(&end);
                 self.delete_lines_at(*start, deleted.len());
             }
-            EditAction::InsertRange { start, end, lines } => {
+            EditAction::InsertRange { start, end: _end, lines } => {
                 self.insert_text_at(start, lines);
                 //get additive position to get new cursor pos at end of insertion
                 let last_line_len = lines.last().map(|s| s.len()).unwrap_or(0);
@@ -265,7 +265,7 @@ impl Editor {
             EditAction::DeleteRange {
                 start,
                 end,
-                deleted,
+                deleted: _deleted,
             } => {
                 self.delete_text_at_range(start, end);
 
@@ -1079,45 +1079,49 @@ impl Editor {
 
         let original_line = self.editor_content[start.y].clone();
 
-        // If multi-line insert at column 0, treat it as inserting whole lines *above* the current line.
-        if lines.len() > 1 {
-            let cur_len_chars = original_line.chars().count();
-            let x = start.x.min(cur_len_chars);
-            if x == 0 {
-                for (i, s) in lines.iter().enumerate() {
-                    self.editor_content.insert(start.y + i, s.clone());
-                }
-                return;
+        // Special case: multi-line insert at column 0
+        if lines.len() > 1 && start.x == 0 {
+            for (i, s) in lines.iter().enumerate() {
+                self.editor_content.insert(start.y + i, s.clone());
             }
-        }
-
-        // General path (single-line, or multi-line in the middle/end of a line):
-        let mut chars: Vec<char> = original_line.chars().collect();
-        let x = start.x.min(chars.len());
-
-        // Split original line at insertion point
-        let right_half: String = chars.split_off(x).into_iter().collect();
-        let left_half: String = chars.into_iter().collect();
-
-        if lines.len() == 1 {
-            // Single-line insert: left + insert + right
-            self.editor_content[start.y] = format!("{}{}{}", left_half, lines[0], right_half);
             return;
         }
 
-        // Multi-line insert (not at col 0):
-        // Replace current line with left + first inserted line
-        self.editor_content[start.y] = format!("{}{}", left_half, lines[0]);
+        // Split the original line
+        let mut chars: Vec<char> = original_line.chars().collect();
+        let x = start.x.min(chars.len());
+        let first_line_right_half: String = chars.split_off(x).into_iter().collect();
+        let first_line_left_half: String = chars.into_iter().collect();
 
-        // Insert middle lines (if any)
-        for (i, middle) in lines.iter().enumerate().skip(1).take(lines.len() - 2) {
-            self.editor_content.insert(start.y + i, middle.clone());
+        if lines.len() == 1 {
+            // Single-line insert: left + insert + right
+            self.editor_content[start.y] = format!(
+                "{}{}{}",
+                first_line_left_half, lines[0], first_line_right_half
+            );
+        } else {
+            // Multi-line insert
+
+            // Replace current line with left + first inserted line
+            self.editor_content[start.y] = format!("{}{}", first_line_left_half, lines[0]);
+
+            // Insert middle lines (if any)
+            for (i, middle) in lines.iter().enumerate().skip(1).take(lines.len() - 2) {
+                self.editor_content.insert(start.y + i, middle.clone());
+            }
+
+            // Replace the last line with last_insert + right_half
+            let last_index = start.y + lines.len() - 1;
+
+            if last_index < self.editor_content.len() {
+                let last_right = self.editor_content[last_index].clone();
+                let last_with_right = format!("{}{}", lines.last().unwrap(), last_right);
+                self.editor_content[last_index] = last_with_right;
+            } else {
+                let last_with_right = format!("{}{}", lines.last().unwrap(), first_line_right_half);
+                self.editor_content.push(last_with_right);
+            }
         }
-
-        // Insert last inserted line + right_half (do NOT replace; insert to avoid overwriting following lines)
-        let last_with_right = format!("{}{}", lines.last().unwrap(), right_half);
-        self.editor_content
-            .insert(start.y + lines.len() - 1, last_with_right);
     }
 
     ///delete text lines at start to end,

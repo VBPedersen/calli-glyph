@@ -10,7 +10,7 @@ mod integration_app_tests {
 
     //init functions
     fn create_app() -> App {
-        let mut app = App::new();
+        let app = App::new();
         app
     }
 
