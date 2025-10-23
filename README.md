@@ -1,4 +1,4 @@
-<h1 align="center">🖋️ Calli Glyph</h1>
+<h1 align="center"><img src="CalliGlyph-Logo.png" alt="CalliGlyph"></h1>
 
 <p align="center">
   <a href="https://github.com/VBPedersen/calli-glyph/actions"><img src="https://img.shields.io/github/actions/workflow/status/VBPedersen/calli-glyph/release.yml?label=build&logo=github" /></a>
