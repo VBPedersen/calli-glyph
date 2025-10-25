@@ -282,10 +282,10 @@ impl Editor {
                 // insert the right part as a new line
                 self.editor_content.insert(pos.y + 1, right.clone());
 
-                //at start of new line
-                let temp_pos = CursorPosition { x: 0, y: pos.y + 1 };
+                //at start of last line
+                let new_pos = CursorPosition { x: 0, y: pos.y + 1 };
 
-                self.set_cursor_position(&temp_pos);
+                self.set_cursor_position(&new_pos);
             }
             EditAction::JoinLine { pos, merged } => {
                 // overwrite current line with the merged part
@@ -294,7 +294,7 @@ impl Editor {
                 // remove next line
                 self.editor_content.remove(pos.y + 1);
 
-                self.set_cursor_position(pos);
+                self.set_cursor_position(&pos);
             }
         }
     }
@@ -397,8 +397,8 @@ impl Editor {
 
                     selected_text.push(extracted_text);
                     *line = line_chars.into_iter().collect();
-                    
-                    
+
+
                 }
             } else {
                 // single-line cut
@@ -415,7 +415,7 @@ impl Editor {
                 self.editor_content.remove(y);
             }
 
-            //move content of last line selected to first line start point, 
+            //move content of last line selected to first line start point,
             // if any lines to remove
             if lines_to_remove.len() != 0 {
                 let line = &mut self
@@ -423,8 +423,8 @@ impl Editor {
                     .remove(end.y - lines_to_remove.len());
                 self.editor_content[start.y].push_str(line);
             }
-            
-            
+
+
             // record undo (DeleteRange)
             self.undo_redo_manager.record_undo(EditAction::DeleteRange {
                 start,
@@ -658,35 +658,47 @@ impl Editor {
     ///handles backspace in editor, removes char at y line x position and sets new cursor position
     pub fn backspace(&mut self) {
         let mut deleted_char: Option<char> = None;
-        let line_char_count = self.editor_content[self.cursor.y as usize].chars().count() as i16;
+        let y = self.cursor.y as usize;
+        let x = self.cursor.x as usize;
+        let line_char_count = self.editor_content[y].chars().count();
         //if x is more than 0 and less than max line index : should delete char and move back
         // else if y is more than 0, move line up
-        if self.cursor.x > 0 && self.cursor.x <= line_char_count {
-            let line = &mut self.editor_content[self.cursor.y as usize];
+        if x > 0 && x <= line_char_count {
+            let line = &mut self.editor_content[y];
             let mut line_chars_vec: Vec<char> = line.chars().collect();
-            let char = line_chars_vec.remove(self.cursor.x as usize - 1);
+            let char = line_chars_vec.remove(x - 1);
             deleted_char = Some(char);
 
             *line = line_chars_vec.into_iter().collect();
-            //line.remove(self.editor.cursor.x as usize -1);
             self.move_cursor(-1, 0);
-        } else if self.cursor.y > 0 {
+            
+            //record undo if any deleted char
+            if let Some(char) = deleted_char {
+                self.undo_redo_manager.record_undo(EditAction::Delete {
+                    pos: CursorPosition {
+                        x: self.cursor.x as usize,
+                        y: self.cursor.y as usize,
+                    },
+                    deleted_char: char.clone(),
+                });
+            }
+
+        } else if y > 0 {
             let line = &mut self.editor_content.remove(self.cursor.y as usize);
             let new_x_value = self.editor_content[(self.cursor.y - 1) as usize]
                 .chars()
                 .count() as i16;
-            self.cursor.y -= 1;
             self.cursor.x = new_x_value;
+            self.move_cursor(0, -1);
             self.editor_content[self.cursor.y as usize].push_str(line);
-        }
-
-        if let Some(char) = deleted_char {
-            self.undo_redo_manager.record_undo(EditAction::Delete {
+            let merged_line:String = self.editor_content[self.cursor.y as usize].clone();
+            // Record the join action for undo
+            self.undo_redo_manager.record_undo(EditAction::JoinLine {
                 pos: CursorPosition {
                     x: self.cursor.x as usize,
                     y: self.cursor.y as usize,
                 },
-                deleted_char: char.clone(),
+                merged: merged_line, 
             });
         }
     }
@@ -731,7 +743,7 @@ impl Editor {
             let mut line_chars_vec: Vec<char> = line.chars().collect();
             let deleted_text:String = line_chars_vec.drain(start.x..end.x).collect();
             selected_text.push(deleted_text);
-            
+
             *line = line_chars_vec.into_iter().collect();
         }
         self.cursor.x = self.text_selection_start.unwrap().x as i16;
@@ -1503,7 +1515,7 @@ mod unit_editor_delete_tests {
         // Set a selection range (e.g., "Denmark")
         editor.text_selection_start = Some(CursorPosition { x: 6, y: 0 }); // Start of "Denmark"
         editor.text_selection_end = Some(CursorPosition { x: 13, y: 0 }); // End of "Denmark"
-                                                                          // Call the function to simulate a backspace with text selected
+        // Call the function to simulate a backspace with text selected
         editor.backspace_text_is_selected();
 
         // Assert that the selected text is removed
@@ -1530,7 +1542,7 @@ mod unit_editor_delete_tests {
         // Set a selection range (e.g., "Denmark")
         editor.text_selection_start = Some(CursorPosition { x: 6, y: 1 }); // Start of "Denmark"
         editor.text_selection_end = Some(CursorPosition { x: 13, y: 2 }); // End of "sudeten"
-                                                                          // Call the function to simulate a backspace with text selected
+        // Call the function to simulate a backspace with text selected
         editor.backspace_text_is_selected();
 
         assert_eq!(editor.editor_content.len(), 2);
@@ -1561,7 +1573,7 @@ mod unit_editor_delete_tests {
         // Set a selection range (e.g., "Denmark")
         editor.text_selection_start = Some(CursorPosition { x: 2, y: 1 }); // middle of "test"
         editor.text_selection_end = Some(CursorPosition { x: 13, y: 3 }); // End of "sudeten"
-                                                                          // Call the function to simulate a backspace with text selected
+        // Call the function to simulate a backspace with text selected
         editor.backspace_text_is_selected();
 
         assert_eq!(editor.editor_content.len(), 2);
@@ -1665,7 +1677,7 @@ mod unit_editor_delete_tests {
         // Set a selection range (e.g., "Denmark")
         editor.text_selection_start = Some(CursorPosition { x: 6, y: 0 }); // Start of "Denmark"
         editor.text_selection_end = Some(CursorPosition { x: 13, y: 0 }); // End of "Denmark"
-                                                                          // Call the function to simulate a backspace with text selected
+        // Call the function to simulate a backspace with text selected
         editor.delete_text_is_selected();
 
         // Assert that the selected text is removed
@@ -1693,7 +1705,7 @@ mod unit_editor_delete_tests {
         // Set a selection range (e.g., "Denmark")
         editor.text_selection_start = Some(CursorPosition { x: 6, y: 1 }); // Start of "Denmark"
         editor.text_selection_end = Some(CursorPosition { x: 13, y: 2 }); // End of "Denmark"
-                                                                          // Call the function to simulate a backspace with text selected
+        // Call the function to simulate a backspace with text selected
         editor.delete_text_is_selected();
 
         assert_eq!(editor.editor_content.len(), 3);
@@ -1725,7 +1737,7 @@ mod unit_editor_delete_tests {
         // Set a selection range (e.g., "Denmark")
         editor.text_selection_start = Some(CursorPosition { x: 2, y: 1 }); // middle of "test"
         editor.text_selection_end = Some(CursorPosition { x: 13, y: 3 }); // End of "sudeten"
-                                                                          // Call the function to simulate a backspace with text selected
+        // Call the function to simulate a backspace with text selected
         editor.delete_text_is_selected();
 
         assert_eq!(editor.editor_content.len(), 4);
