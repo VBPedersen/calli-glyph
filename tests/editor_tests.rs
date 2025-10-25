@@ -1,6 +1,6 @@
+use calliglyph::core::cursor::CursorPosition;
 use calliglyph::core::editor::Editor;
 use calliglyph::input::input_action::{Direction, InputAction};
-use calliglyph::core::cursor::CursorPosition;
 
 /// Helper to create an editor with some starting text.
 fn create_editor_with_content(lines: Vec<&str>) -> Editor {
@@ -15,7 +15,9 @@ fn test_write_and_backspace_single_char() {
     let mut editor = create_editor_with_content(vec!["Hello"]);
     editor.cursor.x = 6;
     // Type a character
-    editor.handle_input_action(InputAction::WriteChar('!')).unwrap();
+    editor
+        .handle_input_action(InputAction::WriteChar('!'))
+        .unwrap();
     assert_eq!(editor.editor_content[0], "Hello!");
 
     // Remove it with backspace
@@ -28,10 +30,14 @@ fn test_enter_splits_line_and_backspace_joins() {
     let mut editor = create_editor_with_content(vec!["Hello world"]);
     editor.cursor.x = 6;
     editor.cursor.y = 0;
-    
+
     // Press ENTER (split line)
     editor.handle_input_action(InputAction::ENTER).unwrap();
-    assert_eq!(editor.editor_content.len(), 2, "Line count should be 2 after split");
+    assert_eq!(
+        editor.editor_content.len(),
+        2,
+        "Line count should be 2 after split"
+    );
     assert_eq!(
         editor.editor_content[0], "Hello ",
         "First line should contain the left half of the split"
@@ -95,7 +101,9 @@ fn test_write_undo_and_redo() {
     let mut editor = create_editor_with_content(vec!["foo"]);
     editor.cursor.x = 3;
     // Type '!'
-    editor.handle_input_action(InputAction::WriteChar('!')).unwrap();
+    editor
+        .handle_input_action(InputAction::WriteChar('!'))
+        .unwrap();
     assert_eq!(editor.editor_content[0], "foo!");
 
     // Undo it
@@ -113,7 +121,9 @@ fn test_multiple_writes_and_undo_redo_chain() {
     editor.cursor.x = 3;
     editor.cursor.y = 0;
     for c in ['d', 'e', 'f'] {
-        editor.handle_input_action(InputAction::WriteChar(c)).unwrap();
+        editor
+            .handle_input_action(InputAction::WriteChar(c))
+            .unwrap();
     }
     assert_eq!(editor.editor_content[0], "abcdef");
 
@@ -134,11 +144,15 @@ fn test_multiple_writes_and_undo_redo_chain() {
 fn test_multi_line_editing_with_undo() {
     let mut editor = create_editor_with_content(vec!["first", "second"]);
     editor.cursor.y = 0;
-    editor.handle_input_action(InputAction::WriteChar('A')).unwrap();
+    editor
+        .handle_input_action(InputAction::WriteChar('A'))
+        .unwrap();
 
     editor.cursor.x = 0;
     editor.cursor.y = 1;
-    editor.handle_input_action(InputAction::WriteChar('B')).unwrap();
+    editor
+        .handle_input_action(InputAction::WriteChar('B'))
+        .unwrap();
 
     assert_eq!(editor.editor_content[0], "Afirst");
     assert_eq!(editor.editor_content[1], "Bsecond");
@@ -164,9 +178,8 @@ fn test_text_selection_delete_range() {
 
 #[test]
 fn test_scroll_offset_and_cursor_bounds() {
-    let mut editor = create_editor_with_content(vec![
-        "line1", "line2", "line3", "line4", "line5", "line6",
-    ]);
+    let mut editor =
+        create_editor_with_content(vec!["line1", "line2", "line3", "line4", "line5", "line6"]);
     editor.editor_height = 3;
     editor.scroll_offset = 2;
     editor.cursor.y = 5;
