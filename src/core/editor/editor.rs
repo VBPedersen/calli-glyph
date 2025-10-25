@@ -396,6 +396,8 @@ impl Editor {
 
                     selected_text.push(extracted_text);
                     *line = line_chars.into_iter().collect();
+                    
+                    
                 }
             } else {
                 let lines = self.editor_content[start.y..start.y + 1].as_mut();
@@ -412,6 +414,16 @@ impl Editor {
                 self.editor_content.remove(y);
             }
 
+            //move content of last line selected to first line start point, 
+            // if any lines to remove
+            if lines_to_remove.len() != 0 {
+                let line = &mut self
+                    .editor_content
+                    .remove(end.y - lines_to_remove.len());
+                self.editor_content[start.y].push_str(line);
+            }
+            
+            
             // record undo (DeleteRange)
             self.undo_redo_manager.record_undo(EditAction::DeleteRange {
                 start,
@@ -680,6 +692,8 @@ impl Editor {
 
     ///handles backspace in editor, removes char at y line x position and sets new cursor position
     pub fn backspace_text_is_selected(&mut self) {
+        //TODO : record undo 
+        let mut selected_text: Vec<String> = Vec::new();
         let start = self.text_selection_start.unwrap();
         let end = self.text_selection_end.unwrap();
         let lines = &mut self.editor_content[start.y..=end.y];
@@ -721,6 +735,13 @@ impl Editor {
         self.text_selection_end = None;
         //replace visual cursor
         self.visual_cursor_x = self.calculate_visual_x() as i16;
+
+        // record undo (DeleteRange)
+        self.undo_redo_manager.record_undo(EditAction::DeleteRange {
+            start,
+            end,
+            deleted: selected_text.clone(),
+        });
     }
 
     //editor delete functions
@@ -1117,21 +1138,21 @@ impl Editor {
             // Replace current line with left + first inserted line
             self.editor_content[start.y] = format!("{}{}", first_line_left_half, lines[0]);
 
-            // Insert middle lines (if any)
-            for (i, middle) in lines.iter().enumerate().skip(1).take(lines.len() - 2) {
-                self.editor_content.insert(start.y + i, middle.clone());
-            }
+            // Insert all remaining lines, merging the right half onto the last one
+            let n_lines = lines.len();
+            for i in 1..n_lines {
+                let insertion_index = start.y + i;
+                let line_to_insert = lines[i].clone();
 
-            // Replace the last line with last_insert + right_half
-            let last_index = start.y + lines.len() - 1;
-
-            if last_index < self.editor_content.len() {
-                let last_right = self.editor_content[last_index].clone();
-                let last_with_right = format!("{}{}", lines.last().unwrap(), last_right);
-                self.editor_content[last_index] = last_with_right;
-            } else {
-                let last_with_right = format!("{}{}", lines.last().unwrap(), first_line_right_half);
-                self.editor_content.push(last_with_right);
+                // if last line being inserted
+                if i == n_lines - 1 {
+                    // append the right half of the split original line
+                    let final_content = format!("{}{}", line_to_insert, first_line_right_half);
+                    self.editor_content.insert(insertion_index, final_content);
+                } else {
+                    // middle lines, insert directly
+                    self.editor_content.insert(insertion_index, line_to_insert);
+                }
             }
         }
     }
