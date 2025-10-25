@@ -634,10 +634,8 @@ impl Editor {
 
             *line = left.clone();
 
-            //move down and insert split line to next line
+            // insert split line to next line and move down
             self.move_cursor(0, 1);
-            self.editor_content
-                .insert(self.cursor.y as usize, String::new());
             self.editor_content[self.cursor.y as usize] = right.clone();
             //enter to split line, should go to start of line
             self.cursor.x = 0;
@@ -671,7 +669,7 @@ impl Editor {
 
             *line = line_chars_vec.into_iter().collect();
             self.move_cursor(-1, 0);
-            
+
             //record undo if any deleted char
             if let Some(char) = deleted_char {
                 self.undo_redo_manager.record_undo(EditAction::Delete {
@@ -698,7 +696,7 @@ impl Editor {
                     x: self.cursor.x as usize,
                     y: self.cursor.y as usize,
                 },
-                merged: merged_line, 
+                merged: merged_line,
             });
         }
     }
@@ -829,7 +827,7 @@ impl Editor {
                 } else {
                     deleted_text = line_chars_vec.drain(0..).collect::<String>();
                 }
-                
+
                 selected_text.push(deleted_text);
                 *line = line_chars_vec.into_iter().collect();
             }
@@ -838,7 +836,7 @@ impl Editor {
             let mut line_chars_vec: Vec<char> = line.chars().collect();
             let deleted_text:String = line_chars_vec[start.x..end.x].into_iter().collect();
             selected_text.push(deleted_text);
-            
+
             line_chars_vec[start.x..end.x].fill(' ');
             *line = line_chars_vec.into_iter().collect();
         }
@@ -860,7 +858,7 @@ impl Editor {
         self.undo_redo_manager.record_undo(EditAction::ReplaceRange {
             start,
             end,
-            old: selected_text.clone(), 
+            old: selected_text.clone(),
             new: old_replaced_with_whitespaces,
         });
     }
@@ -1132,8 +1130,8 @@ impl Editor {
             let right: String = chars.iter().skip(safe_index).collect();
             (left, right)
         };
-        
-        
+
+
         if start.y == end.y {
             // Single line selection
             if let Some(line) = self.editor_content.get_mut(start.y) {
@@ -1153,12 +1151,12 @@ impl Editor {
 
             let end_line = get_line_parts(end_y);
             let (_, right_content_of_end) = split_line_by_char(&end_line, end.x);
-            
+
             // Drain (remove) the full lines in the range, inclusive.
             self.editor_content.drain(start_y..=end_y);
 
             // Prepare the final block insertion
-            let mut final_block = new_lines; 
+            let mut final_block = new_lines;
 
             if final_block.is_empty() {
                 // Case: Pure Deletion (Replace with nothing) -> Merge content
@@ -1179,8 +1177,8 @@ impl Editor {
 
             // 4. Insert the final block at the start position of the drained block
             self.editor_content.splice(start.y..start.y, final_block);
-            
-            
+
+
         }
     }
 
