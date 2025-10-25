@@ -374,6 +374,7 @@ impl Editor {
             let lines = self.editor_content[start.y..=end.y].as_mut();
             let line_length = lines.len();
             if lines.len() > 1 {
+                // Multi-line cut
                 for (y, line) in lines.iter_mut().enumerate() {
                     let mut line_chars: Vec<char> = line.as_mut().chars().collect();
                     let extracted_text: String;
@@ -400,8 +401,8 @@ impl Editor {
                     
                 }
             } else {
-                let lines = self.editor_content[start.y..start.y + 1].as_mut();
-                let line = lines.iter_mut().next().unwrap();
+                // single-line cut
+                let line = &mut self.editor_content[start.y];
                 let mut line_chars: Vec<char> = line.as_mut().chars().collect();
                 let extracted_text: String = line_chars.drain(start.x..end.x).collect();
                 selected_text.push(extracted_text);
@@ -692,7 +693,6 @@ impl Editor {
 
     ///handles backspace in editor, removes char at y line x position and sets new cursor position
     pub fn backspace_text_is_selected(&mut self) {
-        //TODO : record undo 
         let mut selected_text: Vec<String> = Vec::new();
         let start = self.text_selection_start.unwrap();
         let end = self.text_selection_end.unwrap();
@@ -702,16 +702,19 @@ impl Editor {
             let mut line_indexes_to_remove: Vec<u16> = vec![];
             for (y, line) in lines.iter_mut().enumerate() {
                 let mut line_chars_vec: Vec<char> = line.chars().collect();
+                let deleted_text: String;
                 //first line
                 if y == 0 {
-                    line_chars_vec.drain(start.x..line.chars().count());
+                    deleted_text = line_chars_vec.drain(start.x..).collect();
                 } else if y == lines_length - 1 {
                     //last line selected
-                    line_chars_vec.drain(0..end.x);
+                    deleted_text = line_chars_vec.drain(0..end.x).collect();
                 } else {
-                    line_chars_vec.drain(0..line.chars().count());
+                    deleted_text = line_chars_vec.drain(0..).collect();
                     line_indexes_to_remove.push((start.y + y) as u16);
                 }
+
+                selected_text.push(deleted_text);
                 *line = line_chars_vec.into_iter().collect();
             }
             // remove the lines that became empty in reverse order
@@ -726,7 +729,9 @@ impl Editor {
         } else {
             let line = &mut self.editor_content[start.y];
             let mut line_chars_vec: Vec<char> = line.chars().collect();
-            line_chars_vec.drain(start.x..end.x);
+            let deleted_text:String = line_chars_vec.drain(start.x..end.x).collect();
+            selected_text.push(deleted_text);
+            
             *line = line_chars_vec.into_iter().collect();
         }
         self.cursor.x = self.text_selection_start.unwrap().x as i16;
