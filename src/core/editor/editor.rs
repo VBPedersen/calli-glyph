@@ -813,6 +813,14 @@ impl Editor {
         //if wanting to go beyond current length of editor
         while self.editor_content.len() <= (self.cursor.y + y) as usize {
             self.editor_content.push(String::new());
+            //record undo
+            self.undo_redo_manager.record_undo(EditAction::InsertLines {
+                start: CursorPosition {
+                    x: self.cursor.x as usize,
+                    y: self.cursor.y as usize + 1, //+1 y to insert after current index
+                },
+                lines: vec![String::new()],
+            });
         }
 
         let max_x_pos = self.editor_content[(self.cursor.y + y) as usize]
