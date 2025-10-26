@@ -218,7 +218,7 @@ impl Editor {
                 new,
             } => {
                 // replace text from start..end with new
-                self.replace_selection_with_lines(*start, *end, old.clone(),new.clone());
+                self.replace_selection_with_lines(*start, *end, old.clone(), new.clone());
 
                 // Calculate cursor position after replacement
                 if new.is_empty() {
@@ -658,7 +658,8 @@ impl Editor {
             *line = left.clone();
 
             // insert new line under, move cursor and insert split line to line
-            self.editor_content.insert(self.cursor.y as usize +1,String::new());
+            self.editor_content
+                .insert(self.cursor.y as usize + 1, String::new());
             self.move_cursor(0, 1);
             self.editor_content[self.cursor.y as usize] = right.clone();
             //enter to split line, should go to start of line
@@ -1084,7 +1085,6 @@ impl Editor {
         self.visual_cursor_x = self.calculate_visual_x() as i16;
     }
 
-
     /// resets text selection cursor to none
     pub(crate) fn reset_text_selection_cursor(&mut self) {
         self.text_selection_start = None;
@@ -1224,7 +1224,11 @@ impl Editor {
                 result.push(new_lines[i].clone());
             }
 
-            result.push(format!("{}{}", new_lines[new_lines.len() - 1], right_context));
+            result.push(format!(
+                "{}{}",
+                new_lines[new_lines.len() - 1],
+                right_context
+            ));
         }
 
         // Calculate how many lines to remove

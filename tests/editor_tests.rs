@@ -27,7 +27,7 @@ fn test_write_and_backspace_single_char() {
 
 #[test]
 fn test_enter_splits_line_and_backspace_joins() {
-    let mut editor = create_editor_with_content(vec!["Hello world","goodbye world"]);
+    let mut editor = create_editor_with_content(vec!["Hello world", "goodbye world"]);
     editor.cursor.x = 6;
     editor.cursor.y = 0;
 
@@ -48,8 +48,8 @@ fn test_enter_splits_line_and_backspace_joins() {
     );
     assert_eq!(
         editor.editor_content[2], "goodbye world",
-        "Third line should contain the second start sentence");
-
+        "Third line should contain the second start sentence"
+    );
 
     // Join back
     editor.cursor.x = 0;
@@ -206,7 +206,9 @@ fn test_write_char_on_selection_single_line() {
     editor.cursor.y = 0;
 
     // Replace "World" with "!"
-    editor.handle_input_action(InputAction::WriteChar('!')).unwrap();
+    editor
+        .handle_input_action(InputAction::WriteChar('!'))
+        .unwrap();
     assert_eq!(editor.editor_content[0], "Hello !");
     assert_eq!(editor.cursor.x, 7);
 }
@@ -220,7 +222,9 @@ fn test_write_char_on_selection_single_line_undo_redo() {
     editor.cursor.y = 0;
 
     // Replace "World" with "!"
-    editor.handle_input_action(InputAction::WriteChar('!')).unwrap();
+    editor
+        .handle_input_action(InputAction::WriteChar('!'))
+        .unwrap();
     assert_eq!(editor.editor_content[0], "Hello !");
 
     // Undo
@@ -243,7 +247,9 @@ fn test_write_char_on_selection_at_start() {
     editor.cursor.y = 0;
 
     // Replace "Hello" with "X"
-    editor.handle_input_action(InputAction::WriteChar('X')).unwrap();
+    editor
+        .handle_input_action(InputAction::WriteChar('X'))
+        .unwrap();
     assert_eq!(editor.editor_content[0], "X World");
 
     // Undo
@@ -264,7 +270,9 @@ fn test_write_char_on_selection_at_end() {
     editor.cursor.y = 0;
 
     // Replace "World" with "Z"
-    editor.handle_input_action(InputAction::WriteChar('Z')).unwrap();
+    editor
+        .handle_input_action(InputAction::WriteChar('Z'))
+        .unwrap();
     assert_eq!(editor.editor_content[0], "Hello Z");
 
     // Undo
@@ -285,7 +293,9 @@ fn test_write_char_on_entire_line_selection() {
     editor.cursor.y = 0;
 
     // Replace entire line
-    editor.handle_input_action(InputAction::WriteChar('A')).unwrap();
+    editor
+        .handle_input_action(InputAction::WriteChar('A'))
+        .unwrap();
     assert_eq!(editor.editor_content[0], "A");
 
     // Undo
@@ -308,7 +318,9 @@ fn test_write_char_on_selection_multi_line() {
     editor.cursor.y = 0;
 
     // Replace selection with "X"
-    editor.handle_input_action(InputAction::WriteChar('X')).unwrap();
+    editor
+        .handle_input_action(InputAction::WriteChar('X'))
+        .unwrap();
     assert_eq!(editor.editor_content.len(), 2);
     assert_eq!(editor.editor_content[0], "First X Line");
     assert_eq!(editor.editor_content[1], "Third Line");
@@ -323,7 +335,9 @@ fn test_write_char_on_selection_multi_line_undo_redo() {
     editor.cursor.y = 0;
 
     // Replace selection
-    editor.handle_input_action(InputAction::WriteChar('X')).unwrap();
+    editor
+        .handle_input_action(InputAction::WriteChar('X'))
+        .unwrap();
     assert_eq!(editor.editor_content.len(), 2);
     assert_eq!(editor.editor_content[0], "First X Line");
 
@@ -343,19 +357,17 @@ fn test_write_char_on_selection_multi_line_undo_redo() {
 
 #[test]
 fn test_write_char_on_selection_spanning_three_lines() {
-    let mut editor = create_editor_with_content(vec![
-        "Line One",
-        "Line Two",
-        "Line Three",
-        "Line Four",
-    ]);
+    let mut editor =
+        create_editor_with_content(vec!["Line One", "Line Two", "Line Three", "Line Four"]);
     editor.text_selection_start = Some(CursorPosition { x: 5, y: 0 });
     editor.text_selection_end = Some(CursorPosition { x: 5, y: 2 });
     editor.cursor.x = 5;
     editor.cursor.y = 0;
 
     // Replace three-line selection
-    editor.handle_input_action(InputAction::WriteChar('!')).unwrap();
+    editor
+        .handle_input_action(InputAction::WriteChar('!'))
+        .unwrap();
     assert_eq!(editor.editor_content.len(), 2);
     assert_eq!(editor.editor_content[0], "Line !Three");
     assert_eq!(editor.editor_content[1], "Line Four");
@@ -384,7 +396,9 @@ fn test_write_char_on_selection_start_of_first_to_start_of_last() {
     editor.cursor.y = 0;
 
     // Replace
-    editor.handle_input_action(InputAction::WriteChar('Z')).unwrap();
+    editor
+        .handle_input_action(InputAction::WriteChar('Z'))
+        .unwrap();
     assert_eq!(editor.editor_content.len(), 1);
     assert_eq!(editor.editor_content[0], "ZCCC");
 
@@ -410,7 +424,9 @@ fn test_write_char_on_selection_middle_to_middle() {
     editor.cursor.y = 0;
 
     // Replace middle sections
-    editor.handle_input_action(InputAction::WriteChar('*')).unwrap();
+    editor
+        .handle_input_action(InputAction::WriteChar('*'))
+        .unwrap();
     assert_eq!(editor.editor_content.len(), 1);
     assert_eq!(editor.editor_content[0], "abc*opqr");
 
@@ -489,7 +505,9 @@ fn test_multiple_replace_operations_with_undo_redo() {
     editor.text_selection_end = Some(CursorPosition { x: 3, y: 0 });
     editor.cursor.x = 1;
     editor.cursor.y = 0;
-    editor.handle_input_action(InputAction::WriteChar('X')).unwrap();
+    editor
+        .handle_input_action(InputAction::WriteChar('X'))
+        .unwrap();
     assert_eq!(editor.editor_content[0], "aX");
 
     // Second operation: replace "ef" with "Y"
@@ -497,7 +515,9 @@ fn test_multiple_replace_operations_with_undo_redo() {
     editor.text_selection_end = Some(CursorPosition { x: 3, y: 1 });
     editor.cursor.x = 1;
     editor.cursor.y = 1;
-    editor.handle_input_action(InputAction::WriteChar('Y')).unwrap();
+    editor
+        .handle_input_action(InputAction::WriteChar('Y'))
+        .unwrap();
     assert_eq!(editor.editor_content[1], "dY");
 
     // Undo both
@@ -524,7 +544,9 @@ fn test_replace_then_new_action_clears_redo() {
     editor.text_selection_end = Some(CursorPosition { x: 11, y: 0 });
     editor.cursor.x = 6;
     editor.cursor.y = 0;
-    editor.handle_input_action(InputAction::WriteChar('X')).unwrap();
+    editor
+        .handle_input_action(InputAction::WriteChar('X'))
+        .unwrap();
 
     // Undo
     editor.handle_input_action(InputAction::UNDO).unwrap();
@@ -532,7 +554,9 @@ fn test_replace_then_new_action_clears_redo() {
 
     // New action: type 'Y' at a different position
     editor.cursor.x = 0;
-    editor.handle_input_action(InputAction::WriteChar('Y')).unwrap();
+    editor
+        .handle_input_action(InputAction::WriteChar('Y'))
+        .unwrap();
     assert_eq!(editor.editor_content[0], "YHello World");
 
     // Redo should fail (redo stack cleared)
@@ -552,7 +576,9 @@ fn test_replace_with_special_characters() {
     editor.cursor.y = 0;
 
     // Replace "af" with "ø"
-    editor.handle_input_action(InputAction::WriteChar('ø')).unwrap();
+    editor
+        .handle_input_action(InputAction::WriteChar('ø'))
+        .unwrap();
     assert_eq!(editor.editor_content[0], "cøé");
 
     // Undo
@@ -573,7 +599,9 @@ fn test_replace_empty_selection() {
     editor.cursor.y = 0;
 
     // This should just insert, not replace
-    editor.handle_input_action(InputAction::WriteChar('X')).unwrap();
+    editor
+        .handle_input_action(InputAction::WriteChar('X'))
+        .unwrap();
     assert_eq!(editor.editor_content[0], "teXst");
 
     // Undo
