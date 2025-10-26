@@ -214,19 +214,37 @@ impl Editor {
             EditAction::ReplaceRange {
                 start,
                 end,
-                old: _old,
+                old,
                 new,
             } => {
                 // replace text from start..end with new
-                self.replace_selection_with_lines(*start, *end, new.clone());
-                // move cursor to end of inserted range (or start if empty)
-                let last_line_len = new.last().map(|s| s.len()).unwrap_or(0);
-                let additive_pos = CursorPosition {
-                    x: last_line_len,
-                    y: new.iter().count(),
-                };
-                let end: CursorPosition = *start + additive_pos;
-                self.set_cursor_position(&end);
+                self.replace_selection_with_lines(*start, *end, old.clone(),new.clone());
+
+                // Calculate cursor position after replacement
+                if new.is_empty() {
+                    // If replacement is empty, cursor goes to start
+                    self.set_cursor_position(start);
+                } else {
+                    // Cursor should be at the end of the last inserted line
+                    let lines_added = new.len().saturating_sub(1); // 0 for single line, n-1 for multi
+                    let last_line_len = new.last().map(|s| s.chars().count()).unwrap_or(0);
+
+                    let new_pos = if new.len() == 1 {
+                        // Single line replacement: add to start.x
+                        CursorPosition {
+                            x: start.x + last_line_len,
+                            y: start.y,
+                        }
+                    } else {
+                        // Multi-line replacement: cursor at end of last new line
+                        CursorPosition {
+                            x: last_line_len,
+                            y: start.y + lines_added,
+                        }
+                    };
+
+                    self.set_cursor_position(&new_pos);
+                }
             }
             EditAction::InsertLines { start, lines } => {
                 self.insert_lines_at(*start, lines.clone());
@@ -536,6 +554,7 @@ impl Editor {
 
     ///replaces all selected text with char to y position line, with x position
     pub fn write_char_text_is_selected(&mut self, c: char) {
+        let mut selected_text: Vec<String> = Vec::new();
         let start = self.text_selection_start.unwrap();
         let end = self.text_selection_end.unwrap();
         let lines = &mut self.editor_content[start.y..=end.y];
@@ -544,17 +563,19 @@ impl Editor {
             let mut line_indexes_to_remove: Vec<u16> = vec![];
             for (y, line) in lines.iter_mut().enumerate() {
                 let mut line_chars_vec: Vec<char> = line.chars().collect();
+                let deleted_text: String;
                 //first line
                 if y == 0 {
-                    line_chars_vec.drain(start.x..line.chars().count());
+                    deleted_text = line_chars_vec.drain(start.x..).collect();
                     line_chars_vec.insert(start.x, c); //write chat to start position
                 } else if y == lines_length - 1 {
                     //last line selected
-                    line_chars_vec.drain(0..end.x);
+                    deleted_text = line_chars_vec.drain(0..end.x).collect();
                 } else {
-                    line_chars_vec.drain(0..line.chars().count());
+                    deleted_text = line_chars_vec.drain(0..).collect();
                     line_indexes_to_remove.push((start.y + y) as u16);
                 }
+                selected_text.push(deleted_text);
                 *line = line_chars_vec.into_iter().collect();
             }
             // remove the lines that became empty in reverse order
@@ -569,7 +590,8 @@ impl Editor {
         } else {
             let line = &mut self.editor_content[start.y];
             let mut line_chars_vec: Vec<char> = line.chars().collect();
-            line_chars_vec.drain(start.x..end.x);
+            let deleted_text: String = line_chars_vec.drain(start.x..end.x).collect();
+            selected_text.push(deleted_text);
             line_chars_vec.insert(start.x, c);
             *line = line_chars_vec.into_iter().collect();
         }
@@ -577,6 +599,15 @@ impl Editor {
         self.cursor.y = self.text_selection_start.unwrap().y as i16;
         self.reset_text_selection_cursor();
         self.move_cursor(1, 0);
+
+        // record undo (ReplaceRange)
+        self.undo_redo_manager
+            .record_undo(EditAction::ReplaceRange {
+                start,
+                end,
+                old: selected_text.clone(),
+                new: vec![c.to_string()],
+            });
     }
 
     //editor tab character
@@ -1052,8 +1083,8 @@ impl Editor {
         //calculate visual x pos again.
         self.visual_cursor_x = self.calculate_visual_x() as i16;
     }
-    
-    
+
+
     /// resets text selection cursor to none
     pub(crate) fn reset_text_selection_cursor(&mut self) {
         self.text_selection_start = None;
@@ -1110,68 +1141,112 @@ impl Editor {
         &mut self,
         start: CursorPosition,
         end: CursorPosition,
+        old_lines: Vec<String>,
         new_lines: Vec<String>,
     ) {
-        // --- Helper Functions ---
+        // Safety check for empty document
+        if self.editor_content.is_empty() {
+            if !new_lines.is_empty() {
+                self.editor_content = new_lines;
+            } else {
+                self.editor_content.push(String::new());
+            }
+            return;
+        }
 
-        // Safely gets line content, returning an empty String if the line index is out of bounds.
-        let get_line_parts = |y: usize| self.editor_content.get(y).cloned().unwrap_or_default();
+        // Clamp to valid indices
+        let max_index = self.editor_content.len().saturating_sub(1);
+        let start_y = start.y.min(max_index);
+        let end_y = end.y.min(max_index);
 
-        // Safely splits line content based on a visible character index (UTF-8 safe).
-        let split_line_by_char = |line: &String, index: usize| -> (String, String) {
+        // UTF-8 safe string splitter
+        let split_line = |line: &str, index: usize| -> (String, String) {
             let chars: Vec<char> = line.chars().collect();
             let safe_index = index.min(chars.len());
-
-            let left: String = chars.iter().take(safe_index).collect();
-            let right: String = chars.iter().skip(safe_index).collect();
-            (left, right)
+            let (left, right) = chars.split_at(safe_index);
+            (left.iter().collect(), right.iter().collect())
         };
 
-        if start.y == end.y {
-            // Single line selection
-            if let Some(line) = self.editor_content.get_mut(start.y) {
-                let mut chars: Vec<char> = line.chars().collect();
-                let end_x = end.x.min(chars.len()); // prevent out of bounds
-                chars.splice(start.x..end_x, new_lines.join("\n").chars());
-                *line = chars.into_iter().collect();
-            }
+        // === USE OLD CONTENT TO DETERMINE CONTEXTS ===
+
+        let left_context: String;
+        let right_context: String;
+
+        if old_lines.is_empty() {
+            // No old content - this is an insertion
+            // Get contexts from current editor content
+            let line = &self.editor_content[start_y];
+            let (left, right) = split_line(line, start.x);
+            left_context = left;
+            right_context = right;
+        } else if old_lines.len() == 1 {
+            // Single line old content
+            let current_line = &self.editor_content[start_y];
+            let (left, _) = split_line(current_line, start.x);
+            left_context = left;
+
+            // Right context: current line after (start.x + old_line.len())
+            let old_len = old_lines[0].chars().count();
+            let (_, right) = split_line(current_line, start.x + old_len);
+            right_context = right;
         } else {
-            // Multi-line selection
-            let max_y = self.editor_content.len().saturating_sub(1);
-            let start_y = start.y.min(max_y);
-            let end_y = end.y.min(max_y);
+            // Multi-line old content
+            let first_line = &self.editor_content[start_y];
+            let (left, _) = split_line(first_line, start.x);
+            left_context = left;
 
-            let start_line = get_line_parts(start_y);
-            let (left_content_of_start, _) = split_line_by_char(&start_line, start.x);
-
-            let end_line = get_line_parts(end_y);
-            let (_, right_content_of_end) = split_line_by_char(&end_line, end.x);
-
-            // Drain (remove) the full lines in the range, inclusive.
-            self.editor_content.drain(start_y..=end_y);
-
-            // Prepare the final block insertion
-            let mut final_block = new_lines;
-
-            if final_block.is_empty() {
-                // Case: Pure Deletion (Replace with nothing) -> Merge content
-                final_block.push(format!("{}{}", left_content_of_start, right_content_of_end));
+            // Right context from end line
+            let last_old_len = old_lines.last().map(|s| s.chars().count()).unwrap_or(0);
+            let end_line_idx = start_y + old_lines.len() - 1;
+            if end_line_idx < self.editor_content.len() {
+                let end_line = &self.editor_content[end_line_idx];
+                let (_, right) = split_line(end_line, last_old_len);
+                right_context = right;
             } else {
-                // Case: Replacement (1 or more lines) -> Merge content onto boundaries
+                right_context = String::new();
+            }
+        }
 
-                // Prepend left content to the first line
-                if let Some(first_line) = final_block.first_mut() {
-                    first_line.insert_str(0, &left_content_of_start);
-                }
+        // Build the replacement lines
+        let mut result = Vec::new();
 
-                // Append right content to the last line
-                if let Some(last_line) = final_block.last_mut() {
-                    last_line.push_str(&right_content_of_end);
-                }
+        if new_lines.is_empty() {
+            // Pure deletion - merge contexts
+            result.push(format!("{}{}", left_context, right_context));
+        } else if new_lines.len() == 1 {
+            // Single line replacement
+            result.push(format!("{}{}{}", left_context, new_lines[0], right_context));
+        } else {
+            // Multi-line replacement
+            result.push(format!("{}{}", left_context, new_lines[0]));
+
+            for i in 1..new_lines.len() - 1 {
+                result.push(new_lines[i].clone());
             }
 
-            // 4. Insert the final block at the start position of the drained block
-            self.editor_content.splice(start.y..start.y, final_block);
+            result.push(format!("{}{}", new_lines[new_lines.len() - 1], right_context));
+        }
+
+        // Calculate how many lines to remove
+        let lines_to_remove = if old_lines.is_empty() {
+            // Insertion: split one line into multiple
+            1
+        } else {
+            // Replacement: remove old_lines.len() lines (or the span from start_y to calculated end)
+            old_lines.len()
+        };
+
+        // Remove the old lines (in reverse to avoid index issues)
+        let end_remove = (start_y + lines_to_remove - 1).min(self.editor_content.len() - 1);
+        for y in (start_y..=end_remove).rev() {
+            if y < self.editor_content.len() {
+                self.editor_content.remove(y);
+            }
+        }
+
+        // Insert the new lines
+        for (i, line) in result.into_iter().enumerate() {
+            self.editor_content.insert(start_y + i, line);
         }
     }
 

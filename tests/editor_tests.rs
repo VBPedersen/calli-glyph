@@ -194,3 +194,389 @@ fn test_scroll_offset_and_cursor_bounds() {
         .unwrap();
     assert!(editor.scroll_offset <= 2);
 }
+
+// ========== Single Line Selection Tests ==========
+
+#[test]
+fn test_write_char_on_selection_single_line() {
+    let mut editor = create_editor_with_content(vec!["Hello World"]);
+    editor.text_selection_start = Some(CursorPosition { x: 6, y: 0 });
+    editor.text_selection_end = Some(CursorPosition { x: 11, y: 0 });
+    editor.cursor.x = 6;
+    editor.cursor.y = 0;
+
+    // Replace "World" with "!"
+    editor.handle_input_action(InputAction::WriteChar('!')).unwrap();
+    assert_eq!(editor.editor_content[0], "Hello !");
+    assert_eq!(editor.cursor.x, 7);
+}
+
+#[test]
+fn test_write_char_on_selection_single_line_undo_redo() {
+    let mut editor = create_editor_with_content(vec!["Hello World"]);
+    editor.text_selection_start = Some(CursorPosition { x: 6, y: 0 });
+    editor.text_selection_end = Some(CursorPosition { x: 11, y: 0 });
+    editor.cursor.x = 6;
+    editor.cursor.y = 0;
+
+    // Replace "World" with "!"
+    editor.handle_input_action(InputAction::WriteChar('!')).unwrap();
+    assert_eq!(editor.editor_content[0], "Hello !");
+
+    // Undo
+    editor.handle_input_action(InputAction::UNDO).unwrap();
+    assert_eq!(editor.editor_content[0], "Hello World");
+    assert_eq!(editor.cursor.x, 11); //end of line after world
+
+    // Redo
+    editor.handle_input_action(InputAction::REDO).unwrap();
+    assert_eq!(editor.editor_content[0], "Hello !");
+    assert_eq!(editor.cursor.x, 7);
+}
+
+#[test]
+fn test_write_char_on_selection_at_start() {
+    let mut editor = create_editor_with_content(vec!["Hello World"]);
+    editor.text_selection_start = Some(CursorPosition { x: 0, y: 0 });
+    editor.text_selection_end = Some(CursorPosition { x: 5, y: 0 });
+    editor.cursor.x = 0;
+    editor.cursor.y = 0;
+
+    // Replace "Hello" with "X"
+    editor.handle_input_action(InputAction::WriteChar('X')).unwrap();
+    assert_eq!(editor.editor_content[0], "X World");
+
+    // Undo
+    editor.handle_input_action(InputAction::UNDO).unwrap();
+    assert_eq!(editor.editor_content[0], "Hello World");
+
+    // Redo
+    editor.handle_input_action(InputAction::REDO).unwrap();
+    assert_eq!(editor.editor_content[0], "X World");
+}
+
+#[test]
+fn test_write_char_on_selection_at_end() {
+    let mut editor = create_editor_with_content(vec!["Hello World"]);
+    editor.text_selection_start = Some(CursorPosition { x: 6, y: 0 });
+    editor.text_selection_end = Some(CursorPosition { x: 11, y: 0 });
+    editor.cursor.x = 6;
+    editor.cursor.y = 0;
+
+    // Replace "World" with "Z"
+    editor.handle_input_action(InputAction::WriteChar('Z')).unwrap();
+    assert_eq!(editor.editor_content[0], "Hello Z");
+
+    // Undo
+    editor.handle_input_action(InputAction::UNDO).unwrap();
+    assert_eq!(editor.editor_content[0], "Hello World");
+
+    // Redo
+    editor.handle_input_action(InputAction::REDO).unwrap();
+    assert_eq!(editor.editor_content[0], "Hello Z");
+}
+
+#[test]
+fn test_write_char_on_entire_line_selection() {
+    let mut editor = create_editor_with_content(vec!["Delete Me"]);
+    editor.text_selection_start = Some(CursorPosition { x: 0, y: 0 });
+    editor.text_selection_end = Some(CursorPosition { x: 9, y: 0 });
+    editor.cursor.x = 0;
+    editor.cursor.y = 0;
+
+    // Replace entire line
+    editor.handle_input_action(InputAction::WriteChar('A')).unwrap();
+    assert_eq!(editor.editor_content[0], "A");
+
+    // Undo
+    editor.handle_input_action(InputAction::UNDO).unwrap();
+    assert_eq!(editor.editor_content[0], "Delete Me");
+
+    // Redo
+    editor.handle_input_action(InputAction::REDO).unwrap();
+    assert_eq!(editor.editor_content[0], "A");
+}
+
+// ========== Multi-Line Selection Tests ==========
+
+#[test]
+fn test_write_char_on_selection_multi_line() {
+    let mut editor = create_editor_with_content(vec!["First Line", "Second Line", "Third Line"]);
+    editor.text_selection_start = Some(CursorPosition { x: 6, y: 0 });
+    editor.text_selection_end = Some(CursorPosition { x: 6, y: 1 });
+    editor.cursor.x = 6;
+    editor.cursor.y = 0;
+
+    // Replace selection with "X"
+    editor.handle_input_action(InputAction::WriteChar('X')).unwrap();
+    assert_eq!(editor.editor_content.len(), 2);
+    assert_eq!(editor.editor_content[0], "First X Line");
+    assert_eq!(editor.editor_content[1], "Third Line");
+}
+
+#[test]
+fn test_write_char_on_selection_multi_line_undo_redo() {
+    let mut editor = create_editor_with_content(vec!["First Line", "Second Line", "Third Line"]);
+    editor.text_selection_start = Some(CursorPosition { x: 6, y: 0 });
+    editor.text_selection_end = Some(CursorPosition { x: 6, y: 1 });
+    editor.cursor.x = 6;
+    editor.cursor.y = 0;
+
+    // Replace selection
+    editor.handle_input_action(InputAction::WriteChar('X')).unwrap();
+    assert_eq!(editor.editor_content.len(), 2);
+    assert_eq!(editor.editor_content[0], "First X Line");
+
+    // Undo
+    editor.handle_input_action(InputAction::UNDO).unwrap();
+    assert_eq!(editor.editor_content.len(), 3);
+    assert_eq!(editor.editor_content[0], "First Line");
+    assert_eq!(editor.editor_content[1], "Second Line");
+    assert_eq!(editor.editor_content[2], "Third Line");
+
+    // Redo
+    editor.handle_input_action(InputAction::REDO).unwrap();
+    assert_eq!(editor.editor_content.len(), 2);
+    assert_eq!(editor.editor_content[0], "First X Line");
+    assert_eq!(editor.editor_content[1], "Third Line");
+}
+
+#[test]
+fn test_write_char_on_selection_spanning_three_lines() {
+    let mut editor = create_editor_with_content(vec![
+        "Line One",
+        "Line Two",
+        "Line Three",
+        "Line Four",
+    ]);
+    editor.text_selection_start = Some(CursorPosition { x: 5, y: 0 });
+    editor.text_selection_end = Some(CursorPosition { x: 5, y: 2 });
+    editor.cursor.x = 5;
+    editor.cursor.y = 0;
+
+    // Replace three-line selection
+    editor.handle_input_action(InputAction::WriteChar('!')).unwrap();
+    assert_eq!(editor.editor_content.len(), 2);
+    assert_eq!(editor.editor_content[0], "Line !Three");
+    assert_eq!(editor.editor_content[1], "Line Four");
+
+    // Undo
+    editor.handle_input_action(InputAction::UNDO).unwrap();
+    assert_eq!(editor.editor_content.len(), 4);
+    assert_eq!(editor.editor_content[0], "Line One");
+    assert_eq!(editor.editor_content[1], "Line Two");
+    assert_eq!(editor.editor_content[2], "Line Three");
+    assert_eq!(editor.editor_content[3], "Line Four");
+
+    // Redo
+    editor.handle_input_action(InputAction::REDO).unwrap();
+    assert_eq!(editor.editor_content.len(), 2);
+    assert_eq!(editor.editor_content[0], "Line !Three");
+    assert_eq!(editor.editor_content[1], "Line Four");
+}
+
+#[test]
+fn test_write_char_on_selection_start_of_first_to_start_of_last() {
+    let mut editor = create_editor_with_content(vec!["AAA", "BBB", "CCC"]);
+    editor.text_selection_start = Some(CursorPosition { x: 0, y: 0 });
+    editor.text_selection_end = Some(CursorPosition { x: 0, y: 2 });
+    editor.cursor.x = 0;
+    editor.cursor.y = 0;
+
+    // Replace
+    editor.handle_input_action(InputAction::WriteChar('Z')).unwrap();
+    assert_eq!(editor.editor_content.len(), 1);
+    assert_eq!(editor.editor_content[0], "ZCCC");
+
+    // Undo
+    editor.handle_input_action(InputAction::UNDO).unwrap();
+    assert_eq!(editor.editor_content.len(), 3);
+    assert_eq!(editor.editor_content[0], "AAA");
+    assert_eq!(editor.editor_content[1], "BBB");
+    assert_eq!(editor.editor_content[2], "CCC");
+
+    // Redo
+    editor.handle_input_action(InputAction::REDO).unwrap();
+    assert_eq!(editor.editor_content.len(), 1);
+    assert_eq!(editor.editor_content[0], "ZCCC");
+}
+
+#[test]
+fn test_write_char_on_selection_middle_to_middle() {
+    let mut editor = create_editor_with_content(vec!["abcdef", "ghijkl", "mnopqr"]);
+    editor.text_selection_start = Some(CursorPosition { x: 3, y: 0 });
+    editor.text_selection_end = Some(CursorPosition { x: 2, y: 2 });
+    editor.cursor.x = 3;
+    editor.cursor.y = 0;
+
+    // Replace middle sections
+    editor.handle_input_action(InputAction::WriteChar('*')).unwrap();
+    assert_eq!(editor.editor_content.len(), 1);
+    assert_eq!(editor.editor_content[0], "abc*opqr");
+
+    // Undo
+    editor.handle_input_action(InputAction::UNDO).unwrap();
+    assert_eq!(editor.editor_content.len(), 3);
+    assert_eq!(editor.editor_content[0], "abcdef");
+    assert_eq!(editor.editor_content[1], "ghijkl");
+    assert_eq!(editor.editor_content[2], "mnopqr");
+
+    // Redo
+    editor.handle_input_action(InputAction::REDO).unwrap();
+    assert_eq!(editor.editor_content.len(), 1);
+    assert_eq!(editor.editor_content[0], "abc*opqr");
+}
+
+// ========== Backspace on Selection Tests ==========
+
+#[test]
+fn test_backspace_on_selection_single_line() {
+    let mut editor = create_editor_with_content(vec!["Hello World"]);
+    editor.text_selection_start = Some(CursorPosition { x: 6, y: 0 });
+    editor.text_selection_end = Some(CursorPosition { x: 11, y: 0 });
+    editor.cursor.x = 6;
+    editor.cursor.y = 0;
+
+    // Delete "World"
+    editor.handle_input_action(InputAction::BACKSPACE).unwrap();
+    assert_eq!(editor.editor_content[0], "Hello ");
+
+    // Undo
+    editor.handle_input_action(InputAction::UNDO).unwrap();
+    assert_eq!(editor.editor_content[0], "Hello World");
+
+    // Redo
+    editor.handle_input_action(InputAction::REDO).unwrap();
+    assert_eq!(editor.editor_content[0], "Hello ");
+}
+
+#[test]
+fn test_backspace_on_selection_multi_line() {
+    let mut editor = create_editor_with_content(vec!["First", "Second", "Third"]);
+    editor.text_selection_start = Some(CursorPosition { x: 2, y: 0 });
+    editor.text_selection_end = Some(CursorPosition { x: 3, y: 1 });
+    editor.cursor.x = 2;
+    editor.cursor.y = 0;
+
+    // Delete selection
+    editor.handle_input_action(InputAction::BACKSPACE).unwrap();
+    assert_eq!(editor.editor_content.len(), 2);
+    assert_eq!(editor.editor_content[0], "Fiond");
+    assert_eq!(editor.editor_content[1], "Third");
+
+    // Undo
+    editor.handle_input_action(InputAction::UNDO).unwrap();
+    assert_eq!(editor.editor_content.len(), 3);
+    assert_eq!(editor.editor_content[0], "First");
+    assert_eq!(editor.editor_content[1], "Second");
+    assert_eq!(editor.editor_content[2], "Third");
+
+    // Redo
+    editor.handle_input_action(InputAction::REDO).unwrap();
+    assert_eq!(editor.editor_content.len(), 2);
+    assert_eq!(editor.editor_content[0], "Fiond");
+    assert_eq!(editor.editor_content[1], "Third");
+}
+
+// ========== Multiple Operations Tests ==========
+
+#[test]
+fn test_multiple_replace_operations_with_undo_redo() {
+    let mut editor = create_editor_with_content(vec!["abc", "def", "ghi"]);
+
+    // First operation: replace "bc" with "X"
+    editor.text_selection_start = Some(CursorPosition { x: 1, y: 0 });
+    editor.text_selection_end = Some(CursorPosition { x: 3, y: 0 });
+    editor.cursor.x = 1;
+    editor.cursor.y = 0;
+    editor.handle_input_action(InputAction::WriteChar('X')).unwrap();
+    assert_eq!(editor.editor_content[0], "aX");
+
+    // Second operation: replace "ef" with "Y"
+    editor.text_selection_start = Some(CursorPosition { x: 1, y: 1 });
+    editor.text_selection_end = Some(CursorPosition { x: 3, y: 1 });
+    editor.cursor.x = 1;
+    editor.cursor.y = 1;
+    editor.handle_input_action(InputAction::WriteChar('Y')).unwrap();
+    assert_eq!(editor.editor_content[1], "dY");
+
+    // Undo both
+    editor.handle_input_action(InputAction::UNDO).unwrap();
+    assert_eq!(editor.editor_content[1], "def");
+
+    editor.handle_input_action(InputAction::UNDO).unwrap();
+    assert_eq!(editor.editor_content[0], "abc");
+
+    // Redo both
+    editor.handle_input_action(InputAction::REDO).unwrap();
+    assert_eq!(editor.editor_content[0], "aX");
+
+    editor.handle_input_action(InputAction::REDO).unwrap();
+    assert_eq!(editor.editor_content[1], "dY");
+}
+
+#[test]
+fn test_replace_then_new_action_clears_redo() {
+    let mut editor = create_editor_with_content(vec!["Hello World"]);
+
+    // Replace "World" with "X"
+    editor.text_selection_start = Some(CursorPosition { x: 6, y: 0 });
+    editor.text_selection_end = Some(CursorPosition { x: 11, y: 0 });
+    editor.cursor.x = 6;
+    editor.cursor.y = 0;
+    editor.handle_input_action(InputAction::WriteChar('X')).unwrap();
+
+    // Undo
+    editor.handle_input_action(InputAction::UNDO).unwrap();
+    assert_eq!(editor.editor_content[0], "Hello World");
+
+    // New action: type 'Y' at a different position
+    editor.cursor.x = 0;
+    editor.handle_input_action(InputAction::WriteChar('Y')).unwrap();
+    assert_eq!(editor.editor_content[0], "YHello World");
+
+    // Redo should fail (redo stack cleared)
+    let result = editor.handle_input_action(InputAction::REDO);
+    // Should still have "YHello World", not go back to "Hello X"
+    assert_eq!(editor.editor_content[0], "YHello World");
+}
+
+// ========== Edge Cases ==========
+
+#[test]
+fn test_replace_with_special_characters() {
+    let mut editor = create_editor_with_content(vec!["café"]);
+    editor.text_selection_start = Some(CursorPosition { x: 1, y: 0 });
+    editor.text_selection_end = Some(CursorPosition { x: 3, y: 0 });
+    editor.cursor.x = 1;
+    editor.cursor.y = 0;
+
+    // Replace "af" with "ø"
+    editor.handle_input_action(InputAction::WriteChar('ø')).unwrap();
+    assert_eq!(editor.editor_content[0], "cøé");
+
+    // Undo
+    editor.handle_input_action(InputAction::UNDO).unwrap();
+    assert_eq!(editor.editor_content[0], "café");
+
+    // Redo
+    editor.handle_input_action(InputAction::REDO).unwrap();
+    assert_eq!(editor.editor_content[0], "cøé");
+}
+
+#[test]
+fn test_replace_empty_selection() {
+    let mut editor = create_editor_with_content(vec!["test"]);
+    editor.text_selection_start = Some(CursorPosition { x: 2, y: 0 });
+    editor.text_selection_end = Some(CursorPosition { x: 2, y: 0 });
+    editor.cursor.x = 2;
+    editor.cursor.y = 0;
+
+    // This should just insert, not replace
+    editor.handle_input_action(InputAction::WriteChar('X')).unwrap();
+    assert_eq!(editor.editor_content[0], "teXst");
+
+    // Undo
+    editor.handle_input_action(InputAction::UNDO).unwrap();
+    assert_eq!(editor.editor_content[0], "test");
+}
