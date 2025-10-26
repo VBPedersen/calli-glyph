@@ -105,8 +105,7 @@ impl Editor {
             InputAction::MoveCursor(direction) => {
                 let (x, y) = direction.to_vector();
                 self.move_cursor(x, y);
-                self.text_selection_start = None;
-                self.text_selection_end = None;
+                self.reset_text_selection_cursor(); //reset selection, to avoid errors
                 Ok(())
             }
             InputAction::MoveSelectionCursor(direction) => {
@@ -120,6 +119,7 @@ impl Editor {
             }
             InputAction::ENTER => {
                 self.enter();
+                self.reset_text_selection_cursor(); //reset selection, to avoid errors
                 Ok(())
             }
             InputAction::BACKSPACE => {
@@ -308,8 +308,7 @@ impl Editor {
                 //copy to clipboard
                 self.clipboard.copy(&*selected_text);
                 //reset text selection
-                self.text_selection_start = None;
-                self.text_selection_end = None;
+                self.reset_text_selection_cursor();
                 Ok(())
             }
             Err(e) => Err(e),
@@ -358,8 +357,7 @@ impl Editor {
                 //copy to clipboard
                 self.clipboard.copy(&*selected_text);
                 //reset text selection
-                self.text_selection_start = None;
-                self.text_selection_end = None;
+                self.reset_text_selection_cursor();
                 Ok(())
             }
             Err(e) => Err(e),
@@ -577,8 +575,7 @@ impl Editor {
         }
         self.cursor.x = self.text_selection_start.unwrap().x as i16;
         self.cursor.y = self.text_selection_start.unwrap().y as i16;
-        self.text_selection_start = None;
-        self.text_selection_end = None;
+        self.reset_text_selection_cursor();
         self.move_cursor(1, 0);
     }
 
@@ -741,8 +738,7 @@ impl Editor {
         }
         self.cursor.x = self.text_selection_start.unwrap().x as i16;
         self.cursor.y = self.text_selection_start.unwrap().y as i16;
-        self.text_selection_start = None;
-        self.text_selection_end = None;
+        self.reset_text_selection_cursor();
         //replace visual cursor
         self.visual_cursor_x = self.calculate_visual_x() as i16;
 
@@ -837,8 +833,7 @@ impl Editor {
         }
         self.cursor.x = self.text_selection_end.unwrap().x as i16;
         self.cursor.y = self.text_selection_end.unwrap().y as i16;
-        self.text_selection_start = None;
-        self.text_selection_end = None;
+        self.reset_text_selection_cursor();
         //replace visual cursor
         self.visual_cursor_x = self.calculate_visual_x() as i16;
 
@@ -1057,7 +1052,13 @@ impl Editor {
         //calculate visual x pos again.
         self.visual_cursor_x = self.calculate_visual_x() as i16;
     }
-
+    
+    
+    /// resets text selection cursor to none
+    pub(crate) fn reset_text_selection_cursor(&mut self) {
+        self.text_selection_start = None;
+        self.text_selection_end = None;
+    }
     /// Insert a character at the specified position (buffer-only: does not touch undo/redo, does not move main cursor)
     pub(crate) fn insert_char_at(&mut self, pos: CursorPosition, c: char) {
         // Ensure the target line exists
@@ -2089,8 +2090,7 @@ mod unit_editor_cutcopy_tests {
     #[test]
     fn test_copy_no_selection() {
         let mut app = create_editor_with_editor_content(vec!["Hello, world!".to_string()]);
-        app.text_selection_start = None;
-        app.text_selection_end = None;
+        app.reset_text_selection_cursor();
 
         let result = app.copy();
 
@@ -2140,8 +2140,7 @@ mod unit_editor_cutcopy_tests {
     #[test]
     fn test_cut_no_selection() {
         let mut app = create_editor_with_editor_content(vec!["Hello, world!".to_string()]);
-        app.text_selection_start = None;
-        app.text_selection_end = None;
+        app.reset_text_selection_cursor();
 
         let result = app.cut();
 
