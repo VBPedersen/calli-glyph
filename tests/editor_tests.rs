@@ -27,7 +27,7 @@ fn test_write_and_backspace_single_char() {
 
 #[test]
 fn test_enter_splits_line_and_backspace_joins() {
-    let mut editor = create_editor_with_content(vec!["Hello world"]);
+    let mut editor = create_editor_with_content(vec!["Hello world","goodbye world"]);
     editor.cursor.x = 6;
     editor.cursor.y = 0;
 
@@ -35,8 +35,8 @@ fn test_enter_splits_line_and_backspace_joins() {
     editor.handle_input_action(InputAction::ENTER).unwrap();
     assert_eq!(
         editor.editor_content.len(),
-        2,
-        "Line count should be 2 after split"
+        3,
+        "Line count should be 3 after split"
     );
     assert_eq!(
         editor.editor_content[0], "Hello ",
@@ -46,14 +46,19 @@ fn test_enter_splits_line_and_backspace_joins() {
         editor.editor_content[1], "world",
         "Second line should contain the right half of the split"
     );
+    assert_eq!(
+        editor.editor_content[2], "goodbye world",
+        "Third line should contain the second start sentence");
+
 
     // Join back
     editor.cursor.x = 0;
     editor.cursor.y = 1;
 
     editor.handle_input_action(InputAction::BACKSPACE).unwrap();
-    assert_eq!(editor.editor_content.len(), 1);
+    assert_eq!(editor.editor_content.len(), 2);
     assert_eq!(editor.editor_content[0], "Hello world");
+    assert_eq!(editor.editor_content[1], "goodbye world");
 }
 
 #[test]

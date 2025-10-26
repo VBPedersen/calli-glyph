@@ -629,7 +629,8 @@ impl Editor {
 
             *line = left.clone();
 
-            // insert split line to next line and move down
+            // insert new line under, move cursor and insert split line to line
+            self.editor_content.insert(self.cursor.y as usize +1,String::new());
             self.move_cursor(0, 1);
             self.editor_content[self.cursor.y as usize] = right.clone();
             //enter to split line, should go to start of line
