@@ -267,6 +267,7 @@ impl Editor {
                 };
                 let end: CursorPosition = *start - negated_pos;
                 self.set_cursor_position(&end);
+
                 self.delete_lines_at(*start, deleted.len());
             }
             EditAction::InsertRange {
@@ -432,8 +433,18 @@ impl Editor {
             //move content of last line selected to first line start point,
             // if any lines to remove
             if lines_to_remove.len() != 0 {
-                let line = &mut self.editor_content.remove(end.y - lines_to_remove.len());
-                self.editor_content[start.y].push_str(line);
+                // compute line index safely
+                let merged_y = end.y.saturating_sub(lines_to_remove.len()) + 1;
+            
+                // ensure we do not access outside bounds
+                if merged_y < self.editor_content.len() && start.y < self.editor_content.len() {
+                    let line = self.editor_content.remove(merged_y);
+                    if self.editor_content.len() <= start.y { 
+                        self.editor_content.push(line);
+                    } else {
+                        self.editor_content[start.y].push_str(&line);
+                    }
+                }
             }
 
             // record undo (DeleteRange)
@@ -467,13 +478,13 @@ impl Editor {
         let insert_y = self.cursor.y as usize;
         let insert_x = self.cursor.x as usize;
 
-        while self.editor_content.len() < insert_y + copied_text.len() - 1 {
+        while self.editor_content.len() <= insert_y {
             self.editor_content.push(String::new());
         }
 
         let current_line = &self.editor_content[insert_y];
 
-        // Convert the line into a Vec<char> to handle multi-byte characters correctly
+        // Convert the line into a Vec<char> to handle multibyte characters correctly
         let chars: Vec<char> = current_line.chars().collect();
         let (before_cursor, after_cursor) = chars.split_at(insert_x.min(chars.len()));
 
@@ -512,10 +523,21 @@ impl Editor {
 
             // Replace the current line and insert new lines
             self.editor_content.splice(insert_y..=insert_y, new_lines);
+
         }
 
-        // Clear copied text after pasting
-        //self.copied_text.clear();
+        let end:CursorPosition = CursorPosition{
+            x: insert_x + copied_text.last().map(|s| s.chars().count()).unwrap_or(0),
+            y: insert_y + copied_text.iter().count() -1,
+        };
+        // record undo (InsertRange)
+        self.undo_redo_manager
+            .record_undo(EditAction::InsertRange {
+                start: CursorPosition { y: insert_y, x: insert_x },
+                end,
+                lines: copied_text.clone(),
+            });
+
         Ok(())
     }
 
@@ -680,7 +702,7 @@ impl Editor {
     //editor backspace
     ///handles backspace in editor, removes char at y line x position and sets new cursor position
     pub fn backspace(&mut self) {
-        let mut deleted_char: Option<char> = None;
+        let deleted_char: Option<char>;
         let y = self.cursor.y as usize;
         let x = self.cursor.x as usize;
         let line_char_count = self.editor_content[y].chars().count();
@@ -1140,7 +1162,7 @@ impl Editor {
     fn replace_selection_with_lines(
         &mut self,
         start: CursorPosition,
-        end: CursorPosition,
+        _end: CursorPosition,
         old_lines: Vec<String>,
         new_lines: Vec<String>,
     ) {
@@ -1157,7 +1179,7 @@ impl Editor {
         // Clamp to valid indices
         let max_index = self.editor_content.len().saturating_sub(1);
         let start_y = start.y.min(max_index);
-        let end_y = end.y.min(max_index);
+        //let end_y = end.y.min(max_index);
 
         // UTF-8 safe string splitter
         let split_line = |line: &str, index: usize| -> (String, String) {
