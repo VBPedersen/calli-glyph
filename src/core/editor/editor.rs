@@ -435,11 +435,11 @@ impl Editor {
             if lines_to_remove.len() != 0 {
                 // compute line index safely
                 let merged_y = end.y.saturating_sub(lines_to_remove.len()) + 1;
-            
+
                 // ensure we do not access outside bounds
                 if merged_y < self.editor_content.len() && start.y < self.editor_content.len() {
                     let line = self.editor_content.remove(merged_y);
-                    if self.editor_content.len() <= start.y { 
+                    if self.editor_content.len() <= start.y {
                         self.editor_content.push(line);
                     } else {
                         self.editor_content[start.y].push_str(&line);
@@ -523,20 +523,21 @@ impl Editor {
 
             // Replace the current line and insert new lines
             self.editor_content.splice(insert_y..=insert_y, new_lines);
-
         }
 
-        let end:CursorPosition = CursorPosition{
+        let end: CursorPosition = CursorPosition {
             x: insert_x + copied_text.last().map(|s| s.chars().count()).unwrap_or(0),
-            y: insert_y + copied_text.iter().count() -1,
+            y: insert_y + copied_text.iter().count() - 1,
         };
         // record undo (InsertRange)
-        self.undo_redo_manager
-            .record_undo(EditAction::InsertRange {
-                start: CursorPosition { y: insert_y, x: insert_x },
-                end,
-                lines: copied_text.clone(),
-            });
+        self.undo_redo_manager.record_undo(EditAction::InsertRange {
+            start: CursorPosition {
+                y: insert_y,
+                x: insert_x,
+            },
+            end,
+            lines: copied_text.clone(),
+        });
 
         Ok(())
     }

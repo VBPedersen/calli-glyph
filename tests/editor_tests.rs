@@ -312,7 +312,8 @@ mod editor_basic_tests {
 
     #[test]
     fn test_write_char_on_selection_multi_line() {
-        let mut editor = create_editor_with_content(vec!["First Line", "Second Line", "Third Line"]);
+        let mut editor =
+            create_editor_with_content(vec!["First Line", "Second Line", "Third Line"]);
         editor.text_selection_start = Some(CursorPosition { x: 6, y: 0 });
         editor.text_selection_end = Some(CursorPosition { x: 6, y: 1 });
         editor.cursor.x = 6;
@@ -329,7 +330,8 @@ mod editor_basic_tests {
 
     #[test]
     fn test_write_char_on_selection_multi_line_undo_redo() {
-        let mut editor = create_editor_with_content(vec!["First Line", "Second Line", "Third Line"]);
+        let mut editor =
+            create_editor_with_content(vec!["First Line", "Second Line", "Third Line"]);
         editor.text_selection_start = Some(CursorPosition { x: 6, y: 0 });
         editor.text_selection_end = Some(CursorPosition { x: 6, y: 1 });
         editor.cursor.x = 6;
@@ -614,7 +616,7 @@ mod editor_basic_tests {
 #[cfg(test)]
 mod editor_paste_tests {
     use calliglyph::core::editor::Editor;
-    use calliglyph::input::input_action::{InputAction};
+    use calliglyph::input::input_action::InputAction;
 
     fn editor_with(lines: Vec<&str>) -> Editor {
         let mut e = Editor::new();
@@ -666,11 +668,14 @@ mod editor_paste_tests {
 
         editor.handle_input_action(InputAction::PASTE).unwrap();
 
-        assert_eq!(editor.editor_content, vec![
-            "Hello AAA".to_string(),
-            "BBB".to_string(),
-            "CCCworld".to_string(),
-        ]);
+        assert_eq!(
+            editor.editor_content,
+            vec![
+                "Hello AAA".to_string(),
+                "BBB".to_string(),
+                "CCCworld".to_string(),
+            ]
+        );
     }
 
     #[test]
@@ -683,10 +688,7 @@ mod editor_paste_tests {
 
         editor.handle_input_action(InputAction::PASTE).unwrap();
 
-        assert_eq!(editor.editor_content, vec![
-            "X",
-            "YHello",
-        ]);
+        assert_eq!(editor.editor_content, vec!["X", "YHello",]);
     }
 
     #[test]
@@ -699,10 +701,7 @@ mod editor_paste_tests {
 
         editor.handle_input_action(InputAction::PASTE).unwrap();
 
-        assert_eq!(editor.editor_content, vec![
-            "HelloX",
-            "Y",
-        ]);
+        assert_eq!(editor.editor_content, vec!["HelloX", "Y",]);
     }
 
     // --- ERROR CASE ---
@@ -723,7 +722,7 @@ mod editor_paste_tests {
 mod editor_cut_tests {
     use calliglyph::core::cursor::CursorPosition;
     use calliglyph::core::editor::Editor;
-    use calliglyph::input::input_action::{InputAction};
+    use calliglyph::input::input_action::InputAction;
 
     /// Helper to create an editor with some starting text.
     fn create_editor_with_content(lines: Vec<&str>) -> Editor {
@@ -734,7 +733,7 @@ mod editor_cut_tests {
     }
     #[test]
     fn test_multiline_cut_till_end() {
-        let mut editor = create_editor_with_content(vec!["Hello World","AAA","BBB","CCC"]);
+        let mut editor = create_editor_with_content(vec!["Hello World", "AAA", "BBB", "CCC"]);
         editor.text_selection_start = Some(CursorPosition { x: 0, y: 1 });
         editor.text_selection_end = Some(CursorPosition { x: 3, y: 3 });
 
@@ -745,8 +744,8 @@ mod editor_cut_tests {
 
     #[test]
     fn test_multiline_cut_middle_of_editor() {
-        let mut editor = create_editor_with_content(vec!["Hello World","AAA",
-                                                         "BBB","CCC","End"]);
+        let mut editor =
+            create_editor_with_content(vec!["Hello World", "AAA", "BBB", "CCC", "End"]);
         editor.text_selection_start = Some(CursorPosition { x: 0, y: 1 });
         editor.text_selection_end = Some(CursorPosition { x: 3, y: 3 });
 
@@ -755,5 +754,4 @@ mod editor_cut_tests {
         assert_eq!(editor.editor_content[1], "End");
         assert_eq!(editor.editor_content.len(), 2);
     }
-    
 }
