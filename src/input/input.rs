@@ -68,7 +68,9 @@ fn map_key_to_action(app: &App, key: KeyEvent) -> InputAction {
             KEYBIND_UNDO => InputAction::UNDO,
             KEYBIND_REDO => InputAction::REDO,
             KEYBIND_TOGGLE_AREA => InputAction::ToggleActiveArea,
-            (_, KeyCode::Char(c)) => InputAction::WriteChar(c),
+            //only allow none and Shift + char to write to editor
+            (KeyModifiers::NONE, KeyCode::Char(c)) => InputAction::WriteChar(c),
+            (KeyModifiers::SHIFT, KeyCode::Char(c)) => InputAction::WriteChar(c),
             _ => InputAction::NoOp,
         },
         ActiveArea::CommandLine => match (key.modifiers, key.code) {
