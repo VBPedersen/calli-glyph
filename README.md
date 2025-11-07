@@ -4,6 +4,7 @@
   <a href="https://github.com/VBPedersen/calli-glyph/actions"><img src="https://img.shields.io/github/actions/workflow/status/VBPedersen/calli-glyph/release.yml?label=build&logo=github" /></a>
   <a href="https://github.com/VBPedersen/calli-glyph/blob/main/LICENSE"><img src="https://img.shields.io/github/license/VBPedersen/calli-glyph?color=blue" /></a>
   <a href="https://github.com/VBPedersen/calli-glyph/issues"><img src="https://img.shields.io/github/issues/VBPedersen/calli-glyph" /></a>
+  <a href="https://blazingly.fast"><img src="https://blazingly.fast/api/badge.svg?repo=VBPedersen%2Fcalli-glyph"/> </a>
   <a href="https://github.com/VBPedersen/calli-glyph/stargazers"><img src="https://img.shields.io/github/stars/VBPedersen/calli-glyph?style=social" /></a>
 </p>
 <p align="center">A lightweight terminal text editor built in Rust — minimal, fast, and designed for clarity.</p>
