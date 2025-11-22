@@ -1,4 +1,5 @@
 use super::input_action::*;
+use crate::config::debug_console_binds;
 use crate::config::key_binds;
 use crate::core::app::ActiveArea;
 use crate::core::app::App;
@@ -49,30 +50,8 @@ fn map_key_to_action(app: &App, key: KeyEvent) -> InputAction {
     use key_binds::*;
 
     match app.active_area {
-        ActiveArea::Editor => match (key.modifiers, key.code) {
-            KEYBIND_UP => InputAction::MoveCursor(Direction::Up),
-            KEYBIND_DOWN => InputAction::MoveCursor(Direction::Down),
-            KEYBIND_LEFT => InputAction::MoveCursor(Direction::Left),
-            KEYBIND_RIGHT => InputAction::MoveCursor(Direction::Right),
-            KEYBIND_SELECTION_UP => InputAction::MoveSelectionCursor(Direction::Up),
-            KEYBIND_SELECTION_DOWN => InputAction::MoveSelectionCursor(Direction::Down),
-            KEYBIND_SELECTION_LEFT => InputAction::MoveSelectionCursor(Direction::Left),
-            KEYBIND_SELECTION_RIGHT => InputAction::MoveSelectionCursor(Direction::Right),
-            KEYBIND_TAB => InputAction::TAB,
-            KEYBIND_ENTER => InputAction::ENTER,
-            KEYBIND_BACKSPACE => InputAction::BACKSPACE,
-            KEYBIND_DELETE => InputAction::DELETE,
-            KEYBIND_COPY => InputAction::COPY,
-            KEYBIND_CUT => InputAction::CUT,
-            KEYBIND_PASTE => InputAction::PASTE,
-            KEYBIND_UNDO => InputAction::UNDO,
-            KEYBIND_REDO => InputAction::REDO,
-            KEYBIND_TOGGLE_AREA => InputAction::ToggleActiveArea,
-            //only allow none and Shift + char to write to editor
-            (KeyModifiers::NONE, KeyCode::Char(c)) => InputAction::WriteChar(c),
-            (KeyModifiers::SHIFT, KeyCode::Char(c)) => InputAction::WriteChar(c),
-            _ => InputAction::NoOp,
-        },
+        ActiveArea::Editor => map_key_to_editor_actions((key.modifiers, key.code)),
+
         ActiveArea::CommandLine => match (key.modifiers, key.code) {
             KEYBIND_LEFT => InputAction::MoveCursor(Direction::Left),
             KEYBIND_RIGHT => InputAction::MoveCursor(Direction::Right),
@@ -92,5 +71,59 @@ fn map_key_to_action(app: &App, key: KeyEvent) -> InputAction {
             KEYBIND_ENTER => InputAction::ENTER,
             _ => InputAction::NoOp,
         },
+        ActiveArea::DebugConsole => map_key_to_debug_actions((key.modifiers, key.code)),
+    }
+}
+
+fn map_key_to_editor_actions(key: (KeyModifiers, KeyCode)) -> InputAction {
+    use key_binds::*;
+    match key {
+        KEYBIND_UP => InputAction::MoveCursor(Direction::Up),
+        KEYBIND_DOWN => InputAction::MoveCursor(Direction::Down),
+        KEYBIND_LEFT => InputAction::MoveCursor(Direction::Left),
+        KEYBIND_RIGHT => InputAction::MoveCursor(Direction::Right),
+        KEYBIND_SELECTION_UP => InputAction::MoveSelectionCursor(Direction::Up),
+        KEYBIND_SELECTION_DOWN => InputAction::MoveSelectionCursor(Direction::Down),
+        KEYBIND_SELECTION_LEFT => InputAction::MoveSelectionCursor(Direction::Left),
+        KEYBIND_SELECTION_RIGHT => InputAction::MoveSelectionCursor(Direction::Right),
+        KEYBIND_TAB => InputAction::TAB,
+        KEYBIND_ENTER => InputAction::ENTER,
+        KEYBIND_BACKSPACE => InputAction::BACKSPACE,
+        KEYBIND_DELETE => InputAction::DELETE,
+        KEYBIND_COPY => InputAction::COPY,
+        KEYBIND_CUT => InputAction::CUT,
+        KEYBIND_PASTE => InputAction::PASTE,
+        KEYBIND_UNDO => InputAction::UNDO,
+        KEYBIND_REDO => InputAction::REDO,
+        KEYBIND_TOGGLE_AREA => InputAction::ToggleActiveArea,
+        //only allow none and Shift + char to write to editor
+        (KeyModifiers::NONE, KeyCode::Char(c)) => InputAction::WriteChar(c),
+        (KeyModifiers::SHIFT, KeyCode::Char(c)) => InputAction::WriteChar(c),
+        _ => InputAction::NoOp,
+    }
+}
+
+fn map_key_to_debug_actions(key: (KeyModifiers, KeyCode)) -> InputAction {
+    use debug_console_binds::*;
+    match key {
+        // Exit
+        KEYBIND_EXIT | KEYBIND_EXIT_ESC => InputAction::ExitDebug,
+
+        // Tab navigation
+        KEYBIND_NEXT_TAB | KEYBIND_NEXT_TAB_L => InputAction::DebugNextTab,
+        KEYBIND_PREV_TAB | KEYBIND_PREV_TAB_H => InputAction::DebugPrevTab,
+
+        // Scrolling
+        KEYBIND_SCROLL_UP | KEYBIND_SCROLL_UP_K => InputAction::DebugScrollUp,
+        KEYBIND_SCROLL_DOWN | KEYBIND_SCROLL_DOWN_J => InputAction::DebugScrollDown,
+
+        // Actions
+        KEYBIND_CLEAR_LOGS => InputAction::DebugClearLogs,
+        KEYBIND_CLEAR_SNAPSHOTS => InputAction::DebugClearSnapshots,
+        KEYBIND_MANUAL_SNAPSHOT => InputAction::DebugManualSnapshot,
+        KEYBIND_CYCLE_MODE => InputAction::DebugCycleMode,
+        KEYBIND_RESET_METRICS => InputAction::DebugResetMetrics,
+
+        _ => InputAction::NoOp,
     }
 }

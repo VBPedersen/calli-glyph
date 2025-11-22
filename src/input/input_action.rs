@@ -16,6 +16,18 @@ pub enum InputAction {
     WriteChar(char),
     QUIT,
     NoOp,
+    //Debug related
+    ToggleDebug,
+    DebugNextTab,
+    DebugPrevTab,
+    DebugScrollUp,
+    DebugScrollDown,
+    DebugClearLogs,
+    DebugClearSnapshots,
+    DebugManualSnapshot,
+    DebugCycleMode,
+    DebugResetMetrics,
+    ExitDebug,
 }
 
 ///direction enum to use in action enum values

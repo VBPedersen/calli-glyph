@@ -1,6 +1,7 @@
 use crate::config::editor_settings;
 use crate::core::app::{ActiveArea, App};
 use crate::core::cursor::CursorPosition;
+use crate::ui::debug;
 use ratatui::layout::{Alignment, Position, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span, Text};
@@ -14,6 +15,21 @@ use std::default::Default;
 use std::vec;
 
 pub fn ui(frame: &mut Frame, app: &mut App) {
+    // Tick frame timer for debug metrics
+    app.debug_state.tick_frame();
+
+    // Route to appropriate UI based on active area
+    match app.active_area {
+        ActiveArea::DebugConsole => {
+            debug::render_debug_panel(frame, app, frame.area());
+        }
+        _ => {
+            render_editor_ui(frame, app);
+        }
+    }
+}
+
+fn render_editor_ui(frame: &mut Frame, app: &mut App) {
     app.terminal_height = frame.area().height as i16;
 
     let layout = Layout::default()
@@ -100,6 +116,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                 frame.set_cursor_position(pos);
             }
             ActiveArea::Popup => {}
+            _ => {}
         }
     }
 }

@@ -3,8 +3,10 @@ use super::command_line::{command, command_executor, CommandLine};
 use super::editor::Editor;
 use super::errors::error::AppError;
 use super::errors::error::AppError::EditorFailure;
+use crate::core::debug::{DebugState, LogLevel};
 use crate::input::input::handle_input;
 use crate::input::input_action::InputAction;
+use crate::ui::debug::DebugView;
 use crate::ui::popups::error_popup::ErrorPopup;
 use crate::ui::popups::popup::{Popup, PopupResult, PopupType};
 use crate::ui::ui::ui;
@@ -15,6 +17,7 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 use std::time::{Duration, Instant};
+
 #[derive(Debug)]
 pub struct App {
     /// Is the application running?
@@ -30,6 +33,8 @@ pub struct App {
     pub popup: Option<Box<dyn Popup>>,
     pub popup_result: PopupResult,
     pub pending_states: Vec<PendingState>,
+    pub debug_state: DebugState,
+    pub debug_view: DebugView,
 }
 
 #[derive(Debug, PartialEq)]
@@ -45,6 +50,7 @@ pub enum ActiveArea {
     Editor,
     CommandLine,
     Popup,
+    DebugConsole,
 }
 
 impl Default for App {
@@ -62,6 +68,8 @@ impl Default for App {
             popup: None,
             popup_result: PopupResult::None,
             pending_states: vec![],
+            debug_state: DebugState::new(),
+            debug_view: DebugView::new(),
         }
     }
 }
@@ -130,6 +138,12 @@ impl App {
     ///function to process input action, responsible for calling the related active area,
     /// with the gotten input action.
     pub fn process_input_action(&mut self, action: InputAction) {
+        //if debug state is enabled, record input event
+        if self.debug_state.enabled {
+            self.debug_state.metrics.record_event();
+            self.debug_state
+                .log(LogLevel::Trace, format!("Action: {:?}", action));
+        }
         self.check_for_app_related_input_actions(action.clone());
         match self.active_area {
             ActiveArea::Editor => {
@@ -160,6 +174,104 @@ impl App {
                     }
                 }
             }
+            ActiveArea::DebugConsole => {
+                self.handle_debug_input_action(action);
+            }
+        }
+    }
+    /// Toggle debug
+    pub fn toggle_debug(&mut self) {
+        use crate::core::debug::LogLevel;
+        self.debug_state.enabled = !self.debug_state.enabled;
+
+        if self.debug_state.enabled {
+            self.active_area = ActiveArea::DebugConsole;
+            self.debug_state.log(LogLevel::Info, "Debug mode activated");
+        } else {
+            self.active_area = ActiveArea::Editor;
+            self.debug_state
+                .log(LogLevel::Info, "Debug mode deactivated");
+        }
+    }
+
+    //TODO REFACTOR DEBUG handle TO DEBUG.rs or similar
+    fn handle_debug_input_action(&mut self, action: InputAction) {
+        match action {
+            // Debug actions
+            InputAction::ToggleDebug => {
+                self.toggle_debug();
+            }
+
+            InputAction::ExitDebug => {
+                if self.active_area == ActiveArea::DebugConsole {
+                    self.toggle_debug();
+                }
+            }
+
+            InputAction::DebugNextTab => {
+                self.debug_view.next_tab();
+                self.debug_state.log(
+                    LogLevel::Debug,
+                    format!("Switched to tab: {:?}", self.debug_view.active_tab),
+                );
+            }
+
+            InputAction::DebugPrevTab => {
+                self.debug_view.prev_tab();
+                self.debug_state.log(
+                    LogLevel::Debug,
+                    format!("Switched to tab: {:?}", self.debug_view.active_tab),
+                );
+            }
+
+            InputAction::DebugScrollUp => {
+                self.debug_view.scroll_up();
+            }
+
+            InputAction::DebugScrollDown => {
+                self.debug_view.scroll_down();
+            }
+
+            InputAction::DebugClearLogs => {
+                self.debug_state.clear_logs();
+                self.debug_state.log(LogLevel::Info, "Logs cleared");
+            }
+
+            InputAction::DebugClearSnapshots => {
+                self.debug_state.clear_snapshots();
+                self.debug_state.log(LogLevel::Info, "Snapshots cleared");
+            }
+            //TODO fix
+            InputAction::DebugManualSnapshot => {
+                use crate::core::debug::SnapshotTrigger;
+                /*self.debug_state.update_and_maybe_snapshot(
+                    self,
+                    Some(SnapshotTrigger::Manual)
+                );*/
+                self.debug_state
+                    .log(LogLevel::Info, "Manual snapshot captured");
+            }
+
+            InputAction::DebugCycleMode => {
+                use crate::core::debug::CaptureMode;
+                self.debug_state.capture_mode = match self.debug_state.capture_mode {
+                    CaptureMode::None => CaptureMode::OnEvent,
+                    CaptureMode::OnEvent => CaptureMode::Manual,
+                    CaptureMode::Manual => CaptureMode::EveryFrame,
+                    CaptureMode::EveryFrame => CaptureMode::None,
+                };
+                self.debug_state.log(
+                    LogLevel::Info,
+                    format!("Capture mode: {:?}", self.debug_state.capture_mode),
+                );
+            }
+
+            InputAction::DebugResetMetrics => {
+                self.debug_state.metrics.reset();
+                self.debug_state
+                    .log(LogLevel::Info, "Performance metrics reset");
+            }
+            _ => {}
         }
     }
 

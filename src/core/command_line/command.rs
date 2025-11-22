@@ -16,6 +16,8 @@ pub enum Command {
         name: String,
         args: Vec<String>,
     },
+    //DEBUG
+    Debug,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -57,6 +59,7 @@ pub fn parse_command(bind: String, raw_args: Vec<String>) -> Command {
         COMMAND_SAVE_AND_EXIT => Command::SaveAndExit { args, flags },
         COMMAND_EXIT_DONT_SAVE => Command::QuitForce,
         COMMAND_HELP => Command::Help,
+        COMMAND_DEBUG => Command::Debug,
         _ => Command::Unknown { name: bind, args },
     }
 }
