@@ -101,7 +101,7 @@ pub fn render_debug_panel(frame: &mut Frame, app: &App, area: Rect) {
         _ => {}
     }
 
-    //render_help_bar(f, chunks[2], &app.debug_view);
+    help_bar(frame,chunks[2]);
 }
 
 fn render_tabs(frame: &mut Frame, area: Rect, view: &DebugView) {
@@ -139,14 +139,12 @@ fn render_tabs(frame: &mut Frame, area: Rect, view: &DebugView) {
     frame.render_widget(tabs, area);
 }
 
-//TODO integrate
-fn help_bar(frame: &mut Frame, style: Style, area: Rect) {
+fn help_bar(frame: &mut Frame, area: Rect) {
     let instructions_block = Block::default()
-        .title(Line::from(" COMMANDS ").style(Style::default().fg(Color::White)))
         .borders(Borders::TOP)
-        .border_style(style);
+        .border_style(Style::new().fg(Color::LightYellow));
     let instructions_text = vec![Line::from(
-        "ESC/Q: Exit | Tab/Shift+Tab: Switch Tab | Up/Down: Scroll | S: Snapshot | C: Clear Logs",
+        "ESC/Q: Exit | Tab/Shift+Tab: Switch Tab | s: Snapshot | c: Clear Logs | C: Clear Snapshots",
     )];
     let instructions_paragraph = Paragraph::new(instructions_text).block(instructions_block);
     frame.render_widget(instructions_paragraph, area);

@@ -4,6 +4,7 @@ use crate::core::command_line::command::CommandFlag;
 use crate::core::debug::{CaptureMode, LogLevel, Selection, SnapshotTrigger};
 use crate::core::errors::command_errors::CommandError;
 use std::collections::HashSet;
+use crate::core::cursor::CursorPosition;
 
 enum DebugSubcommand {
     Enable,
@@ -94,8 +95,8 @@ pub fn debug_command(
                 app.active_area,
                 app.editor.cursor,
                 Some(Selection {
-                    start: app.editor.text_selection_start.unwrap(),
-                    end: app.editor.text_selection_end.unwrap(),
+                    start: app.editor.text_selection_start.unwrap_or(CursorPosition::default()),
+                    end: app.editor.text_selection_end.unwrap_or(CursorPosition::default()),
                 }),
                 app.editor.editor_content.clone(),
                 app.editor.scroll_offset,

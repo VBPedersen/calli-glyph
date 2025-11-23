@@ -78,7 +78,7 @@ pub mod debug_console_binds {
 
     // Actions
     pub const KEYBIND_CLEAR_LOGS: (KeyModifiers, KeyCode) =
-        (KeyModifiers::CONTROL, KeyCode::Char('c'));
+        (KeyModifiers::NONE, KeyCode::Char('c'));
     pub const KEYBIND_CLEAR_SNAPSHOTS: (KeyModifiers, KeyCode) =
         (KeyModifiers::SHIFT, KeyCode::Char('C'));
     pub const KEYBIND_MANUAL_SNAPSHOT: (KeyModifiers, KeyCode) =

@@ -90,7 +90,7 @@ impl DebugState {
     }
 
     /// Logs entry to DebugLogger
-    pub fn log(&mut self, level: super::LogLevel, message: impl Into<String>) {
+    pub fn log(&mut self, level: LogLevel, message: impl Into<String>) {
         if !self.enabled {
             return;
         }
@@ -176,7 +176,6 @@ impl DebugState {
             redo_stack,
             file_path,
         );
-        self.log(LogLevel::Info, "Manual snapshot captured");
     }
 
     /// Internal helper that does the actual capturing
