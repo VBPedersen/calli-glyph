@@ -237,7 +237,7 @@ mod debug_metrics_tests {
 mod debug_snapshot_tests {
     use calliglyph::core::app::ActiveArea;
     use calliglyph::core::cursor::Cursor;
-    use calliglyph::core::debug::{DebugState, SnapshotTrigger, CaptureMode};
+    use calliglyph::core::debug::{CaptureMode, DebugState, SnapshotTrigger};
 
     fn create_test_debug_state() -> DebugState {
         DebugState::new()
@@ -257,10 +257,7 @@ mod debug_snapshot_tests {
 
         debug_state.capture_manual_snapshot(
             ActiveArea::Editor,
-            Cursor{
-                x:0,
-                y:0,
-            },
+            Cursor { x: 0, y: 0 },
             None,
             vec!["test".to_string()],
             0,
@@ -283,10 +280,7 @@ mod debug_snapshot_tests {
         debug_state.update_and_maybe_snapshot(
             ActiveArea::Editor,
             Some(SnapshotTrigger::Error("test".to_string())),
-            Cursor{
-                x:0,
-                y:0,
-            },
+            Cursor { x: 0, y: 0 },
             None,
             vec![],
             0,
@@ -308,10 +302,7 @@ mod debug_snapshot_tests {
         debug_state.update_and_maybe_snapshot(
             ActiveArea::Editor,
             Some(SnapshotTrigger::Error("test".to_string())),
-            Cursor{
-                x:0,
-                y:0,
-            },
+            Cursor { x: 0, y: 0 },
             None,
             vec![],
             0,
@@ -333,10 +324,7 @@ mod debug_snapshot_tests {
         debug_state.update_and_maybe_snapshot(
             ActiveArea::Editor,
             Some(SnapshotTrigger::Command("test".to_string())),
-            Cursor{
-                x:0,
-                y:0,
-            },
+            Cursor { x: 0, y: 0 },
             None,
             vec![],
             0,
@@ -358,10 +346,7 @@ mod debug_snapshot_tests {
         debug_state.update_and_maybe_snapshot(
             ActiveArea::Editor,
             None, // No trigger
-            Cursor{
-                x:0,
-                y:0,
-            },
+            Cursor { x: 0, y: 0 },
             None,
             vec![],
             0,
@@ -384,10 +369,7 @@ mod debug_snapshot_tests {
         debug_state.update_and_maybe_snapshot(
             ActiveArea::Editor,
             Some(SnapshotTrigger::Error("test".to_string())),
-            Cursor{
-                x:0,
-                y:0,
-            },
+            Cursor { x: 0, y: 0 },
             None,
             vec![],
             0,
@@ -402,10 +384,7 @@ mod debug_snapshot_tests {
         debug_state.update_and_maybe_snapshot(
             ActiveArea::Editor,
             Some(SnapshotTrigger::Manual),
-            Cursor{
-                x:0,
-                y:0,
-            },
+            Cursor { x: 0, y: 0 },
             None,
             vec![],
             0,
@@ -427,10 +406,7 @@ mod debug_snapshot_tests {
         debug_state.update_and_maybe_snapshot(
             ActiveArea::Editor,
             None,
-            Cursor{
-                x:0,
-                y:0
-            },
+            Cursor { x: 0, y: 0 },
             None,
             vec![],
             0,
@@ -445,10 +421,7 @@ mod debug_snapshot_tests {
         debug_state.update_and_maybe_snapshot(
             ActiveArea::Editor,
             Some(SnapshotTrigger::Error("test".to_string())),
-            Cursor{
-                x:0,
-                y:0,
-            },
+            Cursor { x: 0, y: 0 },
             None,
             vec![],
             0,
@@ -469,10 +442,7 @@ mod debug_snapshot_tests {
         for i in 0..51 {
             debug_state.capture_manual_snapshot(
                 ActiveArea::Editor,
-                Cursor{
-                    x: i,
-                    y: i,
-                },
+                Cursor { x: i, y: i },
                 None,
                 vec![format!("line {}", i)],
                 0,
@@ -497,10 +467,7 @@ mod debug_snapshot_tests {
 
         debug_state.capture_manual_snapshot(
             ActiveArea::Editor,
-            Cursor{
-                x:0,
-                y:0,
-            },
+            Cursor { x: 0, y: 0 },
             None,
             vec![],
             0,
@@ -522,10 +489,7 @@ mod debug_snapshot_tests {
 
         debug_state.capture_manual_snapshot(
             ActiveArea::CommandLine,
-            Cursor{
-                x: 5,
-                y: 10
-            },
+            Cursor { x: 5, y: 10 },
             None,
             vec!["line1".to_string(), "line2".to_string()],
             2,
@@ -536,7 +500,7 @@ mod debug_snapshot_tests {
         );
 
         let snapshot = debug_state.snapshots.latest().unwrap();
-        let pos = (snapshot.cursor_pos.x,snapshot.cursor_pos.y);
+        let pos = (snapshot.cursor_pos.x, snapshot.cursor_pos.y);
         assert_eq!(pos, (5, 10));
         assert_eq!(snapshot.buffer_lines, 2);
         assert_eq!(snapshot.buffer_content[0], "line1");
@@ -547,7 +511,7 @@ mod debug_snapshot_tests {
 
 #[cfg(test)]
 mod debug_state_tests {
-    use calliglyph::core::debug::{DebugState, LogLevel, CaptureMode};
+    use calliglyph::core::debug::{CaptureMode, DebugState, LogLevel};
 
     #[test]
     fn test_debug_state_initialization() {
@@ -620,8 +584,8 @@ mod debug_state_tests {
 
 #[cfg(test)]
 mod debug_view_tests {
-    use calliglyph::ui::debug::{DebugView, DebugTab};
-    
+    use calliglyph::ui::debug::{DebugTab, DebugView};
+
     // TODO
     // #[test]
     // fn test_debug_view_initialization() {
@@ -702,10 +666,10 @@ mod debug_view_tests {
     // fn test_debug_view_select_next_snapshot() {
     //     let mut view = DebugView::new();
     //     assert_eq!(view.selected_snapshot, None);
-    // 
+    //
     //     view.select_next_snapshot(10);
     //     assert_eq!(view.selected_snapshot, Some(0));
-    // 
+    //
     //     view.select_next_snapshot(10);
     //     assert_eq!(view.selected_snapshot, Some(1));
     // }
@@ -714,7 +678,7 @@ mod debug_view_tests {
     // fn test_debug_view_select_next_snapshot_respects_max() {
     //     let mut view = DebugView::new();
     //     view.selected_snapshot = Some(9);
-    // 
+    //
     //     view.select_next_snapshot(9); // Max is 9
     //     assert_eq!(view.selected_snapshot, Some(9)); // Shouldn't exceed
     // }
@@ -723,10 +687,10 @@ mod debug_view_tests {
     // fn test_debug_view_select_prev_snapshot() {
     //     let mut view = DebugView::new();
     //     view.selected_snapshot = Some(5);
-    // 
+    //
     //     view.select_prev_snapshot();
     //     assert_eq!(view.selected_snapshot, Some(4));
-    // 
+    //
     //     view.select_prev_snapshot();
     //     assert_eq!(view.selected_snapshot, Some(3));
     // }
@@ -735,17 +699,17 @@ mod debug_view_tests {
     // fn test_debug_view_select_prev_snapshot_at_zero() {
     //     let mut view = DebugView::new();
     //     view.selected_snapshot = Some(0);
-    // 
+    //
     //     view.select_prev_snapshot();
     //     assert_eq!(view.selected_snapshot, None); // Goes to None
-    // } 
-    // 
+    // }
+    //
     // TODO
     // #[test]
     // fn test_debug_view_open_snapshot_viewer() {
     //     let mut view = DebugView::new();
     //     view.selected_snapshot = Some(5);
-    // 
+    //
     //     view.open_snapshot_viewer();
     //     assert!(view.viewing_snapshot);
     // }
@@ -754,17 +718,17 @@ mod debug_view_tests {
     // fn test_debug_view_open_snapshot_viewer_without_selection() {
     //     let mut view = DebugView::new();
     //     view.selected_snapshot = None;
-    // 
+    //
     //     view.open_snapshot_viewer();
     //     assert!(!view.viewing_snapshot); // Shouldn't open without selection
     // }
 
-    // TODO 
+    // TODO
     // #[test]
     // fn test_debug_view_close_snapshot_viewer() {
     //     let mut view = DebugView::new();
     //     view.viewing_snapshot = true;
-    // 
+    //
     //     view.close_snapshot_viewer();
     //     assert!(!view.viewing_snapshot);
     // }
@@ -781,9 +745,9 @@ mod debug_view_tests {
 
 #[cfg(test)]
 mod debug_integration_tests {
-    use calliglyph::core::debug::{DebugState, LogLevel, SnapshotTrigger, CaptureMode};
     use calliglyph::core::app::ActiveArea;
     use calliglyph::core::cursor::Cursor;
+    use calliglyph::core::debug::{CaptureMode, DebugState, LogLevel, SnapshotTrigger};
 
     #[test]
     fn test_full_debug_workflow() {
@@ -809,10 +773,7 @@ mod debug_integration_tests {
         debug_state.update_and_maybe_snapshot(
             ActiveArea::Editor,
             Some(SnapshotTrigger::Error("File not found".to_string())),
-            Cursor{
-                x: 0,
-                y: 0
-            },
+            Cursor { x: 0, y: 0 },
             None,
             vec!["".to_string()],
             0,
@@ -827,10 +788,7 @@ mod debug_integration_tests {
         // Capture manual snapshot
         debug_state.capture_manual_snapshot(
             ActiveArea::Editor,
-            Cursor{
-                x: 5,
-                y: 10,
-            },
+            Cursor { x: 5, y: 10 },
             None,
             vec!["Hello".to_string()],
             0,
@@ -856,10 +814,7 @@ mod debug_integration_tests {
         debug_state.update_and_maybe_snapshot(
             ActiveArea::Editor,
             Some(SnapshotTrigger::Error("test".to_string())),
-            Cursor{
-                x: 0,
-                y: 0,
-            },
+            Cursor { x: 0, y: 0 },
             None,
             vec![],
             0,
@@ -875,10 +830,7 @@ mod debug_integration_tests {
         debug_state.update_and_maybe_snapshot(
             ActiveArea::Editor,
             None,
-            Cursor{
-                    x: 0,
-                    y: 0,
-                },
+            Cursor { x: 0, y: 0 },
             None,
             vec![],
             0,
@@ -898,10 +850,7 @@ mod debug_integration_tests {
         for i in 0..5 {
             debug_state.capture_manual_snapshot(
                 ActiveArea::Editor,
-                Cursor{
-                    x: i,
-                    y: i,
-                },
+                Cursor { x: i, y: i },
                 None,
                 vec![format!("line {}", i)],
                 0,
@@ -914,7 +863,7 @@ mod debug_integration_tests {
 
         // Latest should be the last one added
         let latest = debug_state.snapshots.latest().unwrap();
-        let pos = (latest.cursor_pos.x,latest.cursor_pos.y);
+        let pos = (latest.cursor_pos.x, latest.cursor_pos.y);
         assert_eq!(pos, (4, 4));
 
         // First should be the oldest
