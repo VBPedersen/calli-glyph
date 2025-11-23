@@ -17,8 +17,8 @@ pub fn execute_command(app: &mut App, command: Command) -> Result<(), CommandErr
             // TODO: Show help popup or render help screen
             Ok(())
         }
-        Command::Debug => {
-            app.toggle_debug();
+        Command::Debug { args, flags } => {
+            commands::debug::debug_command(app, args, flags);
             Ok(())
         }
         Command::Unknown { name, .. } => Err(CommandError::UnknownCommand(name)),

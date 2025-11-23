@@ -1,4 +1,7 @@
-use super::{DebugLogger, PerformanceMetrics};
+use super::{DebugLogger, LogEntry, LogLevel, PerformanceMetrics};
+use crate::core::app::{ActiveArea, App};
+use crate::core::cursor::{Cursor, CursorPosition};
+use crate::core::editor::editor::EditAction;
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
@@ -19,19 +22,6 @@ pub enum SnapshotTrigger {
     KeyPress(String),
     Manual,
     PeriodicSnap,
-}
-
-#[derive(Clone, Debug)]
-pub struct ClipboardSnapshot {
-    pub content_preview: String,
-    pub full_length: usize,
-    pub line_count: usize,
-}
-
-#[derive(Clone, Debug)]
-pub struct ActionSnapshot {
-    pub action_type: String,
-    pub description: String,
 }
 
 ///mode set determines
@@ -56,26 +46,36 @@ pub struct AppSnapshot {
     pub trigger: SnapshotTrigger,
 
     //editor state
-    pub cursor_pos: (usize, usize),
+    pub cursor_pos: Cursor,
+    pub selection: Option<Selection>,
+    pub buffer_content: Vec<String>, // Full buffer content
     pub buffer_lines: usize,
-    pub buffer_content_preview: String,
-    pub mode: String,
-    pub active_area: String,
+    pub scroll_offset: i16,
 
     //clipboard state
-    pub clipboard_entries: Vec<ClipboardSnapshot>,
+    pub clipboard_entries: Vec<String>,
     pub clipboard_size: usize,
 
     //history state
-    pub undo_stack: Vec<ActionSnapshot>,
-    pub redo_stack: Vec<ActionSnapshot>,
+    pub undo_stack: Vec<EditAction>,
+    pub redo_stack: Vec<EditAction>,
     pub undo_depth: usize,
     pub redo_depth: usize,
+
+    // App state
+    pub active_area: String,
+    pub file_path: Option<String>,
 
     //performance at time
     pub frame_time: Duration,
     pub fps: f64,
     pub memory_usage: Option<u64>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Selection {
+    pub start: CursorPosition,
+    pub end: CursorPosition,
 }
 
 impl DebugState {
@@ -89,8 +89,18 @@ impl DebugState {
         }
     }
 
-    //TODO
-    pub fn log(&mut self, level: super::LogLevel, message: impl Into<String>) {}
+    /// Logs entry to DebugLogger
+    pub fn log(&mut self, level: super::LogLevel, message: impl Into<String>) {
+        if !self.enabled {
+            return;
+        }
+        self.logger.push(LogEntry {
+            timestamp: Instant::now(),
+            level,
+            message: message.into(),
+            context: None,
+        });
+    }
 
     //if debugging enabled then tick on metrics
     pub fn tick_frame(&mut self) {
@@ -100,22 +110,110 @@ impl DebugState {
         return;
     }
 
-    //TODO
-    /// Update and potentially capture a snapshot
+    /// Update and potentially capture a snapshot (for background logging)
     pub fn update_and_maybe_snapshot(
         &mut self,
-        app: &crate::core::app::App,
+        active_area: ActiveArea,
         trigger: Option<SnapshotTrigger>,
+        cursor_pos: Cursor,
+        selection: Option<Selection>,
+        buffer_content: Vec<String>,
+        scroll_offset: i16,
+        clipboard_entries: Vec<String>,
+        undo_stack: Vec<EditAction>,
+        redo_stack: Vec<EditAction>,
+        file_path: Option<String>,
     ) {
+        if !self.enabled {
+            return;
+        }
+
+        let should_capture = match self.capture_mode {
+            CaptureMode::None => false,
+            CaptureMode::OnEvent => trigger.is_some(),
+            CaptureMode::EveryFrame => true,
+            CaptureMode::Manual => matches!(trigger, Some(SnapshotTrigger::Manual)),
+        };
+
+        if should_capture {
+            self.capture_snapshot_internal(
+                active_area,
+                trigger.unwrap_or(SnapshotTrigger::PeriodicSnap),
+                cursor_pos,
+                selection,
+                buffer_content,
+                scroll_offset,
+                clipboard_entries,
+                undo_stack,
+                redo_stack,
+                file_path,
+            );
+        }
     }
 
-    //TODO
-    ///Manually capture snapshot
-    pub fn capture_snapshot(
+    /// Always captures (for manual snapshots)
+    pub fn capture_manual_snapshot(
         &mut self,
-        app: &crate::core::app::App,
-        trigger: Option<SnapshotTrigger>,
+        active_area: ActiveArea,
+        cursor_pos: Cursor,
+        selection: Option<Selection>,
+        buffer_content: Vec<String>,
+        scroll_offset: i16,
+        clipboard_entries: Vec<String>,
+        undo_stack: Vec<EditAction>,
+        redo_stack: Vec<EditAction>,
+        file_path: Option<String>,
     ) {
+        self.capture_snapshot_internal(
+            active_area,
+            SnapshotTrigger::Manual,
+            cursor_pos,
+            selection,
+            buffer_content,
+            scroll_offset,
+            clipboard_entries,
+            undo_stack,
+            redo_stack,
+            file_path,
+        );
+        self.log(LogLevel::Info, "Manual snapshot captured");
+    }
+
+    /// Internal helper that does the actual capturing
+    fn capture_snapshot_internal(
+        &mut self,
+        active_area: ActiveArea,
+        trigger: SnapshotTrigger,
+        cursor_pos: Cursor,
+        selection: Option<Selection>,
+        buffer_content: Vec<String>,
+        scroll_offset: i16,
+        clipboard_entries: Vec<String>,
+        undo_stack: Vec<EditAction>,
+        redo_stack: Vec<EditAction>,
+        file_path: Option<String>,
+    ) {
+        let snapshot = AppSnapshot {
+            timestamp: Instant::now(),
+            trigger,
+            cursor_pos,
+            selection,
+            buffer_content: buffer_content.clone(),
+            buffer_lines: buffer_content.len(),
+            scroll_offset,
+            clipboard_entries: clipboard_entries.clone(),
+            clipboard_size: clipboard_entries.len(),
+            undo_stack: undo_stack.clone(),
+            redo_stack: redo_stack.clone(),
+            undo_depth: undo_stack.len(),
+            redo_depth: redo_stack.len(),
+            active_area: format!("{:?}", active_area),
+            file_path,
+            frame_time: self.metrics.avg_frame_time(),
+            fps: self.metrics.fps(),
+            memory_usage: None,
+        };
+        self.snapshots.push(snapshot);
     }
 
     pub fn clear_logs(&mut self) {
@@ -135,7 +233,6 @@ impl DebugState {
     }
 }
 
-//TODO need functionality
 impl SnapshotHistory {
     pub fn new(max_snapshots: usize) -> Self {
         Self {

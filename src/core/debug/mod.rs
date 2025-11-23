@@ -5,6 +5,5 @@ mod state;
 pub use logger::{DebugLogger, LogEntry, LogLevel};
 pub use metrics::PerformanceMetrics;
 pub use state::{
-    ActionSnapshot, AppSnapshot, CaptureMode, ClipboardSnapshot, DebugState, SnapshotHistory,
-    SnapshotTrigger,
+    AppSnapshot, CaptureMode, DebugState, Selection, SnapshotHistory, SnapshotTrigger,
 };

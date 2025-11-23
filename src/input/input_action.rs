@@ -17,7 +17,6 @@ pub enum InputAction {
     QUIT,
     NoOp,
     //Debug related
-    ToggleDebug,
     DebugNextTab,
     DebugPrevTab,
     DebugScrollUp,

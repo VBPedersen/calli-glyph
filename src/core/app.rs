@@ -44,7 +44,7 @@ pub enum PendingState {
     Quitting,
 }
 
-#[derive(PartialEq, Debug, Default)]
+#[derive(PartialEq, Debug, Default, Copy, Clone)]
 pub enum ActiveArea {
     #[default]
     Editor,
@@ -138,8 +138,9 @@ impl App {
     ///function to process input action, responsible for calling the related active area,
     /// with the gotten input action.
     pub fn process_input_action(&mut self, action: InputAction) {
-        //if debug state is enabled, record input event
-        if self.debug_state.enabled {
+        //if debug state is enabled, record input event and only if debug console is not active,
+        // Makes no sense to debug actions on debugger console to log
+        if self.debug_state.enabled && self.active_area != ActiveArea::DebugConsole {
             self.debug_state.metrics.record_event();
             self.debug_state
                 .log(LogLevel::Trace, format!("Action: {:?}", action));
@@ -198,10 +199,6 @@ impl App {
     fn handle_debug_input_action(&mut self, action: InputAction) {
         match action {
             // Debug actions
-            InputAction::ToggleDebug => {
-                self.toggle_debug();
-            }
-
             InputAction::ExitDebug => {
                 if self.active_area == ActiveArea::DebugConsole {
                     self.toggle_debug();
