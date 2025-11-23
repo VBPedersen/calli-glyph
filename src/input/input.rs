@@ -107,22 +107,27 @@ fn map_key_to_debug_actions(key: (KeyModifiers, KeyCode)) -> InputAction {
     use debug_console_binds::*;
     match key {
         // Exit
-        KEYBIND_EXIT | KEYBIND_EXIT_ESC => InputAction::ExitDebug,
+        KEYBIND_EXIT | KEYBIND_EXIT_ESC => InputAction::Debug(DebugAction::ExitDebug),
 
         // Tab navigation
-        KEYBIND_NEXT_TAB | KEYBIND_NEXT_TAB_L => InputAction::DebugNextTab,
-        KEYBIND_PREV_TAB | KEYBIND_PREV_TAB_H => InputAction::DebugPrevTab,
+        KEYBIND_NEXT_TAB | KEYBIND_NEXT_TAB_L => InputAction::Debug(DebugAction::DebugNextTab),
+        KEYBIND_PREV_TAB | KEYBIND_PREV_TAB_H => InputAction::Debug(DebugAction::DebugPrevTab),
 
         // Scrolling
-        KEYBIND_SCROLL_UP | KEYBIND_SCROLL_UP_K => InputAction::DebugScrollUp,
-        KEYBIND_SCROLL_DOWN | KEYBIND_SCROLL_DOWN_J => InputAction::DebugScrollDown,
+        KEYBIND_SCROLL_UP | KEYBIND_SCROLL_UP_K => InputAction::Debug(DebugAction::DebugScrollUp),
+        KEYBIND_SCROLL_DOWN | KEYBIND_SCROLL_DOWN_J => {
+            InputAction::Debug(DebugAction::DebugScrollDown)
+        }
 
         // Actions
-        KEYBIND_CLEAR_LOGS => InputAction::DebugClearLogs,
-        KEYBIND_CLEAR_SNAPSHOTS => InputAction::DebugClearSnapshots,
-        KEYBIND_MANUAL_SNAPSHOT => InputAction::DebugManualSnapshot,
-        KEYBIND_CYCLE_MODE => InputAction::DebugCycleMode,
-        KEYBIND_RESET_METRICS => InputAction::DebugResetMetrics,
+        KEYBIND_CLEAR_LOGS => InputAction::Debug(DebugAction::DebugClearLogs),
+        KEYBIND_CLEAR_SNAPSHOTS => InputAction::Debug(DebugAction::DebugClearSnapshots),
+        KEYBIND_MANUAL_SNAPSHOT => InputAction::Debug(DebugAction::DebugManualSnapshot),
+        KEYBIND_CYCLE_MODE => InputAction::Debug(DebugAction::DebugCycleMode),
+        KEYBIND_RESET_METRICS => InputAction::Debug(DebugAction::DebugResetMetrics),
+
+        //Snapshots
+        KEYBIND_CONFIRM => InputAction::Debug(DebugAction::DebugViewSnapshot),
 
         _ => InputAction::NoOp,
     }

@@ -16,6 +16,12 @@ pub enum InputAction {
     WriteChar(char),
     QUIT,
     NoOp,
+    // Debug actions
+    Debug(DebugAction),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum DebugAction {
     //Debug related
     DebugNextTab,
     DebugPrevTab,
@@ -27,6 +33,8 @@ pub enum InputAction {
     DebugCycleMode,
     DebugResetMetrics,
     ExitDebug,
+    DebugViewSnapshot,
+    DebugCloseSnapshotViewer,
 }
 
 ///direction enum to use in action enum values

@@ -2,7 +2,8 @@ use crate::core::app::ActiveArea;
 use crate::core::app::App;
 use crate::core::cursor::CursorPosition;
 use crate::core::debug::{LogLevel, Selection};
-use crate::input::input_action::InputAction;
+use crate::input::input_action::{DebugAction, InputAction};
+use crate::ui::debug::DebugTab;
 
 impl App {
     /// Toggle debug
@@ -20,16 +21,31 @@ impl App {
         }
     }
 
+    ///wrapper for parsing to debug action or reject
     pub fn handle_debug_input_action(&mut self, action: InputAction) {
         match action {
+            InputAction::Debug(debug_action) => {
+                self.handle_debug_action(debug_action);
+            }
+            _ => {}
+        }
+    }
+
+    pub fn handle_debug_action(&mut self, action: DebugAction) {
+        match action {
             // Debug actions
-            InputAction::ExitDebug => {
-                if self.active_area == ActiveArea::DebugConsole {
-                    self.toggle_debug();
+            DebugAction::ExitDebug => match self.debug_view.active_tab {
+                DebugTab::SnapshotViewer => {
+                    self.debug_view.close_snapshot_viewer();
                 }
+                _ => self.toggle_debug(),
+            },
+
+            DebugAction::DebugViewSnapshot => {
+                self.debug_view.open_snapshot_viewer();
             }
 
-            InputAction::DebugNextTab => {
+            DebugAction::DebugNextTab => {
                 self.debug_view.next_tab();
                 self.debug_state.log(
                     LogLevel::Debug,
@@ -37,7 +53,7 @@ impl App {
                 );
             }
 
-            InputAction::DebugPrevTab => {
+            DebugAction::DebugPrevTab => {
                 self.debug_view.prev_tab();
                 self.debug_state.log(
                     LogLevel::Debug,
@@ -45,24 +61,29 @@ impl App {
                 );
             }
 
-            InputAction::DebugScrollUp => {
-                self.debug_view.scroll_up();
-            }
+            DebugAction::DebugScrollUp => match self.debug_view.active_tab {
+                DebugTab::Snapshots => self.debug_view.select_prev_snapshot(),
+                _ => self.debug_view.scroll_up(),
+            },
 
-            InputAction::DebugScrollDown => {
-                self.debug_view.scroll_down();
-            }
+            DebugAction::DebugScrollDown => match self.debug_view.active_tab {
+                DebugTab::Snapshots => {
+                    let max = self.debug_state.snapshots.len().saturating_sub(1);
+                    self.debug_view.select_next_snapshot(max);
+                }
+                _ => self.debug_view.scroll_down(),
+            },
 
-            InputAction::DebugClearLogs => {
+            DebugAction::DebugClearLogs => {
                 self.debug_state.clear_logs();
                 self.debug_state.log(LogLevel::Info, "Logs cleared");
             }
 
-            InputAction::DebugClearSnapshots => {
+            DebugAction::DebugClearSnapshots => {
                 self.debug_state.clear_snapshots();
                 self.debug_state.log(LogLevel::Info, "Snapshots cleared");
             }
-            InputAction::DebugManualSnapshot => {
+            DebugAction::DebugManualSnapshot => {
                 self.debug_state.capture_manual_snapshot(
                     self.active_area,
                     self.editor.cursor,
@@ -87,7 +108,7 @@ impl App {
                     .log(LogLevel::Info, "Manual snapshot captured");
             }
 
-            InputAction::DebugCycleMode => {
+            DebugAction::DebugCycleMode => {
                 use crate::core::debug::CaptureMode;
                 self.debug_state.capture_mode = match self.debug_state.capture_mode {
                     CaptureMode::None => CaptureMode::OnEvent,
@@ -101,12 +122,23 @@ impl App {
                 );
             }
 
-            InputAction::DebugResetMetrics => {
+            DebugAction::DebugResetMetrics => {
                 self.debug_state.metrics.reset();
                 self.debug_state
                     .log(LogLevel::Info, "Performance metrics reset");
             }
-            _ => {}
+
+            DebugAction::DebugViewSnapshot => {
+                self.debug_view.open_snapshot_viewer();
+            }
+
+            DebugAction::DebugCloseSnapshotViewer => {
+                if self.debug_view.viewing_snapshot {
+                    self.debug_view.close_snapshot_viewer();
+                } else {
+                    self.toggle_debug(); // Exit debug if not viewing snapshot
+                }
+            }
         }
     }
 }

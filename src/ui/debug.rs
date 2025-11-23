@@ -7,16 +7,18 @@ use ratatui::{
 };
 
 use crate::core::app::App;
-use crate::core::debug::{LogLevel, SnapshotTrigger};
+use crate::core::debug::LogLevel;
+use crate::ui::debug_console::{snapshot_viewer, snapshots_list};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DebugTab {
-    Overview = 0,
-    Logs = 1,
-    Clipboard = 2,
-    History = 3,
-    Snapshots = 4,
-    Performance = 5,
+    Overview,
+    Logs,
+    Clipboard,
+    History,
+    Snapshots,
+    Performance,
+    SnapshotViewer,
 }
 
 ///Defines view of debug console
@@ -24,6 +26,8 @@ pub enum DebugTab {
 pub struct DebugView {
     pub active_tab: DebugTab,
     pub scroll_offset: usize,
+    pub selected_snapshot: Option<usize>, //snapshot currently selected
+    pub viewing_snapshot: bool,           // is vieweing snapshot
 }
 
 impl DebugView {
@@ -31,9 +35,39 @@ impl DebugView {
         Self {
             active_tab: DebugTab::Overview,
             scroll_offset: 0,
+            selected_snapshot: None,
+            viewing_snapshot: false,
         }
     }
 
+    //SNAPSHOT VIEWER
+
+    pub fn select_next_snapshot(&mut self, max: usize) {
+        self.selected_snapshot = Some(
+            self.selected_snapshot
+                .map(|i| (i + 1).min(max))
+                .unwrap_or(0),
+        );
+    }
+
+    pub fn select_prev_snapshot(&mut self) {
+        self.selected_snapshot = self.selected_snapshot.and_then(|i| i.checked_sub(1));
+    }
+
+    pub fn open_snapshot_viewer(&mut self) {
+        if self.selected_snapshot.is_some() {
+            self.viewing_snapshot = true;
+            self.active_tab = DebugTab::SnapshotViewer;
+            println!("test")
+        }
+    }
+
+    pub fn close_snapshot_viewer(&mut self) {
+        self.viewing_snapshot = false;
+        self.active_tab = DebugTab::Snapshots;
+    }
+
+    //------------------------------------
     pub fn next_tab(&mut self) {
         self.active_tab = match self.active_tab {
             DebugTab::Overview => DebugTab::Logs,
@@ -42,6 +76,7 @@ impl DebugView {
             DebugTab::History => DebugTab::Snapshots,
             DebugTab::Snapshots => DebugTab::Performance,
             DebugTab::Performance => DebugTab::Overview,
+            _ => self.active_tab, //exclude any tab not wanted in navigation, and stay
         };
         self.scroll_offset = 0;
     }
@@ -54,6 +89,7 @@ impl DebugView {
             DebugTab::History => DebugTab::Clipboard,
             DebugTab::Snapshots => DebugTab::History,
             DebugTab::Performance => DebugTab::Snapshots,
+            _ => self.active_tab, //exclude any tab not wanted in navigation, and stay
         };
         self.scroll_offset = 0;
     }
@@ -96,7 +132,8 @@ pub fn render_debug_panel(frame: &mut Frame, app: &App, area: Rect) {
         //DebugTab::Logs => render_logs(f, app, chunks[1]),
         //DebugTab::Clipboard => render_clipboard(f, app, chunks[1]),
         //DebugTab::History => render_history(f, app, chunks[1]),
-        //DebugTab::Snapshots => render_snapshots(f, app, chunks[1]),
+        DebugTab::Snapshots => snapshots_list::render_snapshots_list(frame, app, chunks[1]),
+        DebugTab::SnapshotViewer => snapshot_viewer::render_snapshot_viewer(frame, app, chunks[1]),
         //DebugTab::Performance => render_performance(f, app, chunks[1]),
         _ => {}
     }
@@ -120,6 +157,9 @@ fn render_tabs(frame: &mut Frame, area: Rect, view: &DebugView) {
         DebugTab::History => 3,
         DebugTab::Snapshots => 4,
         DebugTab::Performance => 5,
+        _ => {
+            return;
+        } //ignore other tabs
     };
 
     let tabs = Tabs::new(titles)

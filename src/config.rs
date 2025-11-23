@@ -56,6 +56,7 @@ pub mod command_binds {
 pub mod debug_console_binds {
     use crossterm::event::{KeyCode, KeyModifiers};
 
+    pub const KEYBIND_CONFIRM: (KeyModifiers, KeyCode) = (KeyModifiers::NONE, KeyCode::Enter);
     // Exit debug
     pub const KEYBIND_EXIT: (KeyModifiers, KeyCode) = (KeyModifiers::NONE, KeyCode::Char('q'));
     pub const KEYBIND_EXIT_ESC: (KeyModifiers, KeyCode) = (KeyModifiers::NONE, KeyCode::Esc);

@@ -1,6 +1,5 @@
-use crate::core::debug::AppSnapshot;
 use std::collections::VecDeque;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 use std::time::Instant;
 
 #[derive(Debug)]
@@ -69,7 +68,7 @@ impl DebugLogger {
 }
 
 impl Display for LogLevel {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             LogLevel::Trace => write!(f, "Trace"),
             LogLevel::Debug => write!(f, "Debug"),

@@ -57,10 +57,24 @@ impl CommandLine {
     ///writes char to line, with x position
     pub fn write_char(&mut self, c: char) {
         let line = &mut self.input;
-        if line.len() < self.cursor.x as usize {
-            self.cursor.x = line.len() as i16;
+
+        // cursor calc based on character count for multibyte chars
+        let char_len = line.chars().count();
+        if (self.cursor.x as usize) > char_len {
+            self.cursor.x = char_len as i16;
         }
-        line.insert(self.cursor.x as usize, c);
+
+        let char_idx = self.cursor.x as usize;
+
+        // Find the byte index corresponding to the char index.
+        let byte_idx = line
+            .char_indices()
+            .nth(char_idx)
+            .map(|(idx, _)| idx)
+            .unwrap_or(line.len()); // If char_idx is at the end, use the total byte length
+
+        // Insert the char at the calculated byte index.
+        line.insert(byte_idx, c);
         self.move_cursor(1);
     }
     ///backspaces on x position
