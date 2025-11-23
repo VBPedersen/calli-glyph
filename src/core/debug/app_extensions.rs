@@ -1,11 +1,10 @@
 use crate::core::app::ActiveArea;
-use crate::core::debug::{LogLevel, Selection};
-use crate::input::input_action::InputAction;
 use crate::core::app::App;
 use crate::core::cursor::CursorPosition;
+use crate::core::debug::{LogLevel, Selection};
+use crate::input::input_action::InputAction;
 
-impl App{
-
+impl App {
     /// Toggle debug
     pub fn toggle_debug(&mut self) {
         use crate::core::debug::LogLevel;
@@ -68,15 +67,22 @@ impl App{
                     self.active_area,
                     self.editor.cursor,
                     Some(Selection {
-                        start: self.editor.text_selection_start.unwrap_or(CursorPosition::default()),
-                        end: self.editor.text_selection_end.unwrap_or(CursorPosition::default()),
-                    }), 
+                        start: self
+                            .editor
+                            .text_selection_start
+                            .unwrap_or(CursorPosition::default()),
+                        end: self
+                            .editor
+                            .text_selection_end
+                            .unwrap_or(CursorPosition::default()),
+                    }),
                     self.editor.editor_content.clone(),
                     self.editor.scroll_offset,
                     self.editor.clipboard.copied_text.clone(),
                     self.editor.undo_redo_manager.undo_stack.clone(),
                     self.editor.undo_redo_manager.undo_stack.clone(),
-                    self.file_path.clone());
+                    self.file_path.clone(),
+                );
                 self.debug_state
                     .log(LogLevel::Info, "Manual snapshot captured");
             }

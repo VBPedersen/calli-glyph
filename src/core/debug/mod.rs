@@ -1,7 +1,7 @@
+mod app_extensions;
 mod logger;
 mod metrics;
 mod state;
-mod app_extensions;
 
 pub use logger::{DebugLogger, LogEntry, LogLevel};
 pub use metrics::PerformanceMetrics;

@@ -101,7 +101,7 @@ pub fn render_debug_panel(frame: &mut Frame, app: &App, area: Rect) {
         _ => {}
     }
 
-    help_bar(frame,chunks[2]);
+    help_bar(frame, chunks[2]);
 }
 
 fn render_tabs(frame: &mut Frame, area: Rect, view: &DebugView) {
