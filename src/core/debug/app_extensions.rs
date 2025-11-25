@@ -54,14 +54,17 @@ impl App {
             }
 
             DebugAction::DebugScrollUp => match self.debug_view.active_tab {
-                DebugTab::Snapshots => self.debug_view.select_prev_snapshot(),
+                DebugTab::Snapshots => {
+                    let max = self.debug_state.snapshots.len();
+                    self.debug_view.select_next_snapshot(max);
+                }
                 _ => self.debug_view.scroll_up(),
             },
 
             DebugAction::DebugScrollDown => match self.debug_view.active_tab {
                 DebugTab::Snapshots => {
-                    let max = self.debug_state.snapshots.len().saturating_sub(1);
-                    self.debug_view.select_next_snapshot(max);
+                    let max = self.debug_state.snapshots.len();
+                    self.debug_view.select_prev_snapshot(max);
                 }
                 _ => self.debug_view.scroll_down(),
             },

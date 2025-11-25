@@ -9,11 +9,10 @@ use ratatui::{
 };
 
 /// interactable list of snapshots
-pub fn render_snapshots_list(f: &mut Frame, app: &App, area: Rect) {
+pub fn render_snapshots_list(frame: &mut Frame, app: &App, area: Rect) {
     let snapshots = app.debug_state.snapshots.snapshots();
 
     if snapshots.is_empty() {
-        // ... existing empty state
         return;
     }
 
@@ -59,5 +58,5 @@ pub fn render_snapshots_list(f: &mut Frame, app: &App, area: Rect) {
         .border_style(Style::default().fg(Color::Magenta));
 
     let list = List::new(items).block(block);
-    f.render_widget(list, area);
+    frame.render_widget(list, area);
 }
