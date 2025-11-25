@@ -65,7 +65,7 @@ impl CommandLine {
         }
 
         let char_idx = self.cursor.x as usize;
-        
+
         let byte_idx = Self::get_byte_idx(char_idx, line);
 
         // Insert the char at the calculated byte index.
@@ -77,8 +77,8 @@ impl CommandLine {
         let line = &mut self.input;
         if self.cursor.x > 0 && self.cursor.x <= line.len() as i16 {
             let char_idx = self.cursor.x as usize;
-            
-            let byte_idx = Self::get_byte_idx(char_idx-1,line);
+
+            let byte_idx = Self::get_byte_idx(char_idx - 1, line);
 
             line.remove(byte_idx);
             self.move_cursor(-1);
@@ -103,13 +103,11 @@ impl CommandLine {
     /// Find the byte index corresponding to the char index.
     fn get_byte_idx(char_idx: usize, line: &str) -> usize {
         // Find the byte index corresponding to the char index.
-        line
-            .char_indices()
+        line.char_indices()
             .nth(char_idx)
             .map(|(idx, _)| idx)
             .unwrap_or(line.len()) // If char_idx is at the end, use the total byte length
     }
-
 }
 
 //████████╗███████╗███████╗████████╗███████╗
