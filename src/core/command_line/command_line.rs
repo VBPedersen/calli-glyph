@@ -65,13 +65,8 @@ impl CommandLine {
         }
 
         let char_idx = self.cursor.x as usize;
-
-        // Find the byte index corresponding to the char index.
-        let byte_idx = line
-            .char_indices()
-            .nth(char_idx)
-            .map(|(idx, _)| idx)
-            .unwrap_or(line.len()); // If char_idx is at the end, use the total byte length
+        
+        let byte_idx = Self::get_byte_idx(char_idx, line);
 
         // Insert the char at the calculated byte index.
         line.insert(byte_idx, c);
@@ -81,7 +76,11 @@ impl CommandLine {
     pub fn backspace(&mut self) {
         let line = &mut self.input;
         if self.cursor.x > 0 && self.cursor.x <= line.len() as i16 {
-            line.remove(self.cursor.x as usize - 1);
+            let char_idx = self.cursor.x as usize;
+            
+            let byte_idx = Self::get_byte_idx(char_idx-1,line);
+
+            line.remove(byte_idx);
             self.move_cursor(-1);
         }
     }
@@ -97,9 +96,20 @@ impl CommandLine {
     //cursor
     ///moves cursor by x amounts in commandline
     pub fn move_cursor(&mut self, x: i16) {
-        let max_x_pos: i16 = self.input.len() as i16;
+        let max_x_pos: i16 = self.input.chars().count() as i16;
         self.cursor.x = (self.cursor.x + x).clamp(0, max_x_pos);
     }
+
+    /// Find the byte index corresponding to the char index.
+    fn get_byte_idx(char_idx: usize, line: &str) -> usize {
+        // Find the byte index corresponding to the char index.
+        line
+            .char_indices()
+            .nth(char_idx)
+            .map(|(idx, _)| idx)
+            .unwrap_or(line.len()) // If char_idx is at the end, use the total byte length
+    }
+
 }
 
 //████████╗███████╗███████╗████████╗███████╗
