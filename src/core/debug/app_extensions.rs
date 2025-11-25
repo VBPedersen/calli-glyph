@@ -47,18 +47,10 @@ impl App {
 
             DebugAction::DebugNextTab => {
                 self.debug_view.next_tab();
-                self.debug_state.log(
-                    LogLevel::Debug,
-                    format!("Switched to tab: {:?}", self.debug_view.active_tab),
-                );
             }
 
             DebugAction::DebugPrevTab => {
                 self.debug_view.prev_tab();
-                self.debug_state.log(
-                    LogLevel::Debug,
-                    format!("Switched to tab: {:?}", self.debug_view.active_tab),
-                );
             }
 
             DebugAction::DebugScrollUp => match self.debug_view.active_tab {
