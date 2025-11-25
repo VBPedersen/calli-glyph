@@ -75,7 +75,7 @@ impl CommandLine {
     ///backspaces on x position
     pub fn backspace(&mut self) {
         let line = &mut self.input;
-        if self.cursor.x > 0 && self.cursor.x <= line.len() as i16 {
+        if self.cursor.x > 0 && self.cursor.x <= line.chars().count() as i16 {
             let char_idx = self.cursor.x as usize;
 
             let byte_idx = Self::get_byte_idx(char_idx - 1, line);
@@ -88,8 +88,12 @@ impl CommandLine {
     ///deletes on x position
     pub fn delete(&mut self) {
         let line = &mut self.input;
-        if line.len() > 0 && self.cursor.x < line.len() as i16 {
-            line.remove(self.cursor.x as usize);
+        let char_len = line.chars().count();
+        if char_len > 0 && self.cursor.x < char_len as i16 {
+            let char_idx = self.cursor.x as usize;
+
+            let byte_idx = Self::get_byte_idx(char_idx, line);
+            line.remove(byte_idx);
         }
     }
 
