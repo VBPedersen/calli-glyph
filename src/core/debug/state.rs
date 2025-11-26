@@ -68,8 +68,7 @@ pub struct AppSnapshot {
 
     //performance at time
     pub frame_time: Duration,
-    pub fps: f64,
-    pub memory_usage: Option<u64>,
+    pub memory_usage: Option<f64>,
 }
 
 #[derive(Clone, Debug)]
@@ -209,8 +208,7 @@ impl DebugState {
             active_area: format!("{:?}", active_area),
             file_path,
             frame_time: self.metrics.avg_frame_time(),
-            fps: self.metrics.fps(),
-            memory_usage: None,
+            memory_usage: Some(self.metrics.memory_usage_mb()),
         };
         self.snapshots.push(snapshot);
     }

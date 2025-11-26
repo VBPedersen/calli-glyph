@@ -180,21 +180,6 @@ mod debug_metrics_tests {
     }
 
     #[test]
-    fn test_metrics_fps_calculation() {
-        let mut metrics = PerformanceMetrics::new();
-        metrics.frame_times.push_back(Duration::from_millis(16)); // ~60 FPS
-
-        let fps = metrics.fps();
-        assert!((fps - 62.5).abs() < 1.0); // ~62.5 FPS
-    }
-
-    #[test]
-    fn test_metrics_fps_zero_when_empty() {
-        let metrics = PerformanceMetrics::new();
-        assert_eq!(metrics.fps(), 0.0);
-    }
-
-    #[test]
     fn test_metrics_record_event() {
         let mut metrics = PerformanceMetrics::new();
         metrics.record_event();

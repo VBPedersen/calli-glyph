@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
+use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
 
 #[derive(Debug)]
 pub struct PerformanceMetrics {
@@ -7,6 +8,12 @@ pub struct PerformanceMetrics {
     pub last_frame_time: Instant,
     pub event_count: u64,
     pub render_count: u64,
+
+    // System monitoring
+    system: System,
+    pid: Pid,
+    pub memory_usage_kb: u64,
+    pub cpu_usage: f32,
 }
 
 impl PerformanceMetrics {
@@ -16,6 +23,10 @@ impl PerformanceMetrics {
             last_frame_time: Instant::now(),
             event_count: 0,
             render_count: 0,
+            system: System::new_all(),
+            pid: sysinfo::get_current_pid().unwrap(),
+            memory_usage_kb: 0,
+            cpu_usage: 0.0,
         }
     }
 
@@ -29,6 +40,30 @@ impl PerformanceMetrics {
             self.frame_times.pop_front();
         }
         self.render_count += 1;
+
+        // Update system stats every 10 renders
+        if self.render_count % 10 == 0 {
+            self.update_system_stats();
+        }
+    }
+
+    /// updates all system related info
+    fn update_system_stats(&mut self) {
+        self.system.refresh_processes_specifics(
+            ProcessesToUpdate::Some(&[self.pid]),
+            true, //if process gone or dead remove from list
+            ProcessRefreshKind::new().with_cpu().with_memory(),
+        );
+
+        if let Some(process) = self.system.process(self.pid) {
+            self.memory_usage_kb = process.memory() / 1024; // Convert to KB
+            self.cpu_usage = process.cpu_usage();
+        }
+    }
+
+    // get mem usage in mb from kb
+    pub fn memory_usage_mb(&self) -> f64 {
+        self.memory_usage_kb as f64 / 1024.0
     }
 
     pub fn avg_frame_time(&self) -> Duration {
@@ -37,15 +72,6 @@ impl PerformanceMetrics {
         }
         let sum: Duration = self.frame_times.iter().sum();
         sum / self.frame_times.len() as u32
-    }
-
-    /// FPS calculated from avg frame time
-    pub fn fps(&self) -> f64 {
-        let avg = self.avg_frame_time();
-        if avg.as_secs_f64() == 0.0 {
-            return 0.0;
-        }
-        1.0 / avg.as_secs_f64()
     }
 
     pub fn record_event(&mut self) {

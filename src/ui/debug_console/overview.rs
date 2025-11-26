@@ -25,9 +25,9 @@ fn render_performance_summary(frame: &mut Frame, app: &App, area: Rect) {
 
     let text = vec![
         Line::from(vec![
-            Span::raw("FPS: "),
+            Span::raw("Avg Frame Time: "),
             Span::styled(
-                format!("{:.1}", metrics.fps()),
+                format!("{:?}", metrics.avg_frame_time()),
                 Style::default().fg(Color::Green),
             ),
         ]),

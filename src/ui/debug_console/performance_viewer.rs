@@ -15,8 +15,8 @@ pub fn render_performance(frame: &mut Frame, app: &App, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(10), // Stats
-            Constraint::Min(8),     // Frame time graph
+            Constraint::Length(16), // Stats
+            Constraint::Min(8),     // graph
         ])
         .split(area);
 
@@ -31,33 +31,49 @@ fn render_performance_stats(f: &mut Frame, metrics: &PerformanceMetrics, area: R
     let avg_ms = metrics.avg_frame_time().as_secs_f64() * 1000.0;
     let min_ms = metrics.min_frame_time().as_secs_f64() * 1000.0;
     let max_ms = metrics.max_frame_time().as_secs_f64() * 1000.0;
-    let fps = metrics.fps();
 
-    // Color code FPS
-    let fps_color = if fps >= 55.0 {
+    // events pr second
+    let events_per_render = if metrics.render_count > 0 {
+        metrics.event_count as f64 / metrics.render_count as f64
+    } else {
+        0.0
+    };
+
+    // Color code render time
+    let render_color = if avg_ms < 16.0 {
+        // < 16ms = feels instant
         Color::Green
-    } else if fps >= 30.0 {
+    } else if avg_ms < 50.0 {
+        // < 50ms = still responsive
         Color::Yellow
     } else {
-        Color::Red
+        Color::Red // > 50ms = noticeable lag
     };
 
     let text = vec![
         Line::from(""),
         Line::from(vec![
-            Span::raw("  Current FPS: "),
+            Span::raw("  Average Render Time: "),
             Span::styled(
-                format!("{:.1}", fps),
-                Style::default().fg(fps_color).add_modifier(Modifier::BOLD),
+                format!("{:.2}ms", avg_ms),
+                Style::default()
+                    .fg(render_color)
+                    .add_modifier(Modifier::BOLD),
             ),
         ]),
         Line::from(""),
-        Line::from(format!("  Average Frame Time: {:.2}ms", avg_ms)),
         Line::from(format!("  Min Frame Time:     {:.2}ms", min_ms)),
         Line::from(format!("  Max Frame Time:     {:.2}ms", max_ms)),
         Line::from(""),
+        Line::from(format!(
+            "  Memory Usage: {:.2} MB",
+            metrics.memory_usage_mb()
+        )),
+        Line::from(format!("  CPU Usage:    {:.5}%", metrics.cpu_usage)),
+        Line::from(""),
         Line::from(format!("  Total Renders: {}", metrics.render_count)),
         Line::from(format!("  Total Events:  {}", metrics.event_count)),
+        Line::from(format!("  Events/Renders:  {:.2}", events_per_render)),
     ];
 
     let block = Block::default()
