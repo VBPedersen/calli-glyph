@@ -17,13 +17,40 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            // Get the current tag from the context, removing the 'refs/tags/' prefix
+            const currentTag = context.ref.replace('refs/tags/', '');
+            let previousTag = '';
+            
+            // Fetch all tags from the repository
+            const { data: tags } = await github.rest.repos.listTags({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100 // Fetch up to 100 tags to find the predecessor
+            });
+            
+            // Filter the tags to find the one immediately preceding the current tag.
+            // Filter for tags starting with 'v' and exclude the current one.
+            const versionTags = tags
+              .map(tag => tag.name)
+              .filter(name => name.startsWith('v') && name !== currentTag);
+            
+            // Assuming the first tag in the filtered array is the most recent predecessor.
+            if (versionTags.length > 0) {
+                previousTag = versionTags[0];
+                core.info(`Found previous tag: ${previousTag}`);
+            } else {
+                core.info('This appears to be the first versioned release. No previous tag found.');
+            }
+            
+            // Generate release notes using the current and previous tag (if found)
             const { data } = await github.rest.repos.generateReleaseNotes({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              tag_name: context.ref.replace('refs/tags/', ''),
-              // Target the previous tag for comparison. Omit `previous_tag_name` for the very first release.
-              previous_tag_name: 'v0.1.1' // You would use dynamic lookup here if possible
+              tag_name: currentTag,
+              // Only pass previous_tag_name if a valid tag was found
+              ...(previousTag && { previous_tag_name: previousTag }) 
             });
+            
             // Store the generated Markdown body in an output variable
             core.setOutput('body', data.body);
 
@@ -33,12 +60,10 @@ jobs:
     strategy:
       matrix:
         # Define the runners and the corresponding build targets
-        # We use three different runners to simplify the toolchain and avoid complex cross-compilation setup.
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             asset_name: calliglyph-linux-x64
-            # For a TUI, we might need more steps for Linux if linking statically (but skipping for simplicity)
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             asset_name: calliglyph-windows-x64.exe
@@ -63,29 +88,29 @@ jobs:
         # Run cargo build with the --release flag
         run: cargo build --release
 
-      - name: Set Binary Name and Path
-        id: vars
+      - name: Rename Binary for Upload
+        # This step moves/renames the generic 'target/release/calliglyph'
+        # to the unique, platform-specific name (e.g., calliglyph-macos-x64)
+        # in the build directory.
+        id: rename
         shell: bash
         run: |
-          # Determine the executable path based on the runner OS
+          BINARY_NAME="calliglyph"
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            echo "binary_path=target/release/calliglyph.exe" >> $GITHUB_OUTPUT
-            echo "asset_name=${{ matrix.asset_name }}" >> $GITHUB_OUTPUT
+            mv target/release/$BINARY_NAME.exe target/release/${{ matrix.asset_name }}
           else
-            echo "binary_path=target/release/calliglyph" >> $GITHUB_OUTPUT
-            echo "asset_name=${{ matrix.asset_name }}" >> $GITHUB_OUTPUT
+            mv target/release/$BINARY_NAME target/release/${{ matrix.asset_name }}
           fi
+          echo "uploaded_path=target/release/${{ matrix.asset_name }}" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release and Upload Asset
-        # softprops/action-gh-release handles creation or finding of an existing Release
-        # based on the pushed tag (e.g., v0.1.0)
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ steps.vars.outputs.binary_path }}
+          # The action automatically uses the file's name as the asset name.
+          files: ${{ steps.rename.outputs.uploaded_path }}
           name: ${{ github.ref_name }}
           # Use the dynamically generated body from the 'generate_notes' job
           body: ${{ needs.generate_notes.outputs.release_body }}
-          asset_name: ${{ steps.vars.outputs.asset_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
