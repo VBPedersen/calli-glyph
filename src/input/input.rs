@@ -3,11 +3,11 @@ use crate::config::debug_console_binds;
 use crate::config::key_binds;
 use crate::core::app::ActiveArea;
 use crate::core::app::App;
+use color_eyre::eyre::Result;
 use crossterm::event;
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind,
 };
-use color_eyre::eyre::Result;
 /// Reads the crossterm events and updates the state of [`App`].
 ///
 /// If your application needs to perform work in between handling events, you can use the

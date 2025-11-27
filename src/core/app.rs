@@ -11,13 +11,13 @@ use crate::ui::popups::error_popup::ErrorPopup;
 use crate::ui::popups::popup::{Popup, PopupResult, PopupType};
 use crate::ui::ui::ui;
 use color_eyre::Result;
+use crossterm::event;
 use ratatui::DefaultTerminal;
 use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 use std::time::{Duration, Instant};
-use crossterm::event;
 
 #[derive(Debug)]
 pub struct App {
@@ -126,10 +126,8 @@ impl App {
 
         while self.running {
             // Calculate timeout until next cursor blink or tick
-            let time_until_cursor = cursor_blink_rate
-                .saturating_sub(last_cursor_toggle.elapsed());
-            let time_until_tick = tick_rate
-                .saturating_sub(last_tick.elapsed());
+            let time_until_cursor = cursor_blink_rate.saturating_sub(last_cursor_toggle.elapsed());
+            let time_until_tick = tick_rate.saturating_sub(last_tick.elapsed());
 
             let timeout = time_until_cursor.min(time_until_tick);
 
@@ -143,7 +141,6 @@ impl App {
                 self.cursor_visible = !self.cursor_visible;
                 last_cursor_toggle = Instant::now();
             }
-            
 
             // Handle periodic tick (for debug metrics)
             if last_tick.elapsed() >= tick_rate {
@@ -153,7 +150,7 @@ impl App {
                 last_tick = Instant::now();
             }
 
-            // Always render 
+            // Always render
             terminal.draw(|frame| ui(frame, &mut self))?;
         }
         Ok(())
