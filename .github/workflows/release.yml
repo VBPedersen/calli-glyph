@@ -21,10 +21,10 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: context.ref.replace('refs/tags/', ''),
-              # Target the previous tag for comparison. Omit `previous_tag_name` for the very first release.
-              previous_tag_name: 'v0.1.1' # You would use dynamic lookup here if possible
+              // Target the previous tag for comparison. Omit `previous_tag_name` for the very first release.
+              previous_tag_name: 'v0.1.1' // You would use dynamic lookup here if possible
             });
-            # Store the generated Markdown body in an output variable
+            // Store the generated Markdown body in an output variable
             core.setOutput('body', data.body);
 
   release:
