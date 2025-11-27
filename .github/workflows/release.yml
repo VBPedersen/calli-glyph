@@ -4,24 +4,88 @@ on:
   push:
     tags:
       - "v*"
-
+# This job will create and upload a Release on GitHub
 jobs:
-  build:
+  # Job to generate the release notes once
+  generate_notes:
     runs-on: ubuntu-latest
+    outputs:
+      release_body: ${{ steps.notes.outputs.body }}
+    steps:
+      - name: Generate release notes
+        id: notes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data } = await github.rest.repos.generateReleaseNotes({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: context.ref.replace('refs/tags/', ''),
+              # Target the previous tag for comparison. Omit `previous_tag_name` for the very first release.
+              previous_tag_name: 'v0.1.1' # You would use dynamic lookup here if possible
+            });
+            # Store the generated Markdown body in an output variable
+            core.setOutput('body', data.body);
+
+  release:
+    # Requires the release body output from the notes job
+    needs: [ generate_notes ]
+    strategy:
+      matrix:
+        # Define the runners and the corresponding build targets
+        # We use three different runners to simplify the toolchain and avoid complex cross-compilation setup.
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            asset_name: calliglyph-linux-x64
+            # For a TUI, we might need more steps for Linux if linking statically (but skipping for simplicity)
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            asset_name: calliglyph-windows-x64.exe
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            asset_name: calliglyph-macos-x64
+
+    # Run the job on the OS specified by the matrix (ubuntu, windows, macos)
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
-      - name: Install Rust
+      - name: Install Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          # Ensure the correct target is available for the build
+          toolchain: stable
 
       - name: Build Release Binary
+        # Run cargo build with the --release flag
         run: cargo build --release
 
-      - name: Upload Release Asset
+      - name: Set Binary Name and Path
+        id: vars
+        shell: bash
+        run: |
+          # Determine the executable path based on the runner OS
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            echo "binary_path=target/release/calliglyph.exe" >> $GITHUB_OUTPUT
+            echo "asset_name=${{ matrix.asset_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "binary_path=target/release/calliglyph" >> $GITHUB_OUTPUT
+            echo "asset_name=${{ matrix.asset_name }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release and Upload Asset
+        # softprops/action-gh-release handles creation or finding of an existing Release
+        # based on the pushed tag (e.g., v0.1.0)
         uses: softprops/action-gh-release@v2
         with:
-          files: target/release/CalliGlyph
+          files: ${{ steps.vars.outputs.binary_path }}
+          name: ${{ github.ref_name }}
+          # Use the dynamically generated body from the 'generate_notes' job
+          body: ${{ needs.generate_notes.outputs.release_body }}
+          asset_name: ${{ steps.vars.outputs.asset_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
