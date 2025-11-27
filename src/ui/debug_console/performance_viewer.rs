@@ -69,7 +69,7 @@ fn render_performance_stats(f: &mut Frame, metrics: &PerformanceMetrics, area: R
             "  Memory Usage: {:.2} MB",
             metrics.memory_usage_mb()
         )),
-        Line::from(format!("  CPU Usage:    {:.5}%", metrics.cpu_usage)),
+        Line::from(format!("  CPU Usage:    {:.2}%", metrics.cpu_usage_normalized())),
         Line::from(""),
         Line::from(format!("  Total Renders: {}", metrics.render_count)),
         Line::from(format!("  Total Events:  {}", metrics.event_count)),

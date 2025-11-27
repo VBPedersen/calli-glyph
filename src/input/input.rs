@@ -7,12 +7,12 @@ use crossterm::event;
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind,
 };
-
+use color_eyre::eyre::Result;
 /// Reads the crossterm events and updates the state of [`App`].
 ///
 /// If your application needs to perform work in between handling events, you can use the
-/// [`event::poll`] function to check if there are any events available with a timeout.
-pub(crate) fn handle_input(app: &mut App) -> color_eyre::Result<()> {
+/// [`event::read`] function to read a event.
+pub(crate) fn handle_input(app: &mut App) -> Result<()> {
     match event::read()? {
         // it's important to check KeyEventKind::Press to avoid handling key release events
         Event::Key(key) if key.kind == KeyEventKind::Press => on_key_event(app, key),

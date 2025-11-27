@@ -17,6 +17,7 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 use std::time::{Duration, Instant};
+use crossterm::event;
 
 #[derive(Debug)]
 pub struct App {
@@ -117,18 +118,43 @@ impl App {
         } else {
             vec![String::new()] // Start with an empty editor if no file is provided
         };
+        let tick_rate = Duration::from_millis(100); // 10 ticks per second
+        let cursor_blink_rate = Duration::from_millis(500);
 
-        //LOGIC
-
-        // Handle cursor blinking (toggle cursor visibility every 500ms)
-        if self.last_tick.elapsed() >= Duration::from_millis(500) {
-            self.cursor_visible = !self.cursor_visible;
-            self.last_tick = Instant::now();
-        }
+        let mut last_tick = Instant::now();
+        let mut last_cursor_toggle = Instant::now();
 
         while self.running {
+            // Calculate timeout until next cursor blink or tick
+            let time_until_cursor = cursor_blink_rate
+                .saturating_sub(last_cursor_toggle.elapsed());
+            let time_until_tick = tick_rate
+                .saturating_sub(last_tick.elapsed());
+
+            let timeout = time_until_cursor.min(time_until_tick);
+
+            // Poll for input with calculated timeout
+            if event::poll(timeout)? {
+                handle_input(&mut self)?;
+            }
+
+            // Handle cursor blinking
+            if last_cursor_toggle.elapsed() >= cursor_blink_rate {
+                self.cursor_visible = !self.cursor_visible;
+                last_cursor_toggle = Instant::now();
+            }
+            
+
+            // Handle periodic tick (for debug metrics)
+            if last_tick.elapsed() >= tick_rate {
+                if self.debug_state.enabled {
+                    self.debug_state.tick_frame();
+                }
+                last_tick = Instant::now();
+            }
+
+            // Always render 
             terminal.draw(|frame| ui(frame, &mut self))?;
-            handle_input(&mut self)?;
         }
         Ok(())
     }
