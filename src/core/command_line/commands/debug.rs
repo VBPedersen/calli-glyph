@@ -46,6 +46,8 @@ fn parse_to_subcommand(args: Vec<String>) -> DebugSubcommand {
     }
 }
 
+//TODO implement returning relevant CommandErrors when necessary
+/// Executes DebugSubcommands of the debug main command
 pub fn debug_command(
     app: &mut App,
     args: Vec<String>,
