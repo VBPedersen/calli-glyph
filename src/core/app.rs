@@ -1,4 +1,3 @@
-use super::clipboard::Clipboard;
 use super::command_line::{command, command_executor, CommandLine};
 use super::editor::Editor;
 use super::errors::error::AppError;
@@ -27,7 +26,6 @@ pub struct App {
     pub editor: Editor,
     pub command_line: CommandLine,
     pub(crate) cursor_visible: bool,
-    last_tick: Instant,
     pub(crate) terminal_height: i16,
     pub file_path: Option<String>,
     pub popup: Option<Box<dyn Popup>>,
@@ -60,7 +58,6 @@ impl Default for App {
             active_area: Default::default(),
             editor: Editor::new(),
             command_line: CommandLine::new(),
-            last_tick: Instant::now(),
             cursor_visible: true,
             terminal_height: 0,
             file_path: None,
@@ -367,7 +364,7 @@ impl App {
         buff_read_file
             .read_to_string(&mut read_file_contents)
             .expect("TODO: panic message");
-        //if has changes, return true else return false
+        // If file has changes, return true else return false
         if !read_file_contents.eq(&editor_content) {
             Ok(true)
         } else {

@@ -1,14 +1,12 @@
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, Paragraph, Tabs},
+    text::Line,
+    widgets::{Block, Borders, Paragraph, Tabs},
     Frame,
 };
-use std::cmp::max;
 
 use crate::core::app::App;
-use crate::core::debug::LogLevel;
 use crate::ui::debug_console::{
     action_history, clipboard_view, logs_list, overview, performance_viewer, snapshot_viewer,
     snapshots_list,
@@ -138,7 +136,6 @@ pub fn render_debug_panel(frame: &mut Frame, app: &App, area: Rect) {
         DebugTab::Snapshots => snapshots_list::render_snapshots_list(frame, app, chunks[1]),
         DebugTab::SnapshotViewer => snapshot_viewer::render_snapshot_viewer(frame, app, chunks[1]),
         DebugTab::Performance => performance_viewer::render_performance(frame, app, chunks[1]),
-        _ => {}
     }
 
     help_bar(frame, chunks[2]);
@@ -191,15 +188,4 @@ fn help_bar(frame: &mut Frame, area: Rect) {
     )];
     let instructions_paragraph = Paragraph::new(instructions_text).block(instructions_block);
     frame.render_widget(instructions_paragraph, area);
-}
-
-///style of log level to show
-fn get_log_level_style(level: LogLevel) -> Style {
-    match level {
-        LogLevel::Error => Style::default().fg(Color::Red),
-        LogLevel::Warn => Style::default().fg(Color::Yellow),
-        LogLevel::Info => Style::default().fg(Color::Blue),
-        LogLevel::Debug => Style::default().fg(Color::Gray),
-        LogLevel::Trace => Style::default().fg(Color::DarkGray),
-    }
 }

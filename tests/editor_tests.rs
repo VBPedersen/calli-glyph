@@ -566,6 +566,7 @@ mod editor_basic_tests {
         let result = editor.handle_input_action(InputAction::REDO);
         // Should still have "YHello World", not go back to "Hello X"
         assert_eq!(editor.editor_content[0], "YHello World");
+        assert!(result.is_err());
     }
 
     // ========== Edge Cases ==========

@@ -1,5 +1,5 @@
 use super::{DebugLogger, LogEntry, LogLevel, PerformanceMetrics};
-use crate::core::app::{ActiveArea, App};
+use crate::core::app::ActiveArea;
 use crate::core::cursor::{Cursor, CursorPosition};
 use crate::core::editor::editor::EditAction;
 use std::collections::VecDeque;

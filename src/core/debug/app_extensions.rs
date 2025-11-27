@@ -41,10 +41,6 @@ impl App {
                 _ => self.toggle_debug(),
             },
 
-            DebugAction::DebugViewSnapshot => {
-                self.debug_view.open_snapshot_viewer();
-            }
-
             DebugAction::DebugNextTab => {
                 self.debug_view.next_tab();
             }
