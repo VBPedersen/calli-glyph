@@ -223,10 +223,7 @@ impl DebugState {
 
     pub fn set_capture_mode(&mut self, mode: CaptureMode) {
         self.capture_mode = mode;
-        self.log(
-            super::LogLevel::Info,
-            format!("Capture mode set to: {:?}", mode),
-        );
+        self.log(LogLevel::Info, format!("Capture mode set to: {:?}", mode));
     }
 }
 
