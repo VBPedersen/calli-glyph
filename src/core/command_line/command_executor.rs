@@ -17,6 +17,12 @@ pub fn execute_command(app: &mut App, command: Command) -> Result<(), CommandErr
             // TODO: Show help popup or render help screen
             Ok(())
         }
+        Command::Debug { args, flags } => {
+            if let Err(e) = commands::debug::debug_command(app, args, flags) {
+                return Err(e);
+            }
+            Ok(())
+        }
         Command::Unknown { name, .. } => Err(CommandError::UnknownCommand(name)),
     }
 }

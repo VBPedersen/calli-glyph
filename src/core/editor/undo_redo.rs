@@ -1,10 +1,10 @@
 use super::super::errors::editor_errors::{RedoError, UndoError};
 use super::editor::EditAction;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct UndoRedoManager {
-    undo_stack: Vec<EditAction>,
-    redo_stack: Vec<EditAction>,
+    pub undo_stack: Vec<EditAction>,
+    pub redo_stack: Vec<EditAction>,
 }
 
 impl UndoRedoManager {

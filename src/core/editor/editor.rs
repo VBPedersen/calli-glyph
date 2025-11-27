@@ -8,6 +8,7 @@ use super::super::errors::editor_errors::{ClipboardError, EditorError, TextSelec
 use super::undo_redo::UndoRedoManager;
 use crate::config::editor_settings;
 use crate::input::input_action::InputAction;
+use std::fmt::Display;
 
 #[derive(Debug, Clone)]
 pub enum EditAction {
@@ -65,6 +66,99 @@ pub enum EditAction {
         pos: CursorPosition, // position of the split
         merged: String,      // the full merged text
     },
+}
+
+impl Display for EditAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            EditAction::Insert { pos, c } => {
+                write!(f, "Insert char '{}' at position {:?}", c, pos)
+            }
+            EditAction::Delete { pos, deleted_char } => {
+                write!(f, "Delete char '{}' at position {:?}", deleted_char, pos)
+            }
+            EditAction::Replace {
+                start,
+                end,
+                old,
+                new,
+            } => {
+                write!(
+                    f,
+                    "Replace char '{}' with '{}' from {:?} to {:?}",
+                    old, new, start, end
+                )
+            }
+            EditAction::ReplaceRange {
+                start,
+                end,
+                old,
+                new,
+            } => {
+                let old_str = old.join("\\n");
+                let new_str = new.join("\\n");
+                write!(
+                    f,
+                    "Replace range '{:?}' with '{:?}' from {:?} to {:?}",
+                    old_str, new_str, start, end
+                )
+            }
+            EditAction::InsertLines { start, lines } => {
+                write!(
+                    f,
+                    "Insert {} line(s) starting at {:?}: [{}]",
+                    lines.len(),
+                    start,
+                    lines.join("\\n")
+                )
+            }
+            EditAction::DeleteLines { start, deleted } => {
+                write!(
+                    f,
+                    "Delete {} line(s) starting at {:?}: [{}]",
+                    deleted.len(),
+                    start,
+                    deleted.join("\\n")
+                )
+            }
+            EditAction::InsertRange { start, end, lines } => {
+                let lines_str = lines.join("\\n");
+                write!(
+                    f,
+                    "Insert range of length {} from {:?} to {:?}: [{}]",
+                    lines_str.len(),
+                    start,
+                    end,
+                    lines_str
+                )
+            }
+            EditAction::DeleteRange {
+                start,
+                end,
+                deleted,
+            } => {
+                let deleted_str = deleted.join("\\n");
+                write!(
+                    f,
+                    "Delete range of length {} from {:?} to {:?}: [{}]",
+                    deleted_str.len(),
+                    start,
+                    end,
+                    deleted_str
+                )
+            }
+            EditAction::SplitLine { pos, left, right } => {
+                write!(
+                    f,
+                    "Split line at {:?}. Left: '{}', Right: '{}'",
+                    pos, left, right
+                )
+            }
+            EditAction::JoinLine { pos, merged } => {
+                write!(f, "Join line at {:?}. Merged: '{}'", pos, merged)
+            }
+        }
+    }
 }
 
 /// handles editor content

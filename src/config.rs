@@ -47,4 +47,45 @@ pub mod command_binds {
     pub const COMMAND_SAVE_DONT_EXIT: &str = "w";
     pub const COMMAND_SAVE_AND_EXIT: &str = "wq";
     pub const COMMAND_HELP: &str = "h";
+
+    pub const COMMAND_DEBUG: &str = "debug";
+}
+
+// DEBUG CONSOLE BINDS
+#[allow(dead_code)]
+pub mod debug_console_binds {
+    use crossterm::event::{KeyCode, KeyModifiers};
+
+    pub const KEYBIND_CONFIRM: (KeyModifiers, KeyCode) = (KeyModifiers::NONE, KeyCode::Enter);
+    // Exit debug
+    pub const KEYBIND_EXIT: (KeyModifiers, KeyCode) = (KeyModifiers::NONE, KeyCode::Char('q'));
+    pub const KEYBIND_EXIT_ESC: (KeyModifiers, KeyCode) = (KeyModifiers::NONE, KeyCode::Esc);
+
+    // Tab navigation
+    pub const KEYBIND_NEXT_TAB: (KeyModifiers, KeyCode) = (KeyModifiers::NONE, KeyCode::Tab);
+    pub const KEYBIND_PREV_TAB: (KeyModifiers, KeyCode) = (KeyModifiers::SHIFT, KeyCode::BackTab);
+    pub const KEYBIND_NEXT_TAB_L: (KeyModifiers, KeyCode) =
+        (KeyModifiers::NONE, KeyCode::Char('l'));
+    pub const KEYBIND_PREV_TAB_H: (KeyModifiers, KeyCode) =
+        (KeyModifiers::NONE, KeyCode::Char('h'));
+
+    // Scrolling
+    pub const KEYBIND_SCROLL_UP: (KeyModifiers, KeyCode) = (KeyModifiers::NONE, KeyCode::Up);
+    pub const KEYBIND_SCROLL_DOWN: (KeyModifiers, KeyCode) = (KeyModifiers::NONE, KeyCode::Down);
+    pub const KEYBIND_SCROLL_UP_K: (KeyModifiers, KeyCode) =
+        (KeyModifiers::NONE, KeyCode::Char('k'));
+    pub const KEYBIND_SCROLL_DOWN_J: (KeyModifiers, KeyCode) =
+        (KeyModifiers::NONE, KeyCode::Char('j'));
+
+    // Actions
+    pub const KEYBIND_CLEAR_LOGS: (KeyModifiers, KeyCode) =
+        (KeyModifiers::NONE, KeyCode::Char('c'));
+    pub const KEYBIND_CLEAR_SNAPSHOTS: (KeyModifiers, KeyCode) =
+        (KeyModifiers::SHIFT, KeyCode::Char('C'));
+    pub const KEYBIND_MANUAL_SNAPSHOT: (KeyModifiers, KeyCode) =
+        (KeyModifiers::NONE, KeyCode::Char('s'));
+    pub const KEYBIND_CYCLE_MODE: (KeyModifiers, KeyCode) =
+        (KeyModifiers::NONE, KeyCode::Char('m'));
+    pub const KEYBIND_RESET_METRICS: (KeyModifiers, KeyCode) =
+        (KeyModifiers::NONE, KeyCode::Char('r'));
 }

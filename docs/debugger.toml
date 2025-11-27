@@ -1,0 +1,70 @@
+# TODO Add default keys of commands
+# --- Section: Developer Console / Debugger ---
+[debugger]
+name = "Developer Console and Debugging"
+description = "The Developer Console is an overlay screen designed to provide a real-time, read-only snapshot of the editor's internal state, action history, and system logs. Its primary purpose is to assist developers/the true developer [GOD] VBPedersen in debugging complex logic, such as cursor positioning, multi-line replacements, and history management, without requiring external print statements or interrupting the main editor loop. It is engineered for zero performance overhead when deactivated.**Note: All listed keybindings are the system defaults and can be customized via the user's .config file.**"
+
+[[debugger.commands]]
+command = ":debug"
+keys = "N/A"
+description = "The main command for managing the debugger. When executed without a subcommand, it defaults to `:debug toggle`."
+
+[[debugger.commands]]
+command = ":debug enable"
+keys = "N/A"
+description = "Activates the debugger's logging systems. Does not show the console overlay."
+
+[[debugger.commands]]
+command = ":debug disable"
+keys = "N/A"
+description = "Deactivates the debugger's logging systems and clears all collected logs and snapshots from memory, minimizing runtime overhead."
+
+[[debugger.commands]]
+command = ":debug console"
+keys = "N/A"
+description = "Displays the Developer Console overlay, showing real-time state and collected logs/snapshots."
+
+[[debugger.commands]]
+command = ":debug toggle"
+keys = "N/A"
+description = "Toggles the visibility of the Developer Console overlay."
+
+[[debugger.commands]]
+command = ":debug clear"
+keys = "<c>"
+description = "Clears the active log history displayed in the Developer Console, but keeps the debugger system enabled."
+
+[[debugger.commands]]
+command = ":debug snapshot"
+keys = "N/A"
+description = "Captures a single, immediate snapshot of the editor's current internal state (e.g., cursor position, buffer contents, viewports) for later inspection."
+
+[[debugger.commands]]
+command = ":debug reset"
+keys = "<r>"
+description = "Performs a full reset of the debugger state, equivalent to running `:debug disable` then `:debug enable`."
+
+[[debugger.commands]]
+command = ":debug clear-snapshots"
+keys = "<C>"
+description = "Removes all saved state snapshots from the debugger's memory."
+
+[[debugger.commands]]
+command = ":debug mode-none"
+keys = "<m>"
+description = "Sets logging mode to 'None'. No data is collected."
+
+[[debugger.commands]]
+command = ":debug mode-event"
+keys = "<m>"
+description = "Sets logging mode to 'Event'. Logs are captured only when a user action (key press, command execution) occurs."
+
+[[debugger.commands]]
+command = ":debug mode-manual"
+keys = "<m>"
+description = "Sets logging mode to 'Manual'. Logs are only created when the `:debug snapshot` command is explicitly executed."
+
+[[debugger.commands]]
+command = ":debug mode-frame"
+keys = "<m>"
+description = "Sets logging mode to 'Frame'. Logs are captured every time the TUI re-renders (highest logging detail, highest overhead)."

@@ -1,20 +1,23 @@
-use super::clipboard::Clipboard;
 use super::command_line::{command, command_executor, CommandLine};
 use super::editor::Editor;
 use super::errors::error::AppError;
 use super::errors::error::AppError::EditorFailure;
+use crate::core::debug::{DebugState, LogLevel};
 use crate::input::input::handle_input;
 use crate::input::input_action::InputAction;
+use crate::ui::debug::DebugView;
 use crate::ui::popups::error_popup::ErrorPopup;
 use crate::ui::popups::popup::{Popup, PopupResult, PopupType};
 use crate::ui::ui::ui;
 use color_eyre::Result;
+use crossterm::event;
 use ratatui::DefaultTerminal;
 use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 use std::time::{Duration, Instant};
+
 #[derive(Debug)]
 pub struct App {
     /// Is the application running?
@@ -23,13 +26,13 @@ pub struct App {
     pub editor: Editor,
     pub command_line: CommandLine,
     pub(crate) cursor_visible: bool,
-    last_tick: Instant,
     pub(crate) terminal_height: i16,
-    pub clipboard: Clipboard,
     pub file_path: Option<String>,
     pub popup: Option<Box<dyn Popup>>,
     pub popup_result: PopupResult,
     pub pending_states: Vec<PendingState>,
+    pub debug_state: DebugState,
+    pub debug_view: DebugView,
 }
 
 #[derive(Debug, PartialEq)]
@@ -39,12 +42,13 @@ pub enum PendingState {
     Quitting,
 }
 
-#[derive(PartialEq, Debug, Default)]
+#[derive(PartialEq, Debug, Default, Copy, Clone)]
 pub enum ActiveArea {
     #[default]
     Editor,
     CommandLine,
     Popup,
+    DebugConsole,
 }
 
 impl Default for App {
@@ -54,14 +58,14 @@ impl Default for App {
             active_area: Default::default(),
             editor: Editor::new(),
             command_line: CommandLine::new(),
-            last_tick: Instant::now(),
             cursor_visible: true,
             terminal_height: 0,
-            clipboard: Clipboard::new(),
             file_path: None,
             popup: None,
             popup_result: PopupResult::None,
             pending_states: vec![],
+            debug_state: DebugState::new(),
+            debug_view: DebugView::new(),
         }
     }
 }
@@ -111,18 +115,40 @@ impl App {
         } else {
             vec![String::new()] // Start with an empty editor if no file is provided
         };
+        let tick_rate = Duration::from_millis(100); // 10 ticks per second
+        let cursor_blink_rate = Duration::from_millis(500);
 
-        //LOGIC
-
-        // Handle cursor blinking (toggle cursor visibility every 500ms)
-        if self.last_tick.elapsed() >= Duration::from_millis(500) {
-            self.cursor_visible = !self.cursor_visible;
-            self.last_tick = Instant::now();
-        }
+        let mut last_tick = Instant::now();
+        let mut last_cursor_toggle = Instant::now();
 
         while self.running {
+            // Calculate timeout until next cursor blink or tick
+            let time_until_cursor = cursor_blink_rate.saturating_sub(last_cursor_toggle.elapsed());
+            let time_until_tick = tick_rate.saturating_sub(last_tick.elapsed());
+
+            let timeout = time_until_cursor.min(time_until_tick);
+
+            // Poll for input with calculated timeout
+            if event::poll(timeout)? {
+                handle_input(&mut self)?;
+            }
+
+            // Handle cursor blinking
+            if last_cursor_toggle.elapsed() >= cursor_blink_rate {
+                self.cursor_visible = !self.cursor_visible;
+                last_cursor_toggle = Instant::now();
+            }
+
+            // Handle periodic tick (for debug metrics)
+            if last_tick.elapsed() >= tick_rate {
+                if self.debug_state.enabled {
+                    self.debug_state.tick_frame();
+                }
+                last_tick = Instant::now();
+            }
+
+            // Always render
             terminal.draw(|frame| ui(frame, &mut self))?;
-            handle_input(&mut self)?;
         }
         Ok(())
     }
@@ -130,6 +156,13 @@ impl App {
     ///function to process input action, responsible for calling the related active area,
     /// with the gotten input action.
     pub fn process_input_action(&mut self, action: InputAction) {
+        //if debug state is enabled, record input event and only if debug console is not active,
+        // Makes no sense to debug actions on debugger console to log
+        if self.debug_state.enabled && self.active_area != ActiveArea::DebugConsole {
+            self.debug_state.metrics.record_event();
+            self.debug_state
+                .log(LogLevel::Trace, format!("Action: {:?}", action));
+        }
         self.check_for_app_related_input_actions(action.clone());
         match self.active_area {
             ActiveArea::Editor => {
@@ -159,6 +192,9 @@ impl App {
                         _ => {}
                     }
                 }
+            }
+            ActiveArea::DebugConsole => {
+                self.handle_debug_input_action(action);
             }
         }
     }
@@ -328,7 +364,7 @@ impl App {
         buff_read_file
             .read_to_string(&mut read_file_contents)
             .expect("TODO: panic message");
-        //if has changes, return true else return false
+        // If file has changes, return true else return false
         if !read_file_contents.eq(&editor_content) {
             Ok(true)
         } else {

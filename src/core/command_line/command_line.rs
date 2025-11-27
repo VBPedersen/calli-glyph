@@ -57,17 +57,30 @@ impl CommandLine {
     ///writes char to line, with x position
     pub fn write_char(&mut self, c: char) {
         let line = &mut self.input;
-        if line.len() < self.cursor.x as usize {
-            self.cursor.x = line.len() as i16;
+
+        // cursor calc based on character count for multibyte chars
+        let char_len = line.chars().count();
+        if (self.cursor.x as usize) > char_len {
+            self.cursor.x = char_len as i16;
         }
-        line.insert(self.cursor.x as usize, c);
+
+        let char_idx = self.cursor.x as usize;
+
+        let byte_idx = Self::get_byte_idx(char_idx, line);
+
+        // Insert the char at the calculated byte index.
+        line.insert(byte_idx, c);
         self.move_cursor(1);
     }
     ///backspaces on x position
     pub fn backspace(&mut self) {
         let line = &mut self.input;
-        if self.cursor.x > 0 && self.cursor.x <= line.len() as i16 {
-            line.remove(self.cursor.x as usize - 1);
+        if self.cursor.x > 0 && self.cursor.x <= line.chars().count() as i16 {
+            let char_idx = self.cursor.x as usize;
+
+            let byte_idx = Self::get_byte_idx(char_idx - 1, line);
+
+            line.remove(byte_idx);
             self.move_cursor(-1);
         }
     }
@@ -75,16 +88,29 @@ impl CommandLine {
     ///deletes on x position
     pub fn delete(&mut self) {
         let line = &mut self.input;
-        if line.len() > 0 && self.cursor.x < line.len() as i16 {
-            line.remove(self.cursor.x as usize);
+        let char_len = line.chars().count();
+        if char_len > 0 && self.cursor.x < char_len as i16 {
+            let char_idx = self.cursor.x as usize;
+
+            let byte_idx = Self::get_byte_idx(char_idx, line);
+            line.remove(byte_idx);
         }
     }
 
     //cursor
     ///moves cursor by x amounts in commandline
     pub fn move_cursor(&mut self, x: i16) {
-        let max_x_pos: i16 = self.input.len() as i16;
+        let max_x_pos: i16 = self.input.chars().count() as i16;
         self.cursor.x = (self.cursor.x + x).clamp(0, max_x_pos);
+    }
+
+    /// Find the byte index corresponding to the char index.
+    fn get_byte_idx(char_idx: usize, line: &str) -> usize {
+        // Find the byte index corresponding to the char index.
+        line.char_indices()
+            .nth(char_idx)
+            .map(|(idx, _)| idx)
+            .unwrap_or(line.len()) // If char_idx is at the end, use the total byte length
     }
 }
 
