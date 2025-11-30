@@ -1,7 +1,8 @@
 #[cfg(test)]
 mod integration_app_tests {
-    use calliglyph::config::command_binds::*;
+    use calliglyph::config::Config;
     use calliglyph::core::app::*;
+    use calliglyph::core::command_line::command_binds::command_binds::*;
     use calliglyph::input::input_action::InputAction;
     use calliglyph::ui::popups::popup::PopupResult;
     use std::fs;
@@ -10,7 +11,7 @@ mod integration_app_tests {
 
     //init functions
     fn create_app() -> App {
-        let app = App::new();
+        let app = App::new(Config::default());
         app
     }
 
@@ -93,7 +94,7 @@ mod integration_app_tests {
     }
 
     fn create_app_with_editor_content(vec: Vec<String>) -> App {
-        let mut app = App::new();
+        let mut app = App::new(Config::default());
         app.editor.editor_content = vec;
         app
     }

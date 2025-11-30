@@ -1,4 +1,4 @@
-use crate::config::command_binds::*;
+use crate::core::command_line::command_binds::command_binds::*;
 use std::collections::HashSet;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Command {

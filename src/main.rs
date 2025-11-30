@@ -20,6 +20,7 @@ pub mod ui;
 //██║ ╚═╝ ██║██║  ██║██║██║ ╚████║
 //╚═╝     ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝
 
+use crate::config::Config;
 use crossterm::event::DisableMouseCapture;
 use crossterm::terminal::LeaveAlternateScreen;
 use ratatui::crossterm::event::EnableMouseCapture;
@@ -44,7 +45,10 @@ fn main() -> color_eyre::Result<()> {
 
     color_eyre::install()?;
     let terminal = ratatui::init();
-    let result = App::new().run(terminal, file_path);
+
+    // Load config
+    let config = Config::load()?;
+    let result = App::new(config).run(terminal, file_path);
     //let result = ui::ui(&mut terminal, &app);
     ratatui::restore();
 

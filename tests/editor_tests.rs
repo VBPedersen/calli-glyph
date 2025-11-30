@@ -1,11 +1,12 @@
 #[cfg(test)]
 mod editor_basic_tests {
+    use calliglyph::config::Config;
     use calliglyph::core::cursor::CursorPosition;
     use calliglyph::core::editor::Editor;
     use calliglyph::input::input_action::{Direction, InputAction};
     /// Helper to create an editor with some starting text.
     fn create_editor_with_content(lines: Vec<&str>) -> Editor {
-        let mut editor = Editor::new();
+        let mut editor = Editor::new(&Config::default());
         editor.editor_content = lines.into_iter().map(String::from).collect();
         editor.editor_height = 10;
         editor
@@ -616,11 +617,12 @@ mod editor_basic_tests {
 
 #[cfg(test)]
 mod editor_paste_tests {
+    use calliglyph::config::Config;
     use calliglyph::core::editor::Editor;
     use calliglyph::input::input_action::InputAction;
 
     fn editor_with(lines: Vec<&str>) -> Editor {
-        let mut e = Editor::new();
+        let mut e = Editor::new(&Config::default());
         e.editor_content = lines.into_iter().map(|l| l.to_string()).collect();
         e
     }
@@ -721,13 +723,14 @@ mod editor_paste_tests {
 
 #[cfg(test)]
 mod editor_cut_tests {
+    use calliglyph::config::Config;
     use calliglyph::core::cursor::CursorPosition;
     use calliglyph::core::editor::Editor;
     use calliglyph::input::input_action::InputAction;
 
     /// Helper to create an editor with some starting text.
     fn create_editor_with_content(lines: Vec<&str>) -> Editor {
-        let mut editor = Editor::new();
+        let mut editor = Editor::new(&Config::default());
         editor.editor_content = lines.into_iter().map(String::from).collect();
         editor.editor_height = 10;
         editor

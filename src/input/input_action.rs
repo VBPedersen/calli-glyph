@@ -12,6 +12,7 @@ pub enum InputAction {
     PASTE,
     UNDO,
     REDO,
+    SAVE,
     ToggleActiveArea,
     WriteChar(char),
     QUIT,

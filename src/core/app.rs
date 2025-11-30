@@ -1,5 +1,6 @@
 use super::command_line::{command, command_executor, CommandLine};
 use super::editor::Editor;
+use crate::config::Config;
 use crate::core::debug::{DebugState, LogLevel};
 use crate::errors::error::AppError;
 use crate::errors::error::AppError::EditorFailure;
@@ -22,6 +23,7 @@ use std::time::{Duration, Instant};
 pub struct App {
     /// Is the application running?
     running: bool,
+    pub config: Config,
     pub active_area: ActiveArea,
     pub editor: Editor,
     pub command_line: CommandLine,
@@ -55,8 +57,9 @@ impl Default for App {
     fn default() -> Self {
         Self {
             running: Default::default(),
+            config: Config::default(),
             active_area: Default::default(),
-            editor: Editor::new(),
+            editor: Editor::new(&Config::default()),
             command_line: CommandLine::new(),
             cursor_visible: true,
             terminal_height: 0,
@@ -72,8 +75,22 @@ impl Default for App {
 
 impl App {
     /// Construct a new instance of [`App`].
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(config: Config) -> Self {
+        Self {
+            running: Default::default(),
+            config: config.clone(),
+            active_area: Default::default(),
+            editor: Editor::new(&config),
+            command_line: CommandLine::new(),
+            cursor_visible: true,
+            terminal_height: 0,
+            file_path: None,
+            popup: None,
+            popup_result: PopupResult::None,
+            pending_states: vec![],
+            debug_state: DebugState::new(),
+            debug_view: DebugView::new(),
+        }
     }
 
     /// Run the application's main loop.
@@ -385,7 +402,7 @@ mod unit_app_tests {
     use super::super::app::*;
 
     fn create_app() -> App {
-        let app = App::new();
+        let app = App::default();
         app
     }
 
@@ -422,7 +439,7 @@ mod unit_app_command_tests {
     use super::super::app::*;
 
     fn create_app(s: String) -> App {
-        let mut app = App::new();
+        let mut app = App::default();
         app.command_line.input = s;
         app
     }

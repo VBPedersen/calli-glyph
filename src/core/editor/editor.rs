@@ -2,7 +2,7 @@ use super::super::super::core::clipboard::Clipboard;
 use super::super::cursor::Cursor;
 use super::super::cursor::CursorPosition;
 use super::undo_redo::UndoRedoManager;
-use crate::config::editor_settings;
+use crate::config::Config;
 use crate::errors::editor_errors::EditorError::{
     ClipboardFailure, RedoFailure, TextSelectionFailure, UndoFailure,
 };
@@ -174,10 +174,14 @@ pub struct Editor {
     pub editor_height: u16,
     pub clipboard: Clipboard,
     pub undo_redo_manager: UndoRedoManager,
+
+    //Cached config settings
+    tab_width: u16,
+    use_spaces: bool,
 }
 
 impl Editor {
-    pub fn new() -> Self {
+    pub fn new(config: &Config) -> Self {
         Self {
             editor_content: vec![],
             visual_cursor_x: 0,
@@ -189,6 +193,8 @@ impl Editor {
             editor_height: 0,
             clipboard: Clipboard::new(),
             undo_redo_manager: UndoRedoManager::new(),
+            tab_width: config.editor.tab_width,
+            use_spaces: config.editor.use_spaces,
         }
     }
 
@@ -1149,7 +1155,7 @@ impl Editor {
     fn calculate_visual_x(&mut self) -> usize {
         let line = &self.editor_content[self.cursor.y as usize];
         let cursor_x = self.cursor.x as usize;
-        let tab_width = editor_settings::TAB_WIDTH as usize;
+        let tab_width = self.tab_width as usize;
         let mut visual_x = 0;
         for (i, c) in line.chars().enumerate() {
             if i == cursor_x {
@@ -1501,7 +1507,7 @@ impl Editor {
 
 impl Default for Editor {
     fn default() -> Self {
-        Self::new()
+        Self::new(&Config::default())
     }
 }
 
@@ -1515,11 +1521,11 @@ impl Default for Editor {
 mod unit_editor_write_tests {
     use super::super::super::cursor::CursorPosition;
     use super::super::editor::*;
-    use crate::config::editor_settings;
 
     //init functions
     fn create_editor_with_editor_content(vec: Vec<String>) -> Editor {
-        let mut editor = Editor::new();
+        let config = Config::default();
+        let mut editor = Editor::new(&config);
         editor.editor_content = vec;
         editor.editor_height = 10; //since testing doesnt start ui.rs, height isnt set
         editor
@@ -1527,7 +1533,7 @@ mod unit_editor_write_tests {
 
     #[test]
     fn test_write_char() {
-        let mut editor = Editor::new();
+        let mut editor = create_editor_with_editor_content(vec![]);
         editor.write_char('a');
         assert_eq!(editor.editor_content[0], "a");
         assert_eq!(editor.cursor.x, 1);
@@ -1535,7 +1541,7 @@ mod unit_editor_write_tests {
 
     #[test]
     fn test_write_char_normal_characters() {
-        let mut editor = Editor::new();
+        let mut editor = create_editor_with_editor_content(vec![]);
         editor.write_char('a');
         editor.write_char('b');
         editor.write_char('c');
@@ -1546,7 +1552,7 @@ mod unit_editor_write_tests {
 
     #[test]
     fn test_write_char_special_characters() {
-        let mut editor = Editor::new();
+        let mut editor = create_editor_with_editor_content(vec![]);
         editor.write_char('ᚠ');
         editor.write_char('Ω');
         editor.write_char('₿');
@@ -1557,7 +1563,7 @@ mod unit_editor_write_tests {
 
     #[test]
     fn test_write_char_at_line_10() {
-        let mut editor = Editor::new();
+        let mut editor = create_editor_with_editor_content(vec![]);
         editor.cursor.y = 10;
         editor.write_char('a');
         assert_eq!(editor.editor_content[10], "a");
@@ -1566,7 +1572,7 @@ mod unit_editor_write_tests {
 
     #[test]
     fn test_write_char_at_100_x() {
-        let mut editor = Editor::new();
+        let mut editor = create_editor_with_editor_content(vec![]);
         editor.cursor.x = 100;
         editor.write_char('a');
         assert_eq!(editor.editor_content[0], "a");
@@ -1647,22 +1653,24 @@ mod unit_editor_write_tests {
     //TAB in editor
     #[test]
     fn test_tab_in_editor_start_of_empty_line() {
+        let config = Config::default();
         let mut editor = create_editor_with_editor_content(vec!["".to_string()]);
         editor.tab();
 
         assert_eq!(editor.cursor.y, 0); // Cursor should stay on line
         assert_eq!(editor.editor_content.len(), 1); // New line added
-        assert_eq!(editor.visual_cursor_x, editor_settings::TAB_WIDTH as i16);
+        assert_eq!(editor.visual_cursor_x, config.editor.tab_width as i16);
     }
 
     #[test]
     fn test_tab_in_editor_start_of_line() {
-        let mut editor = create_editor_with_editor_content(vec!["HELLO WORLD".to_string()]);
+        let config = Config::default();
+        let mut editor = create_editor_with_editor_content(vec!["".to_string()]);
         editor.tab();
 
         assert_eq!(editor.cursor.y, 0); // Cursor should stay on line
         assert_eq!(editor.editor_content.len(), 1); // New line added
-        assert_eq!(editor.visual_cursor_x, editor_settings::TAB_WIDTH as i16);
+        assert_eq!(editor.visual_cursor_x, config.editor.tab_width as i16);
     }
 
     #[test]
@@ -1724,7 +1732,7 @@ mod unit_editor_delete_tests {
     use super::super::editor::*;
 
     fn create_editor_with_editor_content(vec: Vec<String>) -> Editor {
-        let mut editor = Editor::new();
+        let mut editor = Editor::new(&Config::default());
         editor.editor_content = vec;
         editor.editor_height = 10; //since testing doesnt start ui.rs, height isnt set
         editor
@@ -2066,7 +2074,7 @@ mod unit_editor_cursor_tests {
     use super::super::editor::*;
 
     fn create_editor_with_editor_content(vec: Vec<String>) -> Editor {
-        let mut editor = Editor::new();
+        let mut editor = Editor::new(&Config::default());
         editor.editor_content = vec;
         editor.editor_height = 10; //since testing doesnt start ui.rs, height isnt set
         editor
@@ -2238,11 +2246,12 @@ mod unit_editor_cursor_tests {
 }
 #[cfg(test)]
 mod unit_editor_cutcopy_tests {
+    use crate::config::Config;
     use crate::core::cursor::CursorPosition;
     use crate::core::editor::Editor;
 
     fn create_editor_with_editor_content(vec: Vec<String>) -> Editor {
-        let mut editor = Editor::new();
+        let mut editor = Editor::new(&Config::default());
         editor.editor_content = vec;
         editor.editor_height = 10; //since testing doesnt start ui.rs, height isnt set
         editor
@@ -2524,10 +2533,11 @@ mod unit_editor_undoredo_tests {
     use super::super::super::cursor::CursorPosition;
     use super::super::editor::EditAction;
     use super::super::editor::Editor;
+    use crate::config::Config;
 
     //init functions
     fn create_editor_with_editor_content(vec: Vec<String>) -> Editor {
-        let mut editor = Editor::new();
+        let mut editor = Editor::new(&Config::default());
         editor.editor_content = vec;
         editor.editor_height = 10; //since testing doesnt start ui.rs, height isnt set
         editor

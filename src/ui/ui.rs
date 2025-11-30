@@ -1,4 +1,3 @@
-use crate::config::editor_settings;
 use crate::core::app::{ActiveArea, App};
 use crate::core::cursor::CursorPosition;
 use crate::ui::debug;
@@ -249,7 +248,10 @@ fn handle_editor_content<'a>(
     editor_width: usize,
     app: &mut App,
 ) -> Text<'a> {
-    let editor_vec: Vec<String> = vec.into_iter().map(handle_tab_rendering).collect();
+    let editor_vec: Vec<String> = vec
+        .into_iter()
+        .map(|s| handle_tab_rendering(s, app.config.editor.tab_width))
+        .collect();
 
     let mut editor_text: Text = Text::default();
 
@@ -287,9 +289,8 @@ pub(crate) fn get_copy_of_editor_content_at_line_between_cursor_editor_width(
 }
 
 ///manipulates how the editor content \t character is rendered visually
-fn handle_tab_rendering(s: String) -> String {
+fn handle_tab_rendering(s: String, tab_width: u16) -> String {
     let mut temp_string: Vec<char> = s.chars().collect();
-    let tab_width = editor_settings::TAB_WIDTH;
 
     let mut i = 0;
 
