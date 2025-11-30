@@ -4,7 +4,7 @@ use crate::core::app::App;
 use crate::core::app::PendingState;
 use crate::core::command_line::command::CommandFlag;
 use crate::core::command_line::commands::file;
-use crate::core::errors::command_errors::CommandError;
+use crate::errors::command_errors::CommandError;
 use std::collections::HashSet;
 
 pub(crate) fn save_and_exit_command(

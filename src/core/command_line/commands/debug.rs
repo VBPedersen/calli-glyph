@@ -3,7 +3,7 @@ use crate::core::app::App;
 use crate::core::command_line::command::CommandFlag;
 use crate::core::cursor::CursorPosition;
 use crate::core::debug::{CaptureMode, LogLevel, Selection};
-use crate::core::errors::command_errors::CommandError;
+use crate::errors::command_errors::CommandError;
 use std::collections::HashSet;
 
 enum DebugSubcommand {

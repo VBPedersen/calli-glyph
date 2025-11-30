@@ -1,8 +1,8 @@
 use super::command_line::{command, command_executor, CommandLine};
 use super::editor::Editor;
-use super::errors::error::AppError;
-use super::errors::error::AppError::EditorFailure;
 use crate::core::debug::{DebugState, LogLevel};
+use crate::errors::error::AppError;
+use crate::errors::error::AppError::EditorFailure;
 use crate::input::input::handle_input;
 use crate::input::input_action::InputAction;
 use crate::ui::debug::DebugView;

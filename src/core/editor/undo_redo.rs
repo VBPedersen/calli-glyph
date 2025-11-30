@@ -1,5 +1,5 @@
-use super::super::errors::editor_errors::{RedoError, UndoError};
 use super::editor::EditAction;
+use crate::errors::editor_errors::{RedoError, UndoError};
 
 #[derive(Debug, Clone)]
 pub struct UndoRedoManager {

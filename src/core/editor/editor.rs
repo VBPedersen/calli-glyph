@@ -1,12 +1,12 @@
 use super::super::super::core::clipboard::Clipboard;
 use super::super::cursor::Cursor;
 use super::super::cursor::CursorPosition;
-use super::super::errors::editor_errors::EditorError::{
-    ClipboardFailure, RedoFailure, TextSelectionFailure, UndoFailure,
-};
-use super::super::errors::editor_errors::{ClipboardError, EditorError, TextSelectionError};
 use super::undo_redo::UndoRedoManager;
 use crate::config::editor_settings;
+use crate::errors::editor_errors::EditorError::{
+    ClipboardFailure, RedoFailure, TextSelectionFailure, UndoFailure,
+};
+use crate::errors::editor_errors::{ClipboardError, EditorError, TextSelectionError};
 use crate::input::input_action::InputAction;
 use std::fmt::Display;
 

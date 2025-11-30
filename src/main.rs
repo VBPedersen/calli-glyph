@@ -11,8 +11,8 @@ mod config;
 pub mod core; //expose app module
 pub mod input; //expose input module
 
+pub mod errors;
 pub mod ui;
-
 //███╗   ███╗ █████╗ ██╗███╗   ██╗
 //████╗ ████║██╔══██╗██║████╗  ██║
 //██╔████╔██║███████║██║██╔██╗ ██║

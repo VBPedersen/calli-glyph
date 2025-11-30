@@ -1,7 +1,7 @@
 //file related commands: save, open, write, etc.
 
 use crate::core::app::App;
-use crate::core::errors::command_errors::CommandError;
+use crate::errors::command_errors::CommandError;
 use std::collections::HashSet;
 
 use crate::core::app::PendingState;

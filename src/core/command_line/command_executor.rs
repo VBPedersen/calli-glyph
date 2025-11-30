@@ -1,7 +1,7 @@
 use crate::core::app::App;
 use crate::core::command_line::command::Command;
 use crate::core::command_line::commands;
-use crate::core::errors::command_errors::CommandError;
+use crate::errors::command_errors::CommandError;
 
 pub fn execute_command(app: &mut App, command: Command) -> Result<(), CommandError> {
     match command {
