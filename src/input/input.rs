@@ -83,8 +83,8 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
             _ => Some(InputAction::NoOp),
         },
     };
-    app.debug_state
-        .log(LogLevel::Trace, format!("Action: {:?}", action));
+   /* app.debug_state
+        .log(LogLevel::Trace, format!("Action: {:?}", action));*/
     if let Some(action) = action {
         app.process_input_action(action);
     }
