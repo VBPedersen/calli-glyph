@@ -1,4 +1,4 @@
-mod config;
+pub mod config;
 pub mod debug;
 pub mod file;
 pub mod help;

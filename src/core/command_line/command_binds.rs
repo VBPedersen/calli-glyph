@@ -6,4 +6,5 @@ pub mod command_binds {
     pub const COMMAND_HELP: &str = "h";
 
     pub const COMMAND_DEBUG: &str = "debug";
+    pub const COMMAND_CONFIG: &str = "config";
 }

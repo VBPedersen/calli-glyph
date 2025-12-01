@@ -89,3 +89,16 @@ impl Default for Config {
         }
     }
 }
+
+impl Config {
+    /// Delete config file
+    #[cfg(debug_assertions)] // Only available in debug builds
+    pub fn delete_config_file() -> Result<(), ConfigError> {
+        let config_path = Self::config_path()?;
+        if config_path.exists() {
+            std::fs::remove_file(&config_path)?;
+            eprintln!("Deleted config file: {:?}", config_path);
+        }
+        Ok(())
+    }
+}
