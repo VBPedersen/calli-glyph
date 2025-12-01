@@ -746,10 +746,16 @@ impl Editor {
                 let line = &mut self.editor_content[self.cursor.y as usize];
                 line.insert_str(0, &indent);
                 let len_of_indent = indent.chars().count();
-                
+
                 self.undo_redo_manager.record_undo(EditAction::InsertRange {
-                    start: CursorPosition { x: 0, y: self.cursor.y as usize },
-                    end: CursorPosition { x: len_of_indent, y: self.cursor.y as usize },
+                    start: CursorPosition {
+                        x: 0,
+                        y: self.cursor.y as usize,
+                    },
+                    end: CursorPosition {
+                        x: len_of_indent,
+                        y: self.cursor.y as usize,
+                    },
                     lines: vec![indent],
                 });
                 self.move_cursor(len_of_indent as i16, 0);
@@ -770,8 +776,14 @@ impl Editor {
             line.insert_str(insert_pos, &spaces);
 
             self.undo_redo_manager.record_undo(EditAction::InsertRange {
-                start: CursorPosition { x: insert_pos, y: self.cursor.y as usize },
-                end: CursorPosition { x: insert_pos + spaces.len(), y: self.cursor.y as usize },
+                start: CursorPosition {
+                    x: insert_pos,
+                    y: self.cursor.y as usize,
+                },
+                end: CursorPosition {
+                    x: insert_pos + spaces.len(),
+                    y: self.cursor.y as usize,
+                },
                 lines: vec![spaces],
             });
             self.move_cursor(self.tab_width as i16, 0);
@@ -781,22 +793,22 @@ impl Editor {
             let mut line_chars_vec: Vec<char> = line.chars().collect();
             line_chars_vec.insert(self.cursor.x as usize, '\t');
             *line = line_chars_vec.into_iter().collect();
-            
+
             self.undo_redo_manager.record_undo(EditAction::Insert {
-                pos: CursorPosition { x: insert_pos, y: self.cursor.y as usize },
+                pos: CursorPosition {
+                    x: insert_pos,
+                    y: self.cursor.y as usize,
+                },
                 c: '\t',
             });
 
             self.move_cursor(1, 0);
         }
-
     }
 
     /// Get indentation from line: leading whitespaces
     fn get_line_indent(&self, line: &str) -> String {
-        line.chars()
-            .take_while(|c| c.is_whitespace())
-            .collect()
+        line.chars().take_while(|c| c.is_whitespace()).collect()
     }
 
     //editor enter
