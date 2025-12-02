@@ -3,6 +3,7 @@
 use crate::core::app::App;
 use crate::core::command_line::command::CommandFlag;
 use crate::errors::command_errors::CommandError;
+use crate::ui::popups::config_validation_result_popup::ValidationResultPopup;
 use std::collections::HashSet;
 
 enum ConfigSubcommand {
@@ -10,6 +11,7 @@ enum ConfigSubcommand {
     Reset,
     Edit,
     Show,
+    Validate,
     Set { key: String, value: String },
     InvalidCommandArgument { name: String, args: Vec<String> },
 }
@@ -25,6 +27,7 @@ fn parse_to_subcommand(args: Vec<String>) -> ConfigSubcommand {
         "reset" => ConfigSubcommand::Reset,
         "edit" => ConfigSubcommand::Edit,
         "show" => ConfigSubcommand::Show,
+        "validate" => ConfigSubcommand::Validate,
         "set" => {
             //since set requires key and value (2 args), just check args length,
             // if not long enough = invalid
@@ -59,6 +62,7 @@ pub fn config_command(
         ConfigSubcommand::Reset => reset_config_command(app),
         ConfigSubcommand::Edit => edit_config_command(app),
         ConfigSubcommand::Show => show_config_command(app),
+        ConfigSubcommand::Validate => validate_config_command(app),
         ConfigSubcommand::Set { key, value } => set_config_command(app, key, value),
         ConfigSubcommand::InvalidCommandArgument { name, args } => {
             Err(CommandError::InvalidArguments {
@@ -73,9 +77,14 @@ pub fn config_command(
 pub fn reload_config_command(app: &mut App) -> Result<(), CommandError> {
     match app.config.reload() {
         Ok(_) => {
+            app.config.runtime_keymaps =
+                Some(app.config.keymaps.build_runtime_maps().map_err(|e| {
+                    CommandError::ExecutionFailed(format!("Failed building runtime keymaps {}", e))
+                })?);
+
             //TODO
-            // Rebuild runtime keymaps
             // Apply config changes to running app
+
             Ok(())
         }
         Err(e) => Err(CommandError::ExecutionFailed(format!(
@@ -127,6 +136,22 @@ pub fn show_config_command(app: &mut App) -> Result<(), CommandError> {
     }
 }
 
+pub fn validate_config_command(app: &mut App) -> Result<(), CommandError> {
+    let result = app.config.validate();
+
+    // Only open popup if any errors or warns, else just status msg TODO when made
+    if !result.errors.is_empty() || !result.warnings.is_empty() {
+        let popup = Box::new(ValidationResultPopup::new(app.config.validate()));
+        app.open_popup(popup);
+
+        //TODO when status bar made, add status message
+        Ok(())
+    } else {
+        //TODO when status bar made, add status message
+        Ok(())
+    }
+}
+
 pub fn set_config_command(app: &mut App, key: String, value: String) -> Result<(), CommandError> {
     match app.config.reload() {
         Ok(_) => {
@@ -138,5 +163,150 @@ pub fn set_config_command(app: &mut App, key: String, value: String) -> Result<(
             "Failed to set config key value: {}",
             e
         ))),
+    }
+}
+
+// --- Unit Tests ---
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{Config, KeymapConfig};
+    use crate::errors::config_errors::ConfigError;
+    use crate::input::input_action::{DebugAction, Direction, InputAction};
+    use crossterm::event::{KeyCode, KeyModifiers};
+
+    // Helper to easily create KeyModifiers with Control, Alt, and Shift bits set
+    fn ca_mods() -> KeyModifiers {
+        let mut m = KeyModifiers::empty();
+        m |= KeyModifiers::CONTROL;
+        m |= KeyModifiers::ALT;
+        m
+    }
+
+    // --- Key Parsing Tests ---
+
+    #[test]
+    fn test_parse_simple_key() {
+        let result = KeymapConfig::parse_key("Enter").unwrap();
+        assert_eq!(result, (KeyModifiers::empty(), KeyCode::Enter));
+    }
+
+    #[test]
+    fn test_parse_char_key() {
+        let result = KeymapConfig::parse_key("x").unwrap();
+        assert_eq!(result, (KeyModifiers::empty(), KeyCode::Char('x')));
+    }
+
+    #[test]
+    fn test_parse_ctrl_key() {
+        let result = KeymapConfig::parse_key("Ctrl+c").unwrap();
+        let mut expected_mods = KeyModifiers::empty();
+        expected_mods |= KeyModifiers::CONTROL;
+        assert_eq!(result, (expected_mods, KeyCode::Char('c')));
+    }
+
+    #[test]
+    fn test_parse_multiple_modifiers() {
+        let result = KeymapConfig::parse_key("Ctrl+Alt+Delete").unwrap();
+        let expected_mods = ca_mods(); // Control + Alt
+        assert_eq!(result, (expected_mods, KeyCode::Delete));
+    }
+
+    #[test]
+    fn test_parse_unknown_modifier_fails() {
+        let result = KeymapConfig::parse_key("Super+s");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ConfigError::InvalidKeymap(s) => assert!(s.contains("Unknown modifier")),
+            _ => panic!("Expected InvalidKeymap error"),
+        }
+    }
+
+    #[test]
+    fn test_parse_unknown_key_fails() {
+        let result = KeymapConfig::parse_key("F20");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ConfigError::InvalidKeymap(s) => assert!(s.contains("Unknown key")),
+            _ => panic!("Expected InvalidKeymap error"),
+        }
+    }
+
+    // --- Action Parsing Tests ---
+
+    #[test]
+    fn test_parse_simple_action() {
+        let result = KeymapConfig::parse_action("save").unwrap();
+        assert_eq!(result, InputAction::SAVE);
+    }
+
+    #[test]
+    fn test_parse_directional_action() {
+        let result = KeymapConfig::parse_action("move_up").unwrap();
+        assert_eq!(result, InputAction::MoveCursor(Direction::Up));
+    }
+
+    #[test]
+    fn test_parse_debug_action() {
+        let result = KeymapConfig::parse_action("cycle_mode").unwrap();
+        assert_eq!(result, InputAction::Debug(DebugAction::DebugCycleMode));
+    }
+
+    #[test]
+    fn test_parse_unknown_action_fails() {
+        let result = KeymapConfig::parse_action("teleport");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ConfigError::InvalidKeymap(s) => assert!(s.contains("Unknown action")),
+            _ => panic!("Expected InvalidKeymap error"),
+        }
+    }
+
+    // --- Config Integrity Tests ---
+
+    #[test]
+    fn test_default_config_is_valid() {
+        // This test ensures that the hardcoded defaults can be parsed successfully
+        // and do not trigger the panic! in Config::default().
+        let config = Config::default();
+
+        // Assert that the runtime keymaps were successfully built
+        assert!(
+            config.runtime_keymaps.is_some(),
+            "Default configuration failed to build runtime keymaps."
+        );
+
+        // Check a specific keymap entry to ensure it was correctly parsed
+        let runtime_maps = config.runtime_keymaps.as_ref().unwrap();
+
+        // Check Ctrl+s -> SAVE in editor map
+        let mut ctrl_mods = KeyModifiers::empty();
+        ctrl_mods |= KeyModifiers::CONTROL;
+        let ctrl_s = (ctrl_mods, KeyCode::Char('s'));
+        assert_eq!(runtime_maps.editor.get(&ctrl_s), Some(&InputAction::SAVE));
+
+        // Check Up -> move_up in editor map
+        let up = (KeyModifiers::empty(), KeyCode::Up);
+        assert_eq!(
+            runtime_maps.editor.get(&up),
+            Some(&InputAction::MoveCursor(Direction::Up))
+        );
+
+        // Check q -> exit_debug in debug map
+        let q = (KeyModifiers::empty(), KeyCode::Char('q'));
+        assert_eq!(
+            runtime_maps.debug.get(&q),
+            Some(&InputAction::Debug(DebugAction::ExitDebug))
+        );
+    }
+
+    #[test]
+    fn test_keymap_config_default_is_populated() {
+        // Test that the string maps (the serializable part) are populated
+        let keymaps = KeymapConfig::default();
+        assert!(!keymaps.editor.is_empty());
+        assert!(!keymaps.command_line.is_empty());
+        assert!(!keymaps.debug.is_empty());
+        assert_eq!(keymaps.editor.get("Ctrl+s"), Some(&"save".to_string()));
     }
 }

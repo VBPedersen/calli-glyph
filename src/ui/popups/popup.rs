@@ -30,4 +30,5 @@ pub enum PopupType {
     Confirmation,
     Warning,
     Error,
+    Info,
 }

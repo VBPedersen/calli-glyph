@@ -47,7 +47,7 @@ fn main() -> color_eyre::Result<()> {
     let terminal = ratatui::init();
 
     // Load config
-    let config = Config::load()?;
+    let config = Config::load();
     let result = App::new(config).run(terminal, file_path);
     //let result = ui::ui(&mut terminal, &app);
     ratatui::restore();

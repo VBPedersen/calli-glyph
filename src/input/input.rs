@@ -1,7 +1,6 @@
 use super::input_action::*;
 use crate::core::app::ActiveArea;
 use crate::core::app::App;
-use crate::core::debug::LogLevel;
 use color_eyre::eyre::Result;
 use crossterm::event;
 use crossterm::event::{

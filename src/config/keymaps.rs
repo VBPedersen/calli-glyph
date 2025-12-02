@@ -82,6 +82,18 @@ impl KeymapConfig {
             "pagedown" => KeyCode::PageDown,
             "home" => KeyCode::Home,
             "end" => KeyCode::End,
+            "f1" => KeyCode::F(1),
+            "f2" => KeyCode::F(2),
+            "f3" => KeyCode::F(3),
+            "f4" => KeyCode::F(4),
+            "f5" => KeyCode::F(5),
+            "f6" => KeyCode::F(6),
+            "f7" => KeyCode::F(7),
+            "f8" => KeyCode::F(8),
+            "f9" => KeyCode::F(9),
+            "f10" => KeyCode::F(10),
+            "f11" => KeyCode::F(11),
+            "f12" => KeyCode::F(12),
             s if s.len() == 1 => KeyCode::Char(
                 s.chars()
                     .next()
@@ -99,7 +111,7 @@ impl KeymapConfig {
     }
 
     /// Parse action string like "copy" into InputAction
-    fn parse_action(action_str: &str) -> Result<InputAction, ConfigError> {
+    pub fn parse_action(action_str: &str) -> Result<InputAction, ConfigError> {
         use crate::input::input_action::Direction;
 
         match action_str.to_lowercase().as_str() {

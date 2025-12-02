@@ -206,6 +206,7 @@ impl App {
                     match popup.get_popup_type() {
                         PopupType::Confirmation => self.handle_confirmation_popup_response(),
                         PopupType::Error => self.handle_error_popup_response(),
+                        PopupType::Info => self.handle_info_popup_response(),
                         _ => {}
                     }
                 }
@@ -323,6 +324,13 @@ impl App {
 
     ///handles response from error popup, should only close popup
     pub fn handle_error_popup_response(&mut self) {
+        if self.popup_result == PopupResult::Affirmed {
+            self.close_popup();
+        }
+    }
+
+    ///handles response from info popup, should only close popup
+    pub fn handle_info_popup_response(&mut self) {
         if self.popup_result == PopupResult::Affirmed {
             self.close_popup();
         }
