@@ -175,12 +175,20 @@ fn render_snapshot_history(frame: &mut Frame, snapshot: &AppSnapshot, area: Rect
 }
 
 fn render_snapshot_state(frame: &mut Frame, snapshot: &AppSnapshot, area: Rect) {
+    let file_path: String = if snapshot.file_path.is_some() {
+        snapshot
+            .file_path
+            .as_ref()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string()
+    } else {
+        "None".to_string()
+    };
     let text = vec![
         Line::from(format!("Active Area: {}", snapshot.active_area)),
-        Line::from(format!(
-            "File: {}",
-            snapshot.file_path.as_ref().unwrap_or(&"None".to_string())
-        )),
+        Line::from(format!("File: {}", file_path)),
         Line::from(format!(
             " Frame Time: {}ms",
             snapshot.frame_time.as_secs_f64() * 1000.0

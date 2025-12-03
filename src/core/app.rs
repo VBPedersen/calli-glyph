@@ -1,5 +1,6 @@
 use super::command_line::{command, command_executor, CommandLine};
 use super::editor::Editor;
+use crate::app_config::AppLaunchConfig;
 use crate::config::Config;
 use crate::core::debug::{DebugState, LogLevel};
 use crate::errors::error::AppError;
@@ -16,7 +17,7 @@ use ratatui::DefaultTerminal;
 use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 #[derive(Debug)]
@@ -29,7 +30,7 @@ pub struct App {
     pub command_line: CommandLine,
     pub(crate) cursor_visible: bool,
     pub(crate) terminal_height: i16,
-    pub file_path: Option<String>,
+    pub file_path: Option<PathBuf>,
     pub popup: Option<Box<dyn Popup>>,
     pub popup_result: PopupResult,
     pub pending_states: Vec<PendingState>,
@@ -40,7 +41,7 @@ pub struct App {
 #[derive(Debug, PartialEq)]
 pub enum PendingState {
     None,
-    Saving(String),
+    Saving(PathBuf),
     Quitting,
 }
 
@@ -75,7 +76,7 @@ impl Default for App {
 
 impl App {
     /// Construct a new instance of [`App`].
-    pub fn new(config: Config) -> Self {
+    pub fn new(config: Config, launch_config: AppLaunchConfig) -> Self {
         Self {
             running: Default::default(),
             config: config.clone(),
@@ -84,7 +85,7 @@ impl App {
             command_line: CommandLine::new(),
             cursor_visible: true,
             terminal_height: 0,
-            file_path: None,
+            file_path: launch_config.file_path,
             popup: None,
             popup_result: PopupResult::None,
             pending_states: vec![],
@@ -94,15 +95,17 @@ impl App {
     }
 
     /// Run the application's main loop.
-    pub fn run(mut self, mut terminal: DefaultTerminal, file_path: Option<String>) -> Result<()> {
+    pub fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
         //SETUP
-
         self.running = true;
         self.active_area = ActiveArea::Editor;
-        self.file_path = file_path;
 
         // Read file contents if a file path is provided
         self.editor.editor_content = if let Some(ref path) = self.file_path {
+            self.debug_state.log(
+                LogLevel::Info,
+                format!("Attempting to load file : {}", path.display()),
+            );
             match File::open(path) {
                 Ok(f) => {
                     let mut buff_read_file = BufReader::new(f);
@@ -112,7 +115,7 @@ impl App {
                         Err(err) => {
                             //if file not found create new
                             self.running = false;
-                            panic!("Failed to create file '{}': {}", path, err);
+                            panic!("Failed to create file '{}': {}", path.display(), err);
                         }
                     }
                 }
@@ -124,7 +127,7 @@ impl App {
                         }
                         Err(create_err) => {
                             self.running = false;
-                            panic!("Failed to create file '{}': {}", path, create_err);
+                            panic!("Failed to create file '{}': {}", path.display(), create_err);
                         }
                     }
                 }
@@ -287,7 +290,7 @@ impl App {
             println!("Confirmation Popup response:{:?}", self.pending_states);
             match (pending, self.popup_result.clone()) {
                 (PendingState::Saving(path), PopupResult::Bool(true)) => {
-                    match self.save_to_path(path.clone()) {
+                    match self.save_to_path(&*path.clone()) {
                         Ok(()) => {
                             self.pending_states.remove(0);
                             self.close_popup();
@@ -355,7 +358,7 @@ impl App {
     }
 
     ///saves contents to file at path
-    pub fn save_to_path(&mut self, path: String) -> Result<(), AppError> {
+    pub fn save_to_path(&mut self, path: &Path) -> Result<(), AppError> {
         let new_content = self.editor.editor_content.join("\n");
 
         let path_ref = Path::new(&path);
@@ -372,7 +375,7 @@ impl App {
         writer.write_all(new_content.as_bytes())?;
         writer.flush()?;
 
-        self.file_path = Some(path); // optionally update file_path
+        self.file_path = Some(path.to_path_buf()); // optionally update file_path
         Ok(())
     }
 
@@ -380,7 +383,7 @@ impl App {
     pub(crate) fn file_has_changes(
         &self,
         editor_content: String,
-        file_path: String,
+        file_path: &Path,
     ) -> Result<bool> {
         let file = File::open(file_path)?;
         let mut buff_read_file = BufReader::new(file);

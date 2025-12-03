@@ -3,6 +3,7 @@ use crate::core::app::ActiveArea;
 use crate::core::cursor::{Cursor, CursorPosition};
 use crate::core::editor::editor::EditAction;
 use std::collections::VecDeque;
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 /// Main debug state - tracks entire application
@@ -64,7 +65,7 @@ pub struct AppSnapshot {
 
     // App state
     pub active_area: String,
-    pub file_path: Option<String>,
+    pub file_path: Option<PathBuf>,
 
     //performance at time
     pub frame_time: Duration,
@@ -121,7 +122,7 @@ impl DebugState {
         clipboard_entries: Vec<String>,
         undo_stack: Vec<EditAction>,
         redo_stack: Vec<EditAction>,
-        file_path: Option<String>,
+        file_path: Option<PathBuf>,
     ) {
         if !self.enabled {
             return;
@@ -161,7 +162,7 @@ impl DebugState {
         clipboard_entries: Vec<String>,
         undo_stack: Vec<EditAction>,
         redo_stack: Vec<EditAction>,
-        file_path: Option<String>,
+        file_path: Option<PathBuf>,
     ) {
         self.capture_snapshot_internal(
             active_area,
@@ -189,7 +190,7 @@ impl DebugState {
         clipboard_entries: Vec<String>,
         undo_stack: Vec<EditAction>,
         redo_stack: Vec<EditAction>,
-        file_path: Option<String>,
+        file_path: Option<PathBuf>,
     ) {
         let snapshot = AppSnapshot {
             timestamp: Instant::now(),

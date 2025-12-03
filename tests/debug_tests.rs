@@ -223,6 +223,7 @@ mod debug_snapshot_tests {
     use calliglyph::core::app::ActiveArea;
     use calliglyph::core::cursor::Cursor;
     use calliglyph::core::debug::{CaptureMode, DebugState, SnapshotTrigger};
+    use std::path::PathBuf;
 
     fn create_test_debug_state() -> DebugState {
         DebugState::new()
@@ -481,7 +482,7 @@ mod debug_snapshot_tests {
             vec!["clip1".to_string()],
             vec![],
             vec![],
-            Some("/path/to/file".to_string()),
+            Some(PathBuf::from("/path/to/file")),
         );
 
         let snapshot = debug_state.snapshots.latest().unwrap();
@@ -490,7 +491,7 @@ mod debug_snapshot_tests {
         assert_eq!(snapshot.buffer_lines, 2);
         assert_eq!(snapshot.buffer_content[0], "line1");
         assert_eq!(snapshot.clipboard_size, 1);
-        assert_eq!(snapshot.file_path, Some("/path/to/file".to_string()));
+        assert_eq!(snapshot.file_path, Some(PathBuf::from("/path/to/file")));
     }
 }
 

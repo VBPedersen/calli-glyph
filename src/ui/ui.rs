@@ -11,6 +11,7 @@ use ratatui::{
     Frame,
 };
 use std::default::Default;
+use std::path::PathBuf;
 use std::vec;
 
 pub fn ui(frame: &mut Frame, app: &mut App) {
@@ -57,9 +58,9 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
     );
 
     let command_input: String = app.command_line.input.to_string();
-    let file_name_optional: Option<String> = app.file_path.clone();
+    let file_name_optional: Option<PathBuf> = app.file_path.clone();
     let file_to_use = if let Some(file) = file_name_optional {
-        file
+        file.to_str().unwrap().to_string()
     } else {
         "untitled".to_string()
     };

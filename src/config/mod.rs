@@ -46,7 +46,7 @@ pub struct ValidationResult {
 }
 
 impl Config {
-    fn config_path() -> Result<PathBuf, ConfigError> {
+    pub fn get_config_path() -> Result<PathBuf, ConfigError> {
         // If a test path is set, return it. ONLY USED FOR TESTING
         if let Some(path) = TEST_CONFIG_PATH.with(|cell| cell.borrow().clone()) {
             return Ok(path);
@@ -59,7 +59,7 @@ impl Config {
     ///Tries to load config from path,
     /// func shared by load which falls back, and reload which propagates
     fn try_load() -> Result<Self, ConfigError> {
-        let config_path = Self::config_path()?;
+        let config_path = Self::get_config_path()?;
 
         let mut config = if config_path.exists() {
             eprintln!("[INFO] [CONFIG] Loading config from: {:?}", config_path);
@@ -102,7 +102,7 @@ impl Config {
     }
 
     pub fn save(&self) -> Result<(), ConfigError> {
-        let config_path = Self::config_path()?;
+        let config_path = Self::get_config_path()?;
 
         if let Some(parent) = config_path.parent() {
             fs::create_dir_all(parent)?;
@@ -122,7 +122,7 @@ impl Config {
         };
 
         // Check if config file exists
-        let config_path = match Self::config_path() {
+        let config_path = match Self::get_config_path() {
             Ok(path) => path,
             Err(e) => {
                 result.valid = false;
@@ -248,7 +248,7 @@ impl Config {
     /// Delete config file
     #[cfg(debug_assertions)] // Only available in debug builds
     pub fn delete_config_file() -> Result<(), ConfigError> {
-        let config_path = Self::config_path()?;
+        let config_path = Self::get_config_path()?;
         if config_path.exists() {
             std::fs::remove_file(&config_path)?;
             eprintln!("Deleted config file: {:?}", config_path);
