@@ -1,6 +1,7 @@
 use super::input_action::*;
 use crate::core::app::ActiveArea;
 use crate::core::app::App;
+use crate::core::debug::LogLevel;
 use color_eyre::eyre::Result;
 use crossterm::event;
 use crossterm::event::{
@@ -42,7 +43,8 @@ fn on_scroll_events(app: &mut App, mouse: MouseEvent) {
 fn on_key_event(app: &mut App, key: KeyEvent) {
     let config = &app.config;
     let keymaps = config.runtime_keymaps();
-
+    /*app.debug_state
+    .log(LogLevel::Trace, format!("keyevent: {:?}", key));*/
     let action = match app.active_area {
         ActiveArea::Editor => {
             if key.modifiers == KeyModifiers::NONE || key.modifiers == KeyModifiers::SHIFT {

@@ -21,9 +21,7 @@ pub mod ui;
 //╚═╝     ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝
 
 use crate::config::Config;
-use crossterm::event::DisableMouseCapture;
 use crossterm::terminal::LeaveAlternateScreen;
-use ratatui::crossterm::event::EnableMouseCapture;
 use ratatui::crossterm::execute;
 use ratatui::crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen};
 use std::{env, io};
@@ -41,7 +39,7 @@ fn main() -> color_eyre::Result<()> {
 
     enable_raw_mode().expect("Failed to enable raw mode");
     let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    execute!(stdout, EnterAlternateScreen)?;
 
     color_eyre::install()?;
     let terminal = ratatui::init();
@@ -53,7 +51,7 @@ fn main() -> color_eyre::Result<()> {
     ratatui::restore();
 
     disable_raw_mode()?;
-    execute!(stdout, LeaveAlternateScreen, DisableMouseCapture)?;
+    execute!(stdout, LeaveAlternateScreen)?;
 
     result
 }
