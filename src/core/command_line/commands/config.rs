@@ -3,8 +3,8 @@
 use crate::core::app::App;
 use crate::core::command_line::command::CommandFlag;
 use crate::errors::command_errors::CommandError;
-use crate::ui::popups::config_validation_result_popup::ValidationResultPopup;
 use std::collections::HashSet;
+use crate::config::Config;
 
 enum ConfigSubcommand {
     Reload,
@@ -76,15 +76,9 @@ pub fn config_command(
 ///Reloads config, rebuilds keymaps and applies to running app
 pub fn reload_config_command(app: &mut App) -> Result<(), CommandError> {
     match app.config.reload() {
-        Ok(_) => {
-            app.config.runtime_keymaps =
-                Some(app.config.keymaps.build_runtime_maps().map_err(|e| {
-                    CommandError::ExecutionFailed(format!("Failed building runtime keymaps {}", e))
-                })?);
-
-            //TODO
-            // Apply config changes to running app
-
+        Ok(config) => {
+            //set in memory config to new config
+            app.config = config;
             Ok(())
         }
         Err(e) => Err(CommandError::ExecutionFailed(format!(
@@ -94,34 +88,53 @@ pub fn reload_config_command(app: &mut App) -> Result<(), CommandError> {
     }
 }
 
+/// Reset config to defaults
 pub fn reset_config_command(app: &mut App) -> Result<(), CommandError> {
-    match app.config.reload() {
+   app.config = Config::default();
+
+    match app.config.save() {
         Ok(_) => {
-            //TODO
-            //
+            // Rebuild runtime keymaps
+            app.config.runtime_keymaps = Some(
+                app.config.keymaps.build_runtime_maps()
+                    .map_err(|e| CommandError::ExecutionFailed(format!("Failed to build keymaps: {}", e)))?
+            );
             Ok(())
         }
-        Err(e) => Err(CommandError::ExecutionFailed(format!(
-            "Failed to reset config: {}",
-            e
-        ))),
+        Err(e) => Err(CommandError::ExecutionFailed(format!("Failed to save config: {}", e)))
     }
 }
 
+///Open config file inside the editor
 pub fn edit_config_command(app: &mut App) -> Result<(), CommandError> {
-    match app.config.reload() {
-        Ok(_) => {
-            //TODO
-            // Open config file inside editor
+    let config_path = Config::get_config_path()
+        .map_err(|e| CommandError::ExecutionFailed(format!("Failed to get config path: {}", e)))?;
+    
+    // Ensure config exists
+    if !config_path.exists() {
+        app.config.save()
+            .map_err(|e| CommandError::ExecutionFailed(format!("Failed to create config: {}", e)))?;
+    }
+    
+    // Set the file path to config file
+    app.file_path = Some(config_path.clone());
+    
+    // Load config content into editor
+    match std::fs::read_to_string(&config_path) {
+        Ok(content) => {
+            app.editor.editor_content = content.lines().map(String::from).collect();
+            if app.editor.editor_content.is_empty() {
+                app.editor.editor_content.push(String::new());
+            }
+            app.editor.cursor.x = 0;
+            app.editor.cursor.y = 0;
             Ok(())
         }
-        Err(e) => Err(CommandError::ExecutionFailed(format!(
-            "Failed to edit config: {}",
-            e
-        ))),
+        Err(e) => Err(CommandError::ExecutionFailed(format!("Failed to read config: {}", e)))
     }
 }
 
+///Show config.toml as scrollable popup window
 pub fn show_config_command(app: &mut App) -> Result<(), CommandError> {
     match app.config.reload() {
         Ok(_) => {
@@ -138,17 +151,17 @@ pub fn show_config_command(app: &mut App) -> Result<(), CommandError> {
 
 pub fn validate_config_command(app: &mut App) -> Result<(), CommandError> {
     let result = app.config.validate();
+    // Display detailed report in editor or status
+    let report = result.detailed_report();
 
     // Only open popup if any errors or warns, else just status msg TODO when made
-    if !result.errors.is_empty() || !result.warnings.is_empty() {
-        let popup = Box::new(ValidationResultPopup::new(app.config.validate()));
-        app.open_popup(popup);
+    //for now just print
+    eprintln!("\n{}", report);
 
-        //TODO when status bar made, add status message
+    if result.is_valid() {
         Ok(())
     } else {
-        //TODO when status bar made, add status message
-        Ok(())
+        Err(CommandError::ExecutionFailed("Config validation failed. See errors above.".to_string()))
     }
 }
 
@@ -157,6 +170,7 @@ pub fn set_config_command(app: &mut App, key: String, value: String) -> Result<(
         Ok(_) => {
             //TODO
             // set specific key of config temporarily in app memory to value
+            // Consider only specific fields not keymaps, like tick rate, tab width so on
             Ok(())
         }
         Err(e) => Err(CommandError::ExecutionFailed(format!(

@@ -89,10 +89,11 @@ impl Config {
     }
 
     /// Reloads config, and propagates error if unsuccessful
-    pub fn reload(&mut self) -> Result<(), ConfigError> {
-        *self = Self::try_load()?;
+    pub fn reload(&mut self) -> Result<Self, ConfigError> {
+        let config = Self::try_load()?;
+        *self = config.clone(); 
         eprintln!("[INFO] [CONFIG] Successfully reloaded configuration.");
-        Ok(())
+        Ok(config)
     }
 
     pub fn runtime_keymaps(&self) -> &RuntimeKeymaps {
@@ -171,19 +172,112 @@ impl Config {
 
         // CUSTOM CHECKS on temp config to not make changes
 
-        //TODO implement custom checks for specific fields in config
+        //TODO implement more validation:
         // Check for all corresponding fields, valid field names and such, both warns and errors
 
+        // Validate editor config
+        Self::validate_editor_config(&temp_config.editor, &mut result);
+
+        // Validate UI config
+        Self::validate_ui_config(&temp_config.ui, &mut result);
+
+        // Validate performance config
+        Self::validate_performance_config(&temp_config.performance, &mut result);
+
+        // Validate keymaps
+        Self::validate_keymaps(&temp_config.keymaps, &mut result);
+
+        // Final check, if no errors were encountered, mark as valid.
+        if result.errors.is_empty() {
+            result.valid = true;
+        } else {
+            result.valid = false;
+        }
+
+        result
+    }
+
+    fn validate_editor_config(config: &EditorConfig, result: &mut ValidationResult) {
         // tab width warn, recommended
-        if temp_config.editor.tab_width == 0 || temp_config.editor.tab_width > 8 {
+        if config.tab_width == 0 {
+            result.valid = false;
+            result.errors.push("editor.tab_width must be greater than 0".to_string());
+        } else if config.tab_width > 16 {
             result.warnings.push(format!(
-                "Editor 'tab_width' is set to {} (recommended range 2-8).",
-                temp_config.editor.tab_width
+                "editor.tab_width  is set to {} (recommended range 2-8).",
+                config.tab_width
             ));
         }
 
-        // check if can build runtime keymaps
-        match temp_config.keymaps.build_runtime_maps() {
+        // Validate auto_save_delay
+        if config.auto_save && config.auto_save_delay_ms < 100 {
+            result.warnings.push(
+                "editor.auto_save_delay_ms is very low (< 100ms). May cause performance issues.".to_string()
+            );
+        }
+    }
+
+    fn validate_ui_config(config: &UIConfig, result: &mut ValidationResult) {
+        // Validate scrolloff
+        if config.scrolloff > 50 {
+            result.warnings.push(format!(
+                "ui.scrolloff is {} (very large). Recommended: 3-10.",
+                config.scrolloff
+            ));
+        }
+
+        // Theme validation (if theme file should exist)
+        if config.theme != "default" {
+            result.warnings.push(format!(
+                "Custom theme '{}' specified. Ensure theme file exists.",
+                config.theme
+            ));
+        }
+    }
+
+    fn validate_performance_config(config: &PerformanceConfig, result: &mut ValidationResult) {
+        // Validate tick_rate
+        if config.tick_rate_ms == 0 {
+            result.valid = false;
+            result.errors.push("performance.tick_rate_ms must be greater than 0".to_string());
+        } else if config.tick_rate_ms < 16 {
+            result.warnings.push(
+                "performance.tick_rate_ms < 16ms (>60 FPS). May use unnecessary CPU.".to_string()
+            );
+        } else if config.tick_rate_ms > 200 {
+            result.warnings.push(
+                "performance.tick_rate_ms > 200ms. UI may feel sluggish.".to_string()
+            );
+        }
+
+        // Validate cursor blink rate
+        if config.cursor_blink_rate_ms < 100 {
+            result.warnings.push(
+                "performance.cursor_blink_rate_ms < 100ms. Cursor may blink too fast.".to_string()
+            );
+        }
+
+        // Validate history limits
+        if config.undo_history_limit == 0 {
+            result.warnings.push("performance.undo_history_limit is 0. Undo will not work.".to_string());
+        } else if config.undo_history_limit > 10000 {
+            result.warnings.push(format!(
+                "performance.undo_history_limit is {} (very large). May use excessive memory.",
+                config.undo_history_limit
+            ));
+        }
+
+        if config.clipboard_history_limit > 1000 {
+            result.warnings.push(format!(
+                "performance.clipboard_history_limit is {} (very large). May use excessive memory.",
+                config.clipboard_history_limit
+            ));
+        }
+    }
+
+    fn validate_keymaps(keymaps: &KeymapConfig, result: &mut ValidationResult) {
+        // Try to build runtime keymaps
+        match keymaps.build_runtime_maps() {
             Ok(_) => {
                 // Keymaps successfully built
             }
@@ -201,16 +295,44 @@ impl Config {
                 ));
             }
         }
-
-        // Final check, if no errors were encountered, mark as valid.
-        if result.errors.is_empty() {
-            result.valid = true;
-        } else {
-            result.valid = false;
+        // Check for empty keymaps
+        if keymaps.editor.is_empty() {
+            result.warnings.push("keymaps.editor is empty. No editor keybindings defined.".to_string());
+        }
+        if keymaps.command_line.is_empty() {
+            result.warnings.push("keymaps.command_line is empty. No command line keybindings defined.".to_string());
+        }
+        if keymaps.debug.is_empty() {
+            result.warnings.push("keymaps.debug is empty. No debug keybindings defined.".to_string());
         }
 
-        result
+        // Check for conflicting keybinds within same context
+        Self::check_duplicate_keybinds("editor", &keymaps.editor, result);
+        Self::check_duplicate_keybinds("command_line", &keymaps.command_line, result);
+        Self::check_duplicate_keybinds("debug", &keymaps.debug, result);
     }
+
+    fn check_duplicate_keybinds(
+        context: &str,
+        keybinds: &std::collections::HashMap<String, String>,
+        result: &mut ValidationResult,
+    ) {
+        let mut key_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+
+        for key in keybinds.keys() {
+            *key_counts.entry(key.clone()).or_insert(0) += 1;
+        }
+
+        for (key, count) in key_counts {
+            if count > 1 {
+                result.warnings.push(format!(
+                    "Duplicate keybinding in {}: '{}' is defined {} times",
+                    context, key, count
+                ));
+            }
+        }
+    }
+
 }
 
 //ONLY FOR TESTING
@@ -250,9 +372,60 @@ impl Config {
     pub fn delete_config_file() -> Result<(), ConfigError> {
         let config_path = Self::get_config_path()?;
         if config_path.exists() {
-            std::fs::remove_file(&config_path)?;
+            fs::remove_file(&config_path)?;
             eprintln!("Deleted config file: {:?}", config_path);
         }
         Ok(())
+    }
+}
+
+impl ValidationResult {
+    pub fn is_valid(&self) -> bool {
+        self.valid
+    }
+
+    pub fn has_warnings(&self) -> bool {
+        !self.warnings.is_empty()
+    }
+
+    pub fn summary(&self) -> String {
+        if self.valid && !self.has_warnings() {
+            "✓ Config is valid with no warnings.".to_string()
+        } else if self.valid && self.has_warnings() {
+            format!(
+                "✓ Config is valid but has {} warning(s).",
+                self.warnings.len()
+            )
+        } else {
+            format!(
+                "✗ Config is invalid. {} error(s), {} warning(s).",
+                self.errors.len(),
+                self.warnings.len()
+            )
+        }
+    }
+
+    pub fn detailed_report(&self) -> String {
+        let mut report = String::new();
+
+        report.push_str(&self.summary());
+        report.push_str("\n\n");
+
+        if !self.errors.is_empty() {
+            report.push_str("ERRORS:\n");
+            for (i, error) in self.errors.iter().enumerate() {
+                report.push_str(&format!("  {}. {}\n", i + 1, error));
+            }
+            report.push('\n');
+        }
+
+        if !self.warnings.is_empty() {
+            report.push_str("WARNINGS:\n");
+            for (i, warning) in self.warnings.iter().enumerate() {
+                report.push_str(&format!("  {}. {}\n", i + 1, warning));
+            }
+        }
+
+        report
     }
 }
