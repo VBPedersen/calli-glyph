@@ -1,10 +1,10 @@
 //TODO make command for loading, and reloading and related commands for config
 
+use crate::config::Config;
 use crate::core::app::App;
 use crate::core::command_line::command::CommandFlag;
 use crate::errors::command_errors::CommandError;
 use std::collections::HashSet;
-use crate::config::Config;
 
 enum ConfigSubcommand {
     Reload,
@@ -90,18 +90,21 @@ pub fn reload_config_command(app: &mut App) -> Result<(), CommandError> {
 
 /// Reset config to defaults
 pub fn reset_config_command(app: &mut App) -> Result<(), CommandError> {
-   app.config = Config::default();
+    app.config = Config::default();
 
     match app.config.save() {
         Ok(_) => {
             // Rebuild runtime keymaps
-            app.config.runtime_keymaps = Some(
-                app.config.keymaps.build_runtime_maps()
-                    .map_err(|e| CommandError::ExecutionFailed(format!("Failed to build keymaps: {}", e)))?
-            );
+            app.config.runtime_keymaps =
+                Some(app.config.keymaps.build_runtime_maps().map_err(|e| {
+                    CommandError::ExecutionFailed(format!("Failed to build keymaps: {}", e))
+                })?);
             Ok(())
         }
-        Err(e) => Err(CommandError::ExecutionFailed(format!("Failed to save config: {}", e)))
+        Err(e) => Err(CommandError::ExecutionFailed(format!(
+            "Failed to save config: {}",
+            e
+        ))),
     }
 }
 
@@ -109,16 +112,17 @@ pub fn reset_config_command(app: &mut App) -> Result<(), CommandError> {
 pub fn edit_config_command(app: &mut App) -> Result<(), CommandError> {
     let config_path = Config::get_config_path()
         .map_err(|e| CommandError::ExecutionFailed(format!("Failed to get config path: {}", e)))?;
-    
+
     // Ensure config exists
     if !config_path.exists() {
-        app.config.save()
-            .map_err(|e| CommandError::ExecutionFailed(format!("Failed to create config: {}", e)))?;
+        app.config.save().map_err(|e| {
+            CommandError::ExecutionFailed(format!("Failed to create config: {}", e))
+        })?;
     }
-    
+
     // Set the file path to config file
     app.file_path = Some(config_path.clone());
-    
+
     // Load config content into editor
     match std::fs::read_to_string(&config_path) {
         Ok(content) => {
@@ -130,7 +134,10 @@ pub fn edit_config_command(app: &mut App) -> Result<(), CommandError> {
             app.editor.cursor.y = 0;
             Ok(())
         }
-        Err(e) => Err(CommandError::ExecutionFailed(format!("Failed to read config: {}", e)))
+        Err(e) => Err(CommandError::ExecutionFailed(format!(
+            "Failed to read config: {}",
+            e
+        ))),
     }
 }
 
@@ -161,7 +168,9 @@ pub fn validate_config_command(app: &mut App) -> Result<(), CommandError> {
     if result.is_valid() {
         Ok(())
     } else {
-        Err(CommandError::ExecutionFailed("Config validation failed. See errors above.".to_string()))
+        Err(CommandError::ExecutionFailed(
+            "Config validation failed. See errors above.".to_string(),
+        ))
     }
 }
 

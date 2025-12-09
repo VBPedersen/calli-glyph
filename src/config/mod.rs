@@ -91,7 +91,7 @@ impl Config {
     /// Reloads config, and propagates error if unsuccessful
     pub fn reload(&mut self) -> Result<Self, ConfigError> {
         let config = Self::try_load()?;
-        *self = config.clone(); 
+        *self = config.clone();
         eprintln!("[INFO] [CONFIG] Successfully reloaded configuration.");
         Ok(config)
     }
@@ -201,7 +201,9 @@ impl Config {
         // tab width warn, recommended
         if config.tab_width == 0 {
             result.valid = false;
-            result.errors.push("editor.tab_width must be greater than 0".to_string());
+            result
+                .errors
+                .push("editor.tab_width must be greater than 0".to_string());
         } else if config.tab_width > 16 {
             result.warnings.push(format!(
                 "editor.tab_width  is set to {} (recommended range 2-8).",
@@ -212,7 +214,8 @@ impl Config {
         // Validate auto_save_delay
         if config.auto_save && config.auto_save_delay_ms < 100 {
             result.warnings.push(
-                "editor.auto_save_delay_ms is very low (< 100ms). May cause performance issues.".to_string()
+                "editor.auto_save_delay_ms is very low (< 100ms). May cause performance issues."
+                    .to_string(),
             );
         }
     }
@@ -239,27 +242,31 @@ impl Config {
         // Validate tick_rate
         if config.tick_rate_ms == 0 {
             result.valid = false;
-            result.errors.push("performance.tick_rate_ms must be greater than 0".to_string());
+            result
+                .errors
+                .push("performance.tick_rate_ms must be greater than 0".to_string());
         } else if config.tick_rate_ms < 16 {
             result.warnings.push(
-                "performance.tick_rate_ms < 16ms (>60 FPS). May use unnecessary CPU.".to_string()
+                "performance.tick_rate_ms < 16ms (>60 FPS). May use unnecessary CPU.".to_string(),
             );
         } else if config.tick_rate_ms > 200 {
-            result.warnings.push(
-                "performance.tick_rate_ms > 200ms. UI may feel sluggish.".to_string()
-            );
+            result
+                .warnings
+                .push("performance.tick_rate_ms > 200ms. UI may feel sluggish.".to_string());
         }
 
         // Validate cursor blink rate
         if config.cursor_blink_rate_ms < 100 {
             result.warnings.push(
-                "performance.cursor_blink_rate_ms < 100ms. Cursor may blink too fast.".to_string()
+                "performance.cursor_blink_rate_ms < 100ms. Cursor may blink too fast.".to_string(),
             );
         }
 
         // Validate history limits
         if config.undo_history_limit == 0 {
-            result.warnings.push("performance.undo_history_limit is 0. Undo will not work.".to_string());
+            result
+                .warnings
+                .push("performance.undo_history_limit is 0. Undo will not work.".to_string());
         } else if config.undo_history_limit > 10000 {
             result.warnings.push(format!(
                 "performance.undo_history_limit is {} (very large). May use excessive memory.",
@@ -297,13 +304,19 @@ impl Config {
         }
         // Check for empty keymaps
         if keymaps.editor.is_empty() {
-            result.warnings.push("keymaps.editor is empty. No editor keybindings defined.".to_string());
+            result
+                .warnings
+                .push("keymaps.editor is empty. No editor keybindings defined.".to_string());
         }
         if keymaps.command_line.is_empty() {
-            result.warnings.push("keymaps.command_line is empty. No command line keybindings defined.".to_string());
+            result.warnings.push(
+                "keymaps.command_line is empty. No command line keybindings defined.".to_string(),
+            );
         }
         if keymaps.debug.is_empty() {
-            result.warnings.push("keymaps.debug is empty. No debug keybindings defined.".to_string());
+            result
+                .warnings
+                .push("keymaps.debug is empty. No debug keybindings defined.".to_string());
         }
 
         // Check for conflicting keybinds within same context
@@ -317,7 +330,8 @@ impl Config {
         keybinds: &std::collections::HashMap<String, String>,
         result: &mut ValidationResult,
     ) {
-        let mut key_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        let mut key_counts: std::collections::HashMap<String, usize> =
+            std::collections::HashMap::new();
 
         for key in keybinds.keys() {
             *key_counts.entry(key.clone()).or_insert(0) += 1;
@@ -332,7 +346,6 @@ impl Config {
             }
         }
     }
-
 }
 
 //ONLY FOR TESTING
