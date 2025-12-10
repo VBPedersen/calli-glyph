@@ -135,8 +135,8 @@ impl App {
         } else {
             vec![String::new()] // Start with an empty editor if no file is provided
         };
-        let tick_rate = Duration::from_millis(100); // 10 ticks per second
-        let cursor_blink_rate = Duration::from_millis(500);
+        let tick_rate = Duration::from_millis(self.config.performance.tick_rate_ms); // use tick rate from config
+        let cursor_blink_rate = Duration::from_millis(self.config.performance.cursor_blink_rate_ms); // use blink rate from config
 
         let mut last_tick = Instant::now();
         let mut last_cursor_toggle = Instant::now();
