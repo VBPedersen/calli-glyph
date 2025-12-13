@@ -103,6 +103,8 @@ impl App {
         self.running = true;
         self.active_area = ActiveArea::Editor;
         let mut last_auto_save = Instant::now();
+        let mut needs_redraw = true;
+
         // Read file contents if a file path is provided
         self.read_file_to_editor_if_path_provided();
 
@@ -113,8 +115,11 @@ impl App {
         let mut last_cursor_toggle = Instant::now();
 
         while self.running {
-            // Always render first
-            terminal.draw(|frame| ui(frame, &mut self))?;
+            // Only draw if needed (lazy redraw)
+            if !self.config.performance.lazy_redraw || needs_redraw {
+                terminal.draw(|frame| ui(frame, &mut self))?;
+                needs_redraw = false;
+            }
 
             // Auto-save check
             if self.config.editor.auto_save
@@ -139,12 +144,14 @@ impl App {
             // Poll for input with calculated timeout
             if event::poll(timeout)? {
                 handle_input(&mut self)?;
+                needs_redraw = true; // Redraw after input
             }
 
             // Handle cursor blinking
             if last_cursor_toggle.elapsed() >= cursor_blink_rate {
                 self.cursor_visible = !self.cursor_visible;
                 last_cursor_toggle = Instant::now();
+                needs_redraw = true; // Redraw on blink
             }
 
             // Handle periodic tick (for debug metrics)
