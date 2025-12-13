@@ -9,6 +9,10 @@ on:
       - develop
   workflow_dispatch:
 
+permissions:
+  contents: read
+  checks: write
+
 env:
   CARGO_TERM_COLOR: always
 
