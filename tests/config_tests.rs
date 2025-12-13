@@ -1,16 +1,8 @@
-use calliglyph::config::{self, Config, EditorConfig, KeymapConfig, PerformanceConfig, UIConfig};
+use calliglyph::config::{Config, KeymapConfig};
 use calliglyph::errors::config_errors::ConfigError;
 use calliglyph::input::input_action::{DebugAction, Direction, InputAction};
 use crossterm::event::{KeyCode, KeyModifiers};
 use std::{fs, path::PathBuf};
-
-// Helper function to create the Control + Alt modifiers for tests
-fn ca_mods() -> KeyModifiers {
-    let mut m = KeyModifiers::empty();
-    m |= KeyModifiers::CONTROL;
-    m |= KeyModifiers::ALT;
-    m
-}
 
 // --- Keymap Parsing Integration Tests (via public interface) ---
 
@@ -155,7 +147,7 @@ fn test_config_load_and_save_success() {
     assert_eq!(loaded_config.performance.undo_history_limit, 500);
 
     // Check if the custom keymap was loaded and mapped
-    let runtime_maps = loaded_config.runtime_keymaps.as_ref().unwrap();
+    let _ = loaded_config.runtime_keymaps.as_ref().unwrap();
     // Since F1 is not defined in mock, checking the string map is more robust:
     assert_eq!(
         loaded_config.keymaps.editor.get("F1"),

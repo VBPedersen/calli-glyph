@@ -192,7 +192,6 @@ pub fn set_config_command(app: &mut App, key: String, value: String) -> Result<(
 // --- Unit Tests ---
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::config::{Config, KeymapConfig};
     use crate::errors::config_errors::ConfigError;
     use crate::input::input_action::{DebugAction, Direction, InputAction};
