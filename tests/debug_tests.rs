@@ -223,6 +223,7 @@ mod debug_snapshot_tests {
     use calliglyph::core::app::ActiveArea;
     use calliglyph::core::cursor::Cursor;
     use calliglyph::core::debug::{CaptureMode, DebugState, SnapshotTrigger};
+    use std::collections::VecDeque;
     use std::path::PathBuf;
 
     fn create_test_debug_state() -> DebugState {
@@ -248,8 +249,8 @@ mod debug_snapshot_tests {
             vec!["test".to_string()],
             0,
             vec![],
-            vec![],
-            vec![],
+            VecDeque::new(),
+            VecDeque::new(),
             None,
         );
 
@@ -271,8 +272,8 @@ mod debug_snapshot_tests {
             vec![],
             0,
             vec![],
-            vec![],
-            vec![],
+            VecDeque::new(),
+            VecDeque::new(),
             None,
         );
 
@@ -293,8 +294,8 @@ mod debug_snapshot_tests {
             vec![],
             0,
             vec![],
-            vec![],
-            vec![],
+            VecDeque::new(),
+            VecDeque::new(),
             None,
         );
 
@@ -315,8 +316,8 @@ mod debug_snapshot_tests {
             vec![],
             0,
             vec![],
-            vec![],
-            vec![],
+            VecDeque::new(),
+            VecDeque::new(),
             None,
         );
 
@@ -337,8 +338,8 @@ mod debug_snapshot_tests {
             vec![],
             0,
             vec![],
-            vec![],
-            vec![],
+            VecDeque::new(),
+            VecDeque::new(),
             None,
         );
 
@@ -360,8 +361,8 @@ mod debug_snapshot_tests {
             vec![],
             0,
             vec![],
-            vec![],
-            vec![],
+            VecDeque::new(),
+            VecDeque::new(),
             None,
         );
         assert_eq!(debug_state.snapshots.len(), 0);
@@ -375,8 +376,8 @@ mod debug_snapshot_tests {
             vec![],
             0,
             vec![],
-            vec![],
-            vec![],
+            VecDeque::new(),
+            VecDeque::new(),
             None,
         );
         assert_eq!(debug_state.snapshots.len(), 1);
@@ -397,8 +398,8 @@ mod debug_snapshot_tests {
             vec![],
             0,
             vec![],
-            vec![],
-            vec![],
+            VecDeque::new(),
+            VecDeque::new(),
             None,
         );
         assert_eq!(debug_state.snapshots.len(), 1);
@@ -412,8 +413,8 @@ mod debug_snapshot_tests {
             vec![],
             0,
             vec![],
-            vec![],
-            vec![],
+            VecDeque::new(),
+            VecDeque::new(),
             None,
         );
         assert_eq!(debug_state.snapshots.len(), 2);
@@ -433,8 +434,8 @@ mod debug_snapshot_tests {
                 vec![format!("line {}", i)],
                 0,
                 vec![],
-                vec![],
-                vec![],
+                VecDeque::new(),
+                VecDeque::new(),
                 None,
             );
         }
@@ -458,8 +459,8 @@ mod debug_snapshot_tests {
             vec![],
             0,
             vec![],
-            vec![],
-            vec![],
+            VecDeque::new(),
+            VecDeque::new(),
             None,
         );
         assert_eq!(debug_state.snapshots.len(), 1);
@@ -480,8 +481,8 @@ mod debug_snapshot_tests {
             vec!["line1".to_string(), "line2".to_string()],
             2,
             vec!["clip1".to_string()],
-            vec![],
-            vec![],
+            VecDeque::new(),
+            VecDeque::new(),
             Some(PathBuf::from("/path/to/file")),
         );
 
@@ -734,6 +735,7 @@ mod debug_integration_tests {
     use calliglyph::core::app::ActiveArea;
     use calliglyph::core::cursor::Cursor;
     use calliglyph::core::debug::{CaptureMode, DebugState, LogLevel, SnapshotTrigger};
+    use std::collections::VecDeque;
 
     #[test]
     fn test_full_debug_workflow() {
@@ -764,8 +766,8 @@ mod debug_integration_tests {
             vec!["".to_string()],
             0,
             vec![],
-            vec![],
-            vec![],
+            VecDeque::new(),
+            VecDeque::new(),
             None,
         );
 
@@ -779,8 +781,8 @@ mod debug_integration_tests {
             vec!["Hello".to_string()],
             0,
             vec![],
-            vec![],
-            vec![],
+            VecDeque::new(),
+            VecDeque::new(),
             None,
         );
 
@@ -805,8 +807,8 @@ mod debug_integration_tests {
             vec![],
             0,
             vec![],
-            vec![],
-            vec![],
+            VecDeque::new(),
+            VecDeque::new(),
             None,
         );
         assert_eq!(debug_state.snapshots.len(), 0);
@@ -821,8 +823,8 @@ mod debug_integration_tests {
             vec![],
             0,
             vec![],
-            vec![],
-            vec![],
+            VecDeque::new(),
+            VecDeque::new(),
             None,
         );
         assert_eq!(debug_state.snapshots.len(), 1);
@@ -841,8 +843,8 @@ mod debug_integration_tests {
                 vec![format!("line {}", i)],
                 0,
                 vec![],
-                vec![],
-                vec![],
+                VecDeque::new(),
+                VecDeque::new(),
                 None,
             );
         }

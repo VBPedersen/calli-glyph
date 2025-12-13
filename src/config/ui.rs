@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 pub struct UIConfig {
     pub theme: String,
     pub show_status_bar: bool,
-    pub show_tab_bar: bool,
+    pub show_tab_bar: bool, //TODO later feature add tabs to the editor
     pub cursor_style: CursorStyle,
     pub cursor_blink: bool,
     pub scrolloff: u16, // Lines to keep visible above/below cursor

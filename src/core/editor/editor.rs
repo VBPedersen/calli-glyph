@@ -192,7 +192,7 @@ impl Editor {
             scroll_offset: 0,
             editor_height: 0,
             clipboard: Clipboard::new(),
-            undo_redo_manager: UndoRedoManager::new(),
+            undo_redo_manager: UndoRedoManager::new(config.performance.undo_history_limit),
             tab_width: config.editor.tab_width,
             use_spaces: config.editor.use_spaces,
         }

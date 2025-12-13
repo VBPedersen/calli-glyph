@@ -58,8 +58,8 @@ pub struct AppSnapshot {
     pub clipboard_size: usize,
 
     //history state
-    pub undo_stack: Vec<EditAction>,
-    pub redo_stack: Vec<EditAction>,
+    pub undo_stack: VecDeque<EditAction>,
+    pub redo_stack: VecDeque<EditAction>,
     pub undo_depth: usize,
     pub redo_depth: usize,
 
@@ -120,8 +120,8 @@ impl DebugState {
         buffer_content: Vec<String>,
         scroll_offset: i16,
         clipboard_entries: Vec<String>,
-        undo_stack: Vec<EditAction>,
-        redo_stack: Vec<EditAction>,
+        undo_stack: VecDeque<EditAction>,
+        redo_stack: VecDeque<EditAction>,
         file_path: Option<PathBuf>,
     ) {
         if !self.enabled {
@@ -160,8 +160,8 @@ impl DebugState {
         buffer_content: Vec<String>,
         scroll_offset: i16,
         clipboard_entries: Vec<String>,
-        undo_stack: Vec<EditAction>,
-        redo_stack: Vec<EditAction>,
+        undo_stack: VecDeque<EditAction>,
+        redo_stack: VecDeque<EditAction>,
         file_path: Option<PathBuf>,
     ) {
         self.capture_snapshot_internal(
@@ -188,8 +188,8 @@ impl DebugState {
         buffer_content: Vec<String>,
         scroll_offset: i16,
         clipboard_entries: Vec<String>,
-        undo_stack: Vec<EditAction>,
-        redo_stack: Vec<EditAction>,
+        undo_stack: VecDeque<EditAction>,
+        redo_stack: VecDeque<EditAction>,
         file_path: Option<PathBuf>,
     ) {
         let snapshot = AppSnapshot {

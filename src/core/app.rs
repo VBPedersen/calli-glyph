@@ -36,6 +36,7 @@ pub struct App {
     pub pending_states: Vec<PendingState>,
     pub debug_state: DebugState,
     pub debug_view: DebugView,
+    content_modified: bool,
 }
 
 #[derive(Debug, PartialEq)]
@@ -70,6 +71,7 @@ impl Default for App {
             pending_states: vec![],
             debug_state: DebugState::new(),
             debug_view: DebugView::new(),
+            content_modified: false,
         }
     }
 }
@@ -91,6 +93,7 @@ impl App {
             pending_states: vec![],
             debug_state: DebugState::new(),
             debug_view: DebugView::new(),
+            content_modified: false,
         }
     }
 
@@ -99,8 +102,64 @@ impl App {
         //SETUP
         self.running = true;
         self.active_area = ActiveArea::Editor;
-
+        let mut last_auto_save = Instant::now();
         // Read file contents if a file path is provided
+        self.read_file_to_editor_if_path_provided();
+
+        let tick_rate = Duration::from_millis(self.config.performance.tick_rate_ms); // use tick rate from config
+        let cursor_blink_rate = Duration::from_millis(self.config.performance.cursor_blink_rate_ms); // use blink rate from config
+
+        let mut last_tick = Instant::now();
+        let mut last_cursor_toggle = Instant::now();
+
+        while self.running {
+            // Always render first
+            terminal.draw(|frame| ui(frame, &mut self))?;
+
+            // Auto-save check
+            if self.config.editor.auto_save
+                && self.content_modified
+                && last_auto_save.elapsed()
+                    >= Duration::from_millis(self.config.editor.auto_save_delay_ms)
+            {
+                if let Some(path) = &self.file_path.clone() {
+                    let _ = self.save_to_path(&*path.clone());
+                    self.content_modified = false;
+                    self.debug_state.log(LogLevel::Info, "Auto-saved file");
+                }
+                last_auto_save = Instant::now();
+            }
+
+            // Calculate timeout until next cursor blink or tick
+            let time_until_cursor = cursor_blink_rate.saturating_sub(last_cursor_toggle.elapsed());
+            let time_until_tick = tick_rate.saturating_sub(last_tick.elapsed());
+
+            let timeout = time_until_cursor.min(time_until_tick);
+
+            // Poll for input with calculated timeout
+            if event::poll(timeout)? {
+                handle_input(&mut self)?;
+            }
+
+            // Handle cursor blinking
+            if last_cursor_toggle.elapsed() >= cursor_blink_rate {
+                self.cursor_visible = !self.cursor_visible;
+                last_cursor_toggle = Instant::now();
+            }
+
+            // Handle periodic tick (for debug metrics)
+            if last_tick.elapsed() >= tick_rate {
+                if self.debug_state.enabled {
+                    self.debug_state.tick_frame();
+                }
+                last_tick = Instant::now();
+            }
+        }
+        Ok(())
+    }
+
+    /// Function to read a file to the editor if file path is some.
+    fn read_file_to_editor_if_path_provided(&mut self) {
         self.editor.editor_content = if let Some(ref path) = self.file_path {
             self.debug_state.log(
                 LogLevel::Info,
@@ -135,42 +194,6 @@ impl App {
         } else {
             vec![String::new()] // Start with an empty editor if no file is provided
         };
-        let tick_rate = Duration::from_millis(self.config.performance.tick_rate_ms); // use tick rate from config
-        let cursor_blink_rate = Duration::from_millis(self.config.performance.cursor_blink_rate_ms); // use blink rate from config
-
-        let mut last_tick = Instant::now();
-        let mut last_cursor_toggle = Instant::now();
-
-        while self.running {
-            // Calculate timeout until next cursor blink or tick
-            let time_until_cursor = cursor_blink_rate.saturating_sub(last_cursor_toggle.elapsed());
-            let time_until_tick = tick_rate.saturating_sub(last_tick.elapsed());
-
-            let timeout = time_until_cursor.min(time_until_tick);
-
-            // Poll for input with calculated timeout
-            if event::poll(timeout)? {
-                handle_input(&mut self)?;
-            }
-
-            // Handle cursor blinking
-            if last_cursor_toggle.elapsed() >= cursor_blink_rate {
-                self.cursor_visible = !self.cursor_visible;
-                last_cursor_toggle = Instant::now();
-            }
-
-            // Handle periodic tick (for debug metrics)
-            if last_tick.elapsed() >= tick_rate {
-                if self.debug_state.enabled {
-                    self.debug_state.tick_frame();
-                }
-                last_tick = Instant::now();
-            }
-
-            // Always render
-            terminal.draw(|frame| ui(frame, &mut self))?;
-        }
-        Ok(())
     }
 
     ///function to process input action, responsible for calling the related active area,
@@ -189,6 +212,9 @@ impl App {
                 if let Err(e) = self.editor.handle_input_action(action) {
                     let popup = Box::new(ErrorPopup::new("Editor Error", EditorFailure(e)));
                     self.open_popup(popup);
+                } else {
+                    // else is successful, so set content modified true
+                    self.content_modified = true;
                 }
             }
             ActiveArea::CommandLine => {

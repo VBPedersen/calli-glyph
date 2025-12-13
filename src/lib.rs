@@ -1,3 +1,5 @@
+//TODO MAKE CRATE LEVEL RUSTDOC
+
 //expose modules
 pub mod core;
 

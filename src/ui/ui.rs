@@ -1,3 +1,4 @@
+use crate::config::EditorConfig;
 use crate::core::app::{ActiveArea, App};
 use crate::core::cursor::CursorPosition;
 use crate::ui::debug;
@@ -32,28 +33,66 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
 fn render_editor_ui(frame: &mut Frame, app: &mut App) {
     app.terminal_height = frame.area().height as i16;
 
+    // just array of constraints to use in layout,
+    // mutable, so can step by step add to constraints
+    let mut constraints = vec![];
+
+    // check for status bar enabled
+    if app.config.ui.show_status_bar {
+        constraints.push(Constraint::Length(1));
+    }
+
+    // Editor area
+    constraints.push(Constraint::Min(1));
+
+    // Command Line
+    constraints.push(Constraint::Length(1));
+
     let layout = Layout::default()
         .direction(Direction::Vertical)
-        .constraints(vec![
-            Constraint::Length(1),
-            Constraint::Percentage(95),
-            Constraint::Length(1),
-        ])
+        .constraints(constraints)
         .split(frame.area());
-    app.editor.editor_height = layout[1].height;
 
-    let editor_layout = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints(vec![Constraint::Length(3), Constraint::Percentage(100)])
-        .split(layout[1]);
+    // --------------- Find areas from layout ------------------
+    // Find status bar area if enabled
+    let mut layout_idx = 0;
+    let status_bar_area = if app.config.ui.show_status_bar {
+        let area = layout[layout_idx];
+        layout_idx += 1;
+        Some(area)
+    } else {
+        None
+    };
 
-    app.editor.editor_width = editor_layout[1].width as i16;
+    let editor_area = layout[layout_idx];
+    layout_idx += 1;
+    let command_area = layout[layout_idx];
+    //----------------------------------------------------------
+
+    app.editor.editor_height = editor_area.height;
+
+    // Editor layout with optional line numbers
+    let (line_number_area, content_area) = if app.config.editor.line_numbers {
+        let line_count = app.editor.editor_content.len();
+        let line_num_width = (line_count.to_string().len() as u16).max(2) + 1;
+
+        let editor_layout = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(vec![Constraint::Length(line_num_width), Constraint::Min(1)])
+            .split(editor_area);
+
+        (Some(editor_layout[0]), editor_layout[1])
+    } else {
+        (None, editor_area)
+    };
+
+    app.editor.editor_width = content_area.width as i16;
 
     let editor_content: Text = handle_editor_content(
         app.editor.editor_content.clone(),
         app.editor.text_selection_start,
         app.editor.text_selection_end,
-        editor_layout[1].width as usize,
+        content_area.width as usize,
         app,
     );
 
@@ -66,52 +105,77 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
     };
 
     //render widgets : infobar, editor side, editor and command line
-    frame.render_widget(
-        info_bar(
-            file_to_use,
-            app.editor.cursor.x,
-            app.editor.cursor.y,
-            app.editor.visual_cursor_x,
-            app.editor.text_selection_start,
-            app.editor.text_selection_end,
-        ),
-        layout[0],
-    );
-    frame.render_widget(
-        editor_side_line(
-            editor_content.to_owned(),
-            app.editor.scroll_offset as u16,
-            editor_layout[1].width as usize,
-            app.editor.cursor.y,
-        ),
-        editor_layout[0],
-    );
-    frame.render_widget(
-        editor(editor_content, app.editor.scroll_offset as u16),
-        editor_layout[1],
-    );
-    frame.render_widget(command_line(command_input), layout[2]);
 
-    //if popup is any, then render it
+    // Render status/info bar if enabled
+    if let Some(status_area) = status_bar_area {
+        frame.render_widget(
+            info_bar(
+                file_to_use,
+                app.editor.cursor.x,
+                app.editor.cursor.y,
+                app.editor.visual_cursor_x,
+                app.editor.text_selection_start,
+                app.editor.text_selection_end,
+            ),
+            status_area,
+        );
+    }
+
+    // Render line number side line if enabled
+    if let Some(ln_area) = line_number_area {
+        frame.render_widget(
+            editor_side_line(
+                editor_content.clone(),
+                app.editor.scroll_offset as u16,
+                content_area.width as usize,
+                app.editor.cursor.y,
+                &app.config.editor,
+            ),
+            ln_area,
+        );
+    }
+
+    // Render editor content
+    frame.render_widget(
+        editor(
+            editor_content,
+            app.editor.scroll_offset as u16,
+            app.editor.cursor.y,
+            &app.config.editor,
+        ),
+        content_area,
+    );
+    // Render command line
+    frame.render_widget(command_line(command_input), command_area);
+
+    // Render popup if active
     if let Some(popup) = &app.popup {
         let popup_area = centered_rect(60, 20, frame.area());
         popup.render(frame, popup_area);
     }
 
-    //set cursor with position if it should be visiblie (determined by app logic)
-    if app.cursor_visible {
+    //set cursor with position if it should be visible (determined by app logic)
+    let should_show_cursor = if app.config.ui.cursor_blink {
+        app.cursor_visible
+    } else {
+        true // Always visible if blink disabled
+    };
+
+    // Show cursor when it should, get position of current active area either editor or commandline
+    //TODO implment custom rendering to make styles possible, underline, block and line
+    if should_show_cursor {
         match app.active_area {
             ActiveArea::Editor => {
-                let x = editor_layout[1].x + app.editor.visual_cursor_x as u16; //using visual x
-                let y = editor_layout[1].y
+                let x = content_area.x + app.editor.visual_cursor_x as u16; //using visual x
+                let y = content_area.y
                     + (app.editor.cursor.y - app.editor.scroll_offset).clamp(0, i16::MAX) as u16;
                 let pos: Position = Position { x, y };
 
                 frame.set_cursor_position(pos);
             }
             ActiveArea::CommandLine => {
-                let x = layout[2].x + app.command_line.cursor.x as u16;
-                let y = layout[2].y + app.command_line.cursor.y as u16;
+                let x = command_area.x + app.command_line.cursor.x as u16;
+                let y = command_area.y + app.command_line.cursor.y as u16;
                 let pos: Position = Position { x, y };
                 frame.set_cursor_position(pos);
             }
@@ -142,89 +206,127 @@ fn info_bar<'a>(
     selection_start: Option<CursorPosition>,
     selection_end: Option<CursorPosition>,
 ) -> Paragraph<'a> {
-    let mut start_x: usize = 0;
-    let mut start_y: usize = 0;
-    let mut end_x: usize = 0;
-    let mut end_y: usize = 0;
-    if selection_start.is_some() && selection_end.is_some() {
-        start_x = selection_start.unwrap().x;
-        start_y = selection_start.unwrap().y;
-        end_x = selection_end.unwrap().x;
-        end_y = selection_end.unwrap().y;
-    }
+    let selection_cursor_info = if selection_start.is_some() && selection_end.is_some() {
+        let start = selection_start.unwrap();
+        let end = selection_end.unwrap();
+        format!(" | Sel: ({},{}) → ({},{})", start.x, start.y, end.x, end.y)
+    } else {
+        String::new()
+    };
+
     let line = Line::from(vec![
         Span::styled(file_name, Style::default().fg(Color::LightCyan)),
         Span::raw(" - "), // Separator
         Span::styled(
-            format!(
-                "Cursor: ({}, {})   Visual X Cursor ({})  Selection Cursor ({},{}) ({},{})",
-                cursor_x, cursor_y, visual_x, start_x, start_y, end_x, end_y
-            ),
+            format!("Cursor (X{}:Y{}) (VisX: {})", cursor_x, cursor_y, visual_x),
             Style::default().fg(Color::Magenta),
         ),
+        Span::styled(selection_cursor_info, Style::default().fg(Color::Yellow)),
     ]);
+
     Paragraph::new("").block(
         Block::default()
             .title(line)
             .title_alignment(Alignment::Center)
-            .style(Style::default().fg(Color::LightCyan).bg(Color::White)),
+            .style(Style::default().fg(Color::LightCyan).bg(Color::DarkGray)),
     )
 }
 
 ///generates a side bar for line nr display as well as displaying line overflow if existing
-fn editor_side_line(
+fn editor_side_line<'a>(
     editor_content: Text,
     scroll_offset: u16,
     editor_width: usize,
     cursor_y: i16,
-) -> Paragraph {
+    config: &EditorConfig,
+) -> Paragraph<'a> {
     let mut line_nrs: Text = Text::from(vec![]);
 
     let overflow_marker_style = Style::default().fg(Color::Cyan);
-    let current_line_style = Style::default().bg(Color::White).fg(Color::Black);
+    let current_line_style = Style::default()
+        .bg(Color::Yellow)
+        .fg(Color::Black)
+        .add_modifier(Modifier::BOLD);
+    let normal_line_style = Style::default().fg(Color::Gray);
 
     for (nr, s) in editor_content.iter().enumerate() {
-        let dest_to_cursor_y = cursor_y.abs_diff(nr as i16);
+        let line_index = nr;
+        let is_current_line = cursor_y as usize == line_index;
 
-        if s.width() >= editor_width {
-            let line = Line::from(vec![
-                Span::raw(dest_to_cursor_y.to_string()),
-                Span::styled(">", overflow_marker_style),
-            ]);
-            //if is zero (current line), display actual line nr
-            if dest_to_cursor_y == 0 {
-                let line = Line::from(vec![
-                    Span::styled(dest_to_cursor_y.to_string(), current_line_style),
-                    Span::styled(">", overflow_marker_style),
-                ]);
-                line_nrs.push_line(line);
-            } else {
-                line_nrs.push_line(line);
-            }
-        } else if dest_to_cursor_y == 0 {
-            let line = Line::from(vec![Span::styled(nr.to_string(), current_line_style)]);
-            line_nrs.push_line(line);
+        // Calculate line number to display
+        let line_num_display = if config.relative_line_numbers && !is_current_line {
+            cursor_y.abs_diff(nr as i16).to_string()
         } else {
-            line_nrs.push_line(dest_to_cursor_y.to_string());
-        }
+            (line_index + 1).to_string()
+        };
+
+        // If content of line is longer than editor
+        let has_overflow = s.width() >= editor_width;
+
+        let line = if has_overflow {
+            Line::from(vec![
+                Span::styled(
+                    line_num_display,
+                    if is_current_line {
+                        current_line_style
+                    } else {
+                        normal_line_style
+                    },
+                ),
+                Span::styled(">", overflow_marker_style),
+            ])
+        } else {
+            Line::from(vec![Span::styled(
+                line_num_display,
+                if is_current_line {
+                    current_line_style
+                } else {
+                    normal_line_style
+                },
+            )])
+        };
+
+        line_nrs.push_line(line);
     }
 
     Paragraph::new(line_nrs)
         .style(Style::default().bg(Color::DarkGray).fg(Color::White))
-        .block(
-            Block::default(), //.borders(Borders::LEFT | Borders::RIGHT)
-                              //.border_type(BorderType::Rounded)
-        )
+        .block(Block::default())
         .scroll((scroll_offset, 0))
 }
 
-fn editor(editor_content: Text, scroll_offset: u16) -> Paragraph {
-    Paragraph::new(editor_content)
+fn editor<'a>(
+    editor_content: Text<'a>,
+    scroll_offset: u16,
+    cursor_y: i16,
+    config: &EditorConfig,
+) -> Paragraph<'a> {
+    // Apply current line highlighting if enabled
+    let styled_content = if config.highlight_current_line {
+        let mut lines = Vec::new();
+        for (i, line) in editor_content.lines.iter().enumerate() {
+            if i == cursor_y as usize {
+                // Highlight current line
+                let highlighted_spans: Vec<Span> = line
+                    .spans
+                    .iter()
+                    .map(|span| {
+                        Span::styled(span.content.clone(), span.style.bg(Color::Rgb(77, 77, 77)))
+                    })
+                    .collect();
+                lines.push(Line::from(highlighted_spans));
+            } else {
+                lines.push(line.clone());
+            }
+        }
+        Text::from(lines)
+    } else {
+        editor_content
+    };
+
+    Paragraph::new(styled_content)
         .style(Style::default().fg(Color::White))
-        .block(
-            Block::default(), //.borders(Borders::LEFT | Borders::RIGHT)
-                              //.border_type(BorderType::Rounded)
-        )
+        .block(Block::default())
         .scroll((scroll_offset, 0))
 }
 
@@ -251,7 +353,15 @@ fn handle_editor_content<'a>(
 ) -> Text<'a> {
     let editor_vec: Vec<String> = vec
         .into_iter()
-        .map(|s| handle_tab_rendering(s, app.config.editor.tab_width))
+        .map(|s| {
+            // If show whitespaces render white space " " as "·"
+            let with_tabs = handle_tab_rendering(s, app.config.editor.tab_width);
+            if app.config.editor.show_whitespace {
+                with_tabs.replace(" ", "·")
+            } else {
+                with_tabs
+            }
+        })
         .collect();
 
     let mut editor_text: Text = Text::default();
@@ -262,9 +372,12 @@ fn handle_editor_content<'a>(
         for (i, s) in editor_vec.into_iter().enumerate() {
             let visual_x = app.editor.visual_cursor_x;
 
-            // Only scroll the line the cursor is on
-            let line: Line = if i == app.editor.cursor.y as usize && visual_x > editor_width as i16
-            {
+            // Line wrapping and horizontal scroll
+            let line: Line = if app.config.editor.wrap_lines {
+                // Simple wrap TODO make actual wrapping solution that is intelligent
+                Line::from(s)
+            } else if i == app.editor.cursor.y as usize && visual_x > editor_width as i16 {
+                // Horizontal scroll for current line
                 let start_idx = (visual_x - editor_width as i16).max(0) as usize;
                 Line::from(
                     get_copy_of_editor_content_at_line_between_cursor_editor_width(s, start_idx),
@@ -281,7 +394,7 @@ fn handle_editor_content<'a>(
 }
 
 ///gets a copy of the text content at specific line and range of editor content
-pub(crate) fn get_copy_of_editor_content_at_line_between_cursor_editor_width(
+fn get_copy_of_editor_content_at_line_between_cursor_editor_width(
     s: String,
     start: usize,
 ) -> String {

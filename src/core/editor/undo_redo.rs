@@ -1,32 +1,51 @@
 use super::editor::EditAction;
 use crate::errors::editor_errors::{RedoError, UndoError};
+use std::collections::VecDeque;
 
 #[derive(Debug, Clone)]
 pub struct UndoRedoManager {
-    pub undo_stack: Vec<EditAction>,
-    pub redo_stack: Vec<EditAction>,
+    pub undo_stack: VecDeque<EditAction>,
+    pub redo_stack: VecDeque<EditAction>,
+    max_history: usize,
 }
 
 impl UndoRedoManager {
-    pub fn new() -> UndoRedoManager {
+    pub fn new(max_history: usize) -> UndoRedoManager {
         Self {
-            undo_stack: vec![],
-            redo_stack: vec![],
+            undo_stack: VecDeque::with_capacity(max_history),
+            redo_stack: VecDeque::new(),
+            max_history,
         }
     }
 
-    ///records and action done to the undo stack, and clears redo stack.
+    /// Records and action done to the undo stack, and clears redo stack.
     pub fn record_undo(&mut self, action: EditAction) {
-        self.undo_stack.push(action);
+        self.undo_stack.push_back(action);
+
+        // Limit history size
+        while self.undo_stack.len() > self.max_history {
+            self.undo_stack.pop_front();
+        }
+
         self.redo_stack.clear();
+    }
+
+    /// Function to change max limit of undo history
+    pub fn update_limit(&mut self, new_limit: usize) {
+        self.max_history = new_limit;
+
+        // Trim if necessary
+        while self.undo_stack.len() > new_limit {
+            self.undo_stack.pop_front();
+        }
     }
 
     // UNDO AND REDO FUNCTIONALITY
     /// undo's last action of user
     pub fn undo(&mut self) -> Result<EditAction, UndoError> {
-        if let Some(last_action) = self.undo_stack.pop() {
+        if let Some(last_action) = self.undo_stack.pop_back() {
             let action_reversed = self.reverse_action(&last_action);
-            self.redo_stack.push(last_action);
+            self.redo_stack.push_back(last_action);
             Ok(action_reversed)
         } else {
             Err(UndoError::NoActionToUndo)
@@ -35,8 +54,8 @@ impl UndoRedoManager {
 
     /// redo's last action of user
     pub fn redo(&mut self) -> Result<EditAction, RedoError> {
-        if let Some(last_action) = self.redo_stack.pop() {
-            self.undo_stack.push(last_action.clone());
+        if let Some(last_action) = self.redo_stack.pop_back() {
+            self.undo_stack.push_back(last_action.clone());
             Ok(last_action)
         } else {
             Err(RedoError::NoActionToRedo)
