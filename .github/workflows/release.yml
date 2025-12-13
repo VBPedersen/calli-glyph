@@ -4,6 +4,11 @@ on:
   push:
     tags:
       - "v*"
+
+permissions:
+  contents: write
+  actions: read
+
 # This job will create and upload a Release on GitHub
 jobs:
   # Job to generate the release notes once
