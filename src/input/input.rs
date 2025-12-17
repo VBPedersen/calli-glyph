@@ -15,27 +15,10 @@ pub(crate) fn handle_input(app: &mut App) -> Result<()> {
     match event::read()? {
         // it's important to check KeyEventKind::Press to avoid handling key release events
         Event::Key(key) if key.kind == KeyEventKind::Press => on_key_event(app, key),
-        Event::Mouse(mouse)
-            if (mouse.kind == MouseEventKind::ScrollDown)
-                | (mouse.kind == MouseEventKind::ScrollUp) =>
-        {
-            on_scroll_events(app, mouse)
-        }
         Event::Resize(_, _) => {}
         _ => {}
     }
     Ok(())
-}
-
-fn on_scroll_events(app: &mut App, mouse: MouseEvent) {
-    match app.active_area {
-        ActiveArea::Editor => match mouse.kind {
-            MouseEventKind::ScrollDown => app.move_scroll_offset(1),
-            MouseEventKind::ScrollUp => app.move_scroll_offset(-1),
-            _ => {}
-        },
-        _ => {}
-    }
 }
 
 /// Handles the key events and updates the state of [`App`].

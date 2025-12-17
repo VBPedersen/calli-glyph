@@ -204,7 +204,7 @@ impl Config {
             result
                 .errors
                 .push("editor.tab_width must be greater than 0".to_string());
-        } else if config.tab_width > 16 {
+        } else if config.tab_width > 8 {
             result.warnings.push(format!(
                 "editor.tab_width  is set to {} (recommended range 2-8).",
                 config.tab_width
@@ -271,13 +271,6 @@ impl Config {
             result.warnings.push(format!(
                 "performance.undo_history_limit is {} (very large). May use excessive memory.",
                 config.undo_history_limit
-            ));
-        }
-
-        if config.clipboard_history_limit > 1000 {
-            result.warnings.push(format!(
-                "performance.clipboard_history_limit is {} (very large). May use excessive memory.",
-                config.clipboard_history_limit
             ));
         }
     }

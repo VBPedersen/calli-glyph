@@ -296,12 +296,6 @@ impl App {
         }
     }
 
-    //SCROLL
-    ///moves the scroll offset
-    pub(crate) fn move_scroll_offset(&mut self, offset: i16) {
-        self.editor.move_scroll_offset(offset);
-    }
-
     //PANEL HANDLING
     ///toggles the active area of the app, between editor and command line
     pub(crate) fn toggle_active_area(&mut self) {
