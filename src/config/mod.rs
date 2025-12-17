@@ -26,6 +26,7 @@ thread_local! {
 
 /// Main struct of config, holds state of all config and keymaps
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]// if fields are missing, makes them default to avoid errors
 pub struct Config {
     pub editor: EditorConfig,
     pub keymaps: KeymapConfig,

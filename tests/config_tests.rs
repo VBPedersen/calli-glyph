@@ -241,7 +241,6 @@ fn test_config_reload_success() {
         tick_rate_ms = 50
         cursor_blink_rate_ms = 500
         undo_history_limit = 500
-        clipboard_history_limit = 100
         lazy_redraw = false
     "#;
     fs::write(&temp_path, new_content).expect("Failed to write updated content");

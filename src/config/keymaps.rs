@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct KeymapConfig {
     pub editor: HashMap<String, String>,
     pub command_line: HashMap<String, String>,
