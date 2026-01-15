@@ -36,7 +36,7 @@ pub struct App {
     pub pending_states: Vec<PendingState>,
     pub debug_state: DebugState,
     pub debug_view: DebugView,
-    content_modified: bool,
+    pub content_modified: bool,
 }
 
 #[derive(Debug, PartialEq)]
@@ -219,10 +219,11 @@ impl App {
                 if let Err(e) = self.editor.handle_input_action(action) {
                     let popup = Box::new(ErrorPopup::new("Editor Error", EditorFailure(e)));
                     self.open_popup(popup);
-                } else {
-                    // else is successful, so set content modified true
-                    self.content_modified = true;
                 }
+                
+                // else is successful, so set content modified true
+                self.content_modified = self.editor.undo_redo_manager.is_dirty();
+               
             }
             ActiveArea::CommandLine => {
                 //check for ENTER on commandline, to execute commands,
@@ -403,6 +404,9 @@ impl App {
         writer.flush()?;
 
         self.file_path = Some(path.to_path_buf()); // optionally update file_path
+        
+        // mark saved index on undo tree
+        self.editor.undo_redo_manager.mark_saved();
         Ok(())
     }
 

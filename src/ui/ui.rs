@@ -116,6 +116,7 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
                 app.editor.visual_cursor_x,
                 app.editor.text_selection_start,
                 app.editor.text_selection_end,
+                app.content_modified,
             ),
             status_area,
         );
@@ -205,7 +206,10 @@ fn info_bar<'a>(
     visual_x: i16,
     selection_start: Option<CursorPosition>,
     selection_end: Option<CursorPosition>,
+    is_content_modified: bool,
 ) -> Paragraph<'a> {
+    let modified_indicator = if is_content_modified {"[+]"} else {""};
+
     let selection_cursor_info = if selection_start.is_some() && selection_end.is_some() {
         let start = selection_start.unwrap();
         let end = selection_end.unwrap();
@@ -215,6 +219,7 @@ fn info_bar<'a>(
     };
 
     let line = Line::from(vec![
+        Span::styled(modified_indicator, Style::default().fg(Color::White)),
         Span::styled(file_name, Style::default().fg(Color::LightCyan)),
         Span::raw(" - "), // Separator
         Span::styled(
