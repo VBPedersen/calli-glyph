@@ -114,6 +114,7 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
                 app.editor.cursor.x,
                 app.editor.cursor.y,
                 app.editor.visual_cursor_x,
+                app.editor.scroll_offset,
                 app.editor.text_selection_start,
                 app.editor.text_selection_end,
                 app.content_modified,
@@ -143,6 +144,8 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
             app.editor.scroll_offset as u16,
             app.editor.cursor.y,
             &app.config.editor,
+            content_area.height,
+            app.editor.editor_content.len(),
         ),
         content_area,
     );
@@ -204,11 +207,12 @@ fn info_bar<'a>(
     cursor_x: i16,
     cursor_y: i16,
     visual_x: i16,
+    scroll_offset: i16,
     selection_start: Option<CursorPosition>,
     selection_end: Option<CursorPosition>,
     is_content_modified: bool,
 ) -> Paragraph<'a> {
-    let modified_indicator = if is_content_modified {"[+]"} else {""};
+    let modified_indicator = if is_content_modified { "[+]" } else { "" };
 
     let selection_cursor_info = if selection_start.is_some() && selection_end.is_some() {
         let start = selection_start.unwrap();
@@ -223,7 +227,10 @@ fn info_bar<'a>(
         Span::styled(file_name, Style::default().fg(Color::LightCyan)),
         Span::raw(" - "), // Separator
         Span::styled(
-            format!("Cursor (X{}:Y{}) (VisX: {})", cursor_x, cursor_y, visual_x),
+            format!(
+                "Cursor (X{}:Y{}) (VisX: {}), ScrollOff({})",
+                cursor_x, cursor_y, visual_x, scroll_offset
+            ),
             Style::default().fg(Color::Magenta),
         ),
         Span::styled(selection_cursor_info, Style::default().fg(Color::Yellow)),
@@ -305,9 +312,11 @@ fn editor<'a>(
     scroll_offset: u16,
     cursor_y: i16,
     config: &EditorConfig,
+    viewport_height: u16,
+    content_length: usize,
 ) -> Paragraph<'a> {
     // Apply current line highlighting if enabled
-    let styled_content = if config.highlight_current_line {
+    let mut lines_vec = if config.highlight_current_line {
         let mut lines = Vec::new();
         for (i, line) in editor_content.lines.iter().enumerate() {
             if i == cursor_y as usize {
@@ -324,10 +333,35 @@ fn editor<'a>(
                 lines.push(line.clone());
             }
         }
-        Text::from(lines)
+        lines
     } else {
-        editor_content
+        editor_content.lines
     };
+
+    // Add empty lines at the end for bottom margin effect
+    let visible_lines_start = scroll_offset as usize;
+    let visible_lines_end = (scroll_offset + viewport_height) as usize;
+
+    // If we're scrolled past the actual content, add empty placeholder lines
+    if visible_lines_start < content_length && visible_lines_end > content_length {
+        let empty_lines_needed = visible_lines_end - content_length;
+        for _ in 0..empty_lines_needed {
+            lines_vec.push(Line::from(Span::styled(
+                "~",
+                Style::default().fg(Color::Blue),
+            )));
+        }
+    } else if visible_lines_start >= content_length {
+        // Entirely in the margin area
+        for _ in 0..viewport_height {
+            lines_vec.push(Line::from(Span::styled(
+                "~",
+                Style::default().fg(Color::Blue),
+            )));
+        }
+    }
+
+    let styled_content = Text::from(lines_vec);
 
     Paragraph::new(styled_content)
         .style(Style::default().fg(Color::White))

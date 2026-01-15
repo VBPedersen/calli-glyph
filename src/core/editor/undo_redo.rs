@@ -19,20 +19,19 @@ impl UndoRedoManager {
             last_saved_index: 0,
         }
     }
-    
+
     // saved index management (changes)
-    
+
     /// Checks if change in undo tree (signifies changes in file)
     pub fn is_dirty(&self) -> bool {
         self.undo_stack.len() != self.last_saved_index
     }
-    
+
     /// marks new saved index to current length of stack
     pub fn mark_saved(&mut self) {
         self.last_saved_index = self.undo_stack.len();
     }
-    
-    
+
     /// Records and action done to the undo stack, and clears redo stack.
     pub fn record_undo(&mut self, action: EditAction) {
         self.undo_stack.push_back(action);

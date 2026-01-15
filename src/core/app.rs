@@ -220,10 +220,9 @@ impl App {
                     let popup = Box::new(ErrorPopup::new("Editor Error", EditorFailure(e)));
                     self.open_popup(popup);
                 }
-                
+
                 // else is successful, so set content modified true
                 self.content_modified = self.editor.undo_redo_manager.is_dirty();
-               
             }
             ActiveArea::CommandLine => {
                 //check for ENTER on commandline, to execute commands,
@@ -315,7 +314,6 @@ impl App {
     ///handles creating popup to confirm if file should be overridden
     pub fn handle_confirmation_popup_response(&mut self) {
         if let Some(pending) = self.pending_states.first() {
-            println!("Confirmation Popup response:{:?}", self.pending_states);
             match (pending, self.popup_result.clone()) {
                 (PendingState::Saving(path), PopupResult::Bool(true)) => {
                     match self.save_to_path(&*path.clone()) {
@@ -404,7 +402,7 @@ impl App {
         writer.flush()?;
 
         self.file_path = Some(path.to_path_buf()); // optionally update file_path
-        
+
         // mark saved index on undo tree
         self.editor.undo_redo_manager.mark_saved();
         Ok(())

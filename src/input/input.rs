@@ -16,12 +16,13 @@ pub(crate) fn handle_input(app: &mut App) -> Result<()> {
         // it's important to check KeyEventKind::Press to avoid handling key release events
         Event::Key(key) if key.kind == KeyEventKind::Press => on_key_event(app, key),
         Event::Resize(_, _) => {}
+        Event::Mouse(mouse_event) => on_scroll_events(app, mouse_event),
         _ => {}
     }
     Ok(())
 }
 
-/// Handles the key events and updates the state of [`App`].
+/// Handles the key events
 fn on_key_event(app: &mut App, key: KeyEvent) {
     let config = &app.config;
     let keymaps = config.runtime_keymaps();
@@ -70,5 +71,15 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
     .log(LogLevel::Trace, format!("Action: {:?}", action));*/
     if let Some(action) = action {
         app.process_input_action(action);
+    }
+}
+
+/// Handles the scroll events
+fn on_scroll_events(app: &mut App, mouse_event: MouseEvent) {
+    let config = &app.config.ui;
+    match mouse_event.kind {
+        MouseEventKind::ScrollUp => app.editor.move_scroll_offset(-1, config),
+        MouseEventKind::ScrollDown => app.editor.move_scroll_offset(1, config),
+        _ => {}
     }
 }

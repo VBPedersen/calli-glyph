@@ -223,7 +223,7 @@ impl Config {
 
     fn validate_ui_config(config: &UIConfig, result: &mut ValidationResult) {
         // Validate scrolloff
-        if config.scrolloff > 50 {
+        if config.scrolloff > 15 {
             result.warnings.push(format!(
                 "ui.scrolloff is {} (very large). Recommended: 3-10.",
                 config.scrolloff

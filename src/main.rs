@@ -12,6 +12,7 @@ use crate::app_config::AppLaunchConfig;
 use crate::args::AppLaunchArgs;
 use crate::config::Config;
 use clap::Parser;
+use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use crossterm::terminal::LeaveAlternateScreen;
 use ratatui::crossterm::execute;
 use ratatui::crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen};
@@ -32,7 +33,7 @@ fn main() -> color_eyre::Result<()> {
 
     enable_raw_mode().expect("Failed to enable raw mode");
     let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen)?;
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
 
     color_eyre::install()?;
     let terminal = ratatui::init();
@@ -44,7 +45,7 @@ fn main() -> color_eyre::Result<()> {
     ratatui::restore();
 
     disable_raw_mode()?;
-    execute!(stdout, LeaveAlternateScreen)?;
+    execute!(stdout, LeaveAlternateScreen, DisableMouseCapture)?;
 
     result
 }

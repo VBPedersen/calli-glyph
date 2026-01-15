@@ -8,7 +8,9 @@ pub struct UIConfig {
     pub show_tab_bar: bool, //TODO later feature add tabs to the editor
     pub cursor_style: CursorStyle,
     pub cursor_blink: bool,
-    pub scrolloff: u16, // Lines to keep visible above/below cursor
+    pub scrolloff: u16,            // Lines to keep visible above/below cursor
+    pub scroll_lines: u16,         // Lines to scroll with mouse wheel
+    pub scroll_margin_bottom: u16, // Empty lines at bottom when scrolling
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,6 +30,8 @@ impl Default for UIConfig {
             cursor_style: CursorStyle::Block,
             cursor_blink: true,
             scrolloff: 3,
+            scroll_lines: 1,
+            scroll_margin_bottom: 5,
         }
     }
 }

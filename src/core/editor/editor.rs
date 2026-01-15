@@ -2,7 +2,7 @@ use super::super::super::core::clipboard::Clipboard;
 use super::super::cursor::Cursor;
 use super::super::cursor::CursorPosition;
 use super::undo_redo::UndoRedoManager;
-use crate::config::Config;
+use crate::config::{Config, UIConfig};
 use crate::errors::editor_errors::EditorError::{
     ClipboardFailure, RedoFailure, TextSelectionFailure, UndoFailure,
 };
@@ -1195,17 +1195,71 @@ impl Editor {
     }
 
     //SCROLL
-    ///moves the scroll offset
-    pub(crate) fn move_scroll_offset(&mut self, offset: i16) {
-        let (top, bottom) = self.is_cursor_top_or_bottom_of_editor();
+    /// moves scroll offset and config defined scroll amount and scrolloff
+    pub(crate) fn move_scroll_offset(&mut self, direction: i16, config: &UIConfig) {
+        let scroll_amount = (config.scroll_lines as i16) * direction.signum();
+        let scrolloff = config.scrolloff as i16;
+        let last_file_line = (self.editor_content.len() as i16 - 1).max(0);
 
-        //if on way down and at bottom, move scroll
-        if (offset == 1 && bottom) || (offset == -1 && top) {
-            self.scroll_offset = (self.scroll_offset + offset).clamp(0, i16::MAX);
-            return;
+        // Calculate viewport bounds with bottom margin
+        let viewport_height = self.editor_height as i16;
+        let max_scroll = self.calculate_max_scroll(config);
+
+        // Calculate cursor position relative to viewport
+        let cursor_viewport_pos = self.cursor.y - self.scroll_offset;
+
+        // if direction > 0 = scrolling down
+        if direction > 0 {
+            // Check if cursor is near bottom of viewport
+            if cursor_viewport_pos >= viewport_height - scrolloff - 1
+                || self.cursor.y == last_file_line
+            {
+                let new_cursor_y =
+                    (self.cursor.y + scroll_amount).min(self.editor_content.len() as i16 - 1);
+                self.cursor.y = new_cursor_y;
+
+                self.scroll_offset = (self.scroll_offset + scroll_amount).clamp(0, max_scroll);
+            } else {
+                self.cursor.y =
+                    (self.cursor.y + scroll_amount).min(self.editor_content.len() as i16 - 1);
+            }
+        // if direction < 0 = scrolling up
+        } else if direction < 0 {
+            // Check if cursor is near top of viewport
+            if cursor_viewport_pos <= scrolloff {
+                let new_cursor_y = (self.cursor.y + scroll_amount).max(0);
+                self.cursor.y = new_cursor_y;
+
+                // Adjust scroll to keep cursor in view with scrolloff
+                let desired_scroll = self.cursor.y - scrolloff;
+                self.scroll_offset = desired_scroll.clamp(0, max_scroll);
+            } else {
+                self.cursor.y = (self.cursor.y + scroll_amount).max(0);
+            }
         }
+        // Clamping
 
-        self.move_cursor(0, offset);
+        self.scroll_offset = self.scroll_offset.clamp(0, max_scroll);
+        self.clamp_cursor_to_line();
+    }
+
+    /// Calculate the maximum scroll offset with bottom margin
+    fn calculate_max_scroll(&self, config: &UIConfig) -> i16 {
+        let viewport_height = self.editor_height as i16;
+        let content_height = self.editor_content.len() as i16;
+        let bottom_margin = config.scroll_margin_bottom as i16;
+
+        // Maximum scroll is content height minus viewport height, plus bottom margin
+        // This allows scrolling past the end to show empty space
+        (content_height - viewport_height + bottom_margin).max(0)
+    }
+
+    /// Ensure cursor X is within the current line bounds
+    fn clamp_cursor_to_line(&mut self) {
+        if self.cursor.y >= 0 && (self.cursor.y as usize) < self.editor_content.len() {
+            let line_len = self.editor_content[self.cursor.y as usize].len() as i16;
+            self.cursor.x = self.cursor.x.min(line_len);
+        }
     }
 
     ///calculates the visual position of the cursor
