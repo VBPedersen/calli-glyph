@@ -200,7 +200,11 @@ impl Editor {
 
     ///function to handle input action on editor,
     /// responsible for dispatching action to correct internal method.
-    pub fn handle_input_action(&mut self, action: InputAction, config: &EditorConfig) -> Result<(), EditorError> {
+    pub fn handle_input_action(
+        &mut self,
+        action: InputAction,
+        config: &EditorConfig,
+    ) -> Result<(), EditorError> {
         match action {
             InputAction::MoveCursor(direction) => {
                 let (x, y) = direction.to_vector();
@@ -1118,8 +1122,7 @@ impl Editor {
             return;
         }
 
-        
-       /* let (top, bottom) = self.is_cursor_top_or_bottom_of_editor();
+        /* let (top, bottom) = self.is_cursor_top_or_bottom_of_editor();
         //to offset scroll
         if (y == 1 && bottom) || (y == -1 && top) {
             self.scroll_offset = (self.scroll_offset + y).clamp(0, i16::MAX);
@@ -1258,7 +1261,7 @@ impl Editor {
             self.scroll_offset = (self.cursor.y - viewport_height + scrolloff + 1).min(max_scroll);
         }
     }
-    
+
     /// Calculate the maximum scroll offset with bottom margin
     fn calculate_max_scroll(&self, config: &EditorConfig) -> i16 {
         let viewport_height = self.editor_height as i16;

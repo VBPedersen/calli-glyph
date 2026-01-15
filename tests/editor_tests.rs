@@ -10,12 +10,12 @@ mod editor_basic_tests {
     }
 
     impl EditorTestExt for Editor {
-        fn handle_action_test(&mut self, action: InputAction) -> Result<(), EditorError>{
+        fn handle_action_test(&mut self, action: InputAction) -> Result<(), EditorError> {
             let config = EditorConfig::default();
             return self.handle_input_action(action, &config);
         }
     }
-    
+
     /// Helper to create an editor with some starting text.
     fn create_editor_with_content(lines: Vec<&str>) -> Editor {
         let mut editor = Editor::new(&Config::default());
@@ -649,12 +649,12 @@ mod editor_paste_tests {
     }
 
     impl EditorTestExt for Editor {
-        fn handle_action_test(&mut self, action: InputAction) -> Result<(), EditorError>{
+        fn handle_action_test(&mut self, action: InputAction) -> Result<(), EditorError> {
             let config = EditorConfig::default();
             return self.handle_input_action(action, &config);
         }
     }
-    
+
     // --- SINGLE LINE PASTE ---
 
     #[test]
@@ -758,7 +758,7 @@ mod editor_cut_tests {
     }
 
     impl EditorTestExt for Editor {
-        fn handle_action_test(&mut self, action: InputAction) -> Result<(), EditorError>{
+        fn handle_action_test(&mut self, action: InputAction) -> Result<(), EditorError> {
             let config = EditorConfig::default();
             return self.handle_input_action(action, &config);
         }

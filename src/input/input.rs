@@ -77,12 +77,12 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
 /// Handles the scroll events
 fn on_scroll_events(app: &mut App, mouse_event: MouseEvent) {
     let config = &app.config.editor;
-    
+
     // For now if not editor don't scroll
-    if app.active_area != ActiveArea::Editor { 
+    if app.active_area != ActiveArea::Editor {
         return;
     }
-    
+
     match mouse_event.kind {
         MouseEventKind::ScrollUp => app.editor.move_scroll_offset(-1, config),
         MouseEventKind::ScrollDown => app.editor.move_scroll_offset(1, config),
