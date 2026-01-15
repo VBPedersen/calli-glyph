@@ -219,9 +219,6 @@ impl Config {
                     .to_string(),
             );
         }
-    }
-
-    fn validate_ui_config(config: &UIConfig, result: &mut ValidationResult) {
         // Validate scrolloff
         if config.scrolloff > 15 {
             result.warnings.push(format!(
@@ -229,7 +226,9 @@ impl Config {
                 config.scrolloff
             ));
         }
+    }
 
+    fn validate_ui_config(config: &UIConfig, result: &mut ValidationResult) {
         // Theme validation (if theme file should exist)
         if config.theme != "default" {
             result.warnings.push(format!(

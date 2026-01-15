@@ -216,7 +216,7 @@ impl App {
         self.check_for_app_related_input_actions(action.clone());
         match self.active_area {
             ActiveArea::Editor => {
-                if let Err(e) = self.editor.handle_input_action(action) {
+                if let Err(e) = self.editor.handle_input_action(action, &self.config.editor) {
                     let popup = Box::new(ErrorPopup::new("Editor Error", EditorFailure(e)));
                     self.open_popup(popup);
                 }

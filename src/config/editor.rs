@@ -12,6 +12,9 @@ pub struct EditorConfig {
     pub auto_save_delay_ms: u64,
     pub show_whitespace: bool,
     pub highlight_current_line: bool,
+    pub scrolloff: u16,            // Lines to keep visible above/below cursor
+    pub scroll_lines: u16,         // Lines to scroll with mouse wheel
+    pub scroll_margin_bottom: u16, // Empty lines at bottom when scrolling
 }
 
 impl Default for EditorConfig {
@@ -26,6 +29,9 @@ impl Default for EditorConfig {
             auto_save_delay_ms: 1000,
             show_whitespace: false,
             highlight_current_line: false,
+            scrolloff: 3,
+            scroll_lines: 1,
+            scroll_margin_bottom: 5,
         }
     }
 }

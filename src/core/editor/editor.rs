@@ -2,7 +2,7 @@ use super::super::super::core::clipboard::Clipboard;
 use super::super::cursor::Cursor;
 use super::super::cursor::CursorPosition;
 use super::undo_redo::UndoRedoManager;
-use crate::config::{Config, UIConfig};
+use crate::config::{Config, EditorConfig, UIConfig};
 use crate::errors::editor_errors::EditorError::{
     ClipboardFailure, RedoFailure, TextSelectionFailure, UndoFailure,
 };
@@ -200,11 +200,12 @@ impl Editor {
 
     ///function to handle input action on editor,
     /// responsible for dispatching action to correct internal method.
-    pub fn handle_input_action(&mut self, action: InputAction) -> Result<(), EditorError> {
+    pub fn handle_input_action(&mut self, action: InputAction, config: &EditorConfig) -> Result<(), EditorError> {
         match action {
             InputAction::MoveCursor(direction) => {
                 let (x, y) = direction.to_vector();
                 self.move_cursor(x, y);
+                self.adjust_view_to_cursor(config);
                 self.reset_text_selection_cursor(); //reset selection, to avoid errors
                 Ok(())
             }
@@ -1069,7 +1070,7 @@ impl Editor {
 
     //editor cursor moving
 
-    ///moves the cursor in relation to editor content
+    /// Moves the cursor in relation to editor content
     pub fn move_cursor(&mut self, x: i16, y: i16) {
         if self.cursor.y == 0 && y == -1 {
             return;
@@ -1117,19 +1118,20 @@ impl Editor {
             return;
         }
 
-        let (top, bottom) = self.is_cursor_top_or_bottom_of_editor();
+        
+       /* let (top, bottom) = self.is_cursor_top_or_bottom_of_editor();
         //to offset scroll
         if (y == 1 && bottom) || (y == -1 && top) {
             self.scroll_offset = (self.scroll_offset + y).clamp(0, i16::MAX);
             return;
-        }
+        }*/
 
         self.cursor.x = self.cursor.x.clamp(0, max_x_pos);
         self.cursor.y = (self.cursor.y + y).clamp(0, i16::MAX);
         self.visual_cursor_x = self.calculate_visual_x() as i16;
     }
 
-    ///moves selection cursor
+    /// Moves selection cursor
     pub(crate) fn move_selection_cursor(&mut self, x: i16, y: i16) {
         let old_x = self.cursor.x;
         let old_y = self.cursor.y;
@@ -1196,7 +1198,7 @@ impl Editor {
 
     //SCROLL
     /// moves scroll offset and config defined scroll amount and scrolloff
-    pub(crate) fn move_scroll_offset(&mut self, direction: i16, config: &UIConfig) {
+    pub(crate) fn move_scroll_offset(&mut self, direction: i16, config: &EditorConfig) {
         let scroll_amount = (config.scroll_lines as i16) * direction.signum();
         let scrolloff = config.scrolloff as i16;
         let last_file_line = (self.editor_content.len() as i16 - 1).max(0);
@@ -1243,8 +1245,22 @@ impl Editor {
         self.clamp_cursor_to_line();
     }
 
+    /// Adjusts view scroll offset to show cursor considering margin and scrolloff
+    pub fn adjust_view_to_cursor(&mut self, config: &EditorConfig) {
+        let scrolloff = config.scrolloff as i16;
+        let viewport_height = self.editor_height as i16;
+        let cursor_v_pos = self.cursor.y - self.scroll_offset;
+
+        if cursor_v_pos < scrolloff {
+            self.scroll_offset = (self.cursor.y - scrolloff).max(0);
+        } else if cursor_v_pos >= viewport_height - scrolloff {
+            let max_scroll = self.calculate_max_scroll(config);
+            self.scroll_offset = (self.cursor.y - viewport_height + scrolloff + 1).min(max_scroll);
+        }
+    }
+    
     /// Calculate the maximum scroll offset with bottom margin
-    fn calculate_max_scroll(&self, config: &UIConfig) -> i16 {
+    fn calculate_max_scroll(&self, config: &EditorConfig) -> i16 {
         let viewport_height = self.editor_height as i16;
         let content_height = self.editor_content.len() as i16;
         let bottom_margin = config.scroll_margin_bottom as i16;
