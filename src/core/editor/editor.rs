@@ -2,13 +2,14 @@ use super::super::super::core::clipboard::Clipboard;
 use super::super::cursor::Cursor;
 use super::super::cursor::CursorPosition;
 use super::undo_redo::UndoRedoManager;
-use crate::config::{Config, EditorConfig, UIConfig};
+use crate::config::{Config, EditorConfig};
 use crate::errors::editor_errors::EditorError::{
     ClipboardFailure, RedoFailure, TextSelectionFailure, UndoFailure,
 };
 use crate::errors::editor_errors::{ClipboardError, EditorError, TextSelectionError};
 use crate::input::input_action::InputAction;
 use std::fmt::Display;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub enum EditAction {
@@ -176,12 +177,13 @@ pub struct Editor {
     pub undo_redo_manager: UndoRedoManager,
 
     //Cached config settings
-    tab_width: u16,
-    use_spaces: bool,
+    pub editor_config: Arc<EditorConfig>,
 }
 
+//TODO Consider making new take editor config and cahce it,
+// then only have editor config contain things needed in editor.rs
 impl Editor {
-    pub fn new(config: &Config) -> Self {
+    pub fn new(config: Arc<EditorConfig>) -> Self {
         Self {
             editor_content: vec![],
             visual_cursor_x: 0,
@@ -192,24 +194,19 @@ impl Editor {
             scroll_offset: 0,
             editor_height: 0,
             clipboard: Clipboard::new(),
-            undo_redo_manager: UndoRedoManager::new(config.performance.undo_history_limit),
-            tab_width: config.editor.tab_width,
-            use_spaces: config.editor.use_spaces,
+            undo_redo_manager: UndoRedoManager::new(config.undo_history_limit),
+            editor_config: config,
         }
     }
 
     ///function to handle input action on editor,
     /// responsible for dispatching action to correct internal method.
-    pub fn handle_input_action(
-        &mut self,
-        action: InputAction,
-        config: &EditorConfig,
-    ) -> Result<(), EditorError> {
+    pub fn handle_input_action(&mut self, action: InputAction) -> Result<(), EditorError> {
         match action {
             InputAction::MoveCursor(direction) => {
                 let (x, y) = direction.to_vector();
                 self.move_cursor(x, y);
-                self.adjust_view_to_cursor(config);
+                self.adjust_view_to_cursor();
                 self.reset_text_selection_cursor(); //reset selection, to avoid errors
                 Ok(())
             }
@@ -775,9 +772,9 @@ impl Editor {
     fn insert_tab_character(&mut self) {
         let line = &mut self.editor_content[self.cursor.y as usize];
         let insert_pos = self.cursor.x as usize;
-
-        if self.use_spaces {
-            let spaces = " ".repeat(self.tab_width as usize);
+        let tab_width = self.editor_config.tab_width;
+        if self.editor_config.use_spaces {
+            let spaces = " ".repeat(tab_width as usize);
             line.insert_str(insert_pos, &spaces);
 
             self.undo_redo_manager.record_undo(EditAction::InsertRange {
@@ -791,7 +788,7 @@ impl Editor {
                 },
                 lines: vec![spaces],
             });
-            self.move_cursor(self.tab_width as i16, 0);
+            self.move_cursor(tab_width as i16, 0);
         } else {
             //since \t is special char, make sure to edit line based on chars in it not str
             //collect chars from line, insert tab char, and collect back to line again
@@ -1201,14 +1198,14 @@ impl Editor {
 
     //SCROLL
     /// moves scroll offset and config defined scroll amount and scrolloff
-    pub(crate) fn move_scroll_offset(&mut self, direction: i16, config: &EditorConfig) {
-        let scroll_amount = (config.scroll_lines as i16) * direction.signum();
-        let scrolloff = config.scrolloff as i16;
+    pub fn move_scroll_offset(&mut self, direction: i16) {
+        let scroll_amount = (self.editor_config.scroll_lines as i16) * direction.signum();
+        let scrolloff = self.editor_config.scrolloff as i16;
         let last_file_line = (self.editor_content.len() as i16 - 1).max(0);
 
         // Calculate viewport bounds with bottom margin
         let viewport_height = self.editor_height as i16;
-        let max_scroll = self.calculate_max_scroll(config);
+        let max_scroll = self.calculate_max_scroll();
 
         // Calculate cursor position relative to viewport
         let cursor_viewport_pos = self.cursor.y - self.scroll_offset;
@@ -1249,24 +1246,24 @@ impl Editor {
     }
 
     /// Adjusts view scroll offset to show cursor considering margin and scrolloff
-    pub fn adjust_view_to_cursor(&mut self, config: &EditorConfig) {
-        let scrolloff = config.scrolloff as i16;
+    pub fn adjust_view_to_cursor(&mut self) {
+        let scrolloff = self.editor_config.scrolloff as i16;
         let viewport_height = self.editor_height as i16;
         let cursor_v_pos = self.cursor.y - self.scroll_offset;
 
         if cursor_v_pos < scrolloff {
             self.scroll_offset = (self.cursor.y - scrolloff).max(0);
         } else if cursor_v_pos >= viewport_height - scrolloff {
-            let max_scroll = self.calculate_max_scroll(config);
+            let max_scroll = self.calculate_max_scroll();
             self.scroll_offset = (self.cursor.y - viewport_height + scrolloff + 1).min(max_scroll);
         }
     }
 
     /// Calculate the maximum scroll offset with bottom margin
-    fn calculate_max_scroll(&self, config: &EditorConfig) -> i16 {
+    fn calculate_max_scroll(&self) -> i16 {
         let viewport_height = self.editor_height as i16;
         let content_height = self.editor_content.len() as i16;
-        let bottom_margin = config.scroll_margin_bottom as i16;
+        let bottom_margin = self.editor_config.scroll_margin_bottom as i16;
 
         // Maximum scroll is content height minus viewport height, plus bottom margin
         // This allows scrolling past the end to show empty space
@@ -1285,7 +1282,7 @@ impl Editor {
     fn calculate_visual_x(&mut self) -> usize {
         let line = &self.editor_content[self.cursor.y as usize];
         let cursor_x = self.cursor.x as usize;
-        let tab_width = self.tab_width as usize;
+        let tab_width = self.editor_config.tab_width as usize;
         let mut visual_x = 0;
         for (i, c) in line.chars().enumerate() {
             if i == cursor_x {
@@ -1301,12 +1298,7 @@ impl Editor {
 
         visual_x
     }
-    ///checks if cursor is at top or bottom of the screen
-    fn is_cursor_top_or_bottom_of_editor(&self) -> (bool, bool) {
-        let top = self.cursor.y == self.scroll_offset;
-        let bottom = self.cursor.y == self.scroll_offset + (self.editor_height as i16);
-        (top, bottom)
-    }
+
 }
 
 //██╗  ██╗███████╗██╗     ██████╗ ███████╗██████╗ ███████╗
@@ -1637,7 +1629,7 @@ impl Editor {
 
 impl Default for Editor {
     fn default() -> Self {
-        Self::new(&Config::default())
+        Self::new(Arc::new(Config::default().editor))
     }
 }
 
@@ -1655,7 +1647,7 @@ mod unit_editor_write_tests {
     //init functions
     fn create_editor_with_editor_content(vec: Vec<String>) -> Editor {
         let config = Config::default();
-        let mut editor = Editor::new(&config);
+        let mut editor = Editor::new(Arc::new(config.editor));
         editor.editor_content = vec;
         editor.editor_height = 10; //since testing doesnt start ui.rs, height isnt set
         editor
@@ -1862,7 +1854,7 @@ mod unit_editor_delete_tests {
     use super::super::editor::*;
 
     fn create_editor_with_editor_content(vec: Vec<String>) -> Editor {
-        let mut editor = Editor::new(&Config::default());
+        let mut editor = Editor::new(Arc::new(Config::default().editor));
         editor.editor_content = vec;
         editor.editor_height = 10; //since testing doesnt start ui.rs, height isnt set
         editor
@@ -2204,7 +2196,7 @@ mod unit_editor_cursor_tests {
     use super::super::editor::*;
 
     fn create_editor_with_editor_content(vec: Vec<String>) -> Editor {
-        let mut editor = Editor::new(&Config::default());
+        let mut editor = Editor::new(Arc::new(Config::default().editor));
         editor.editor_content = vec;
         editor.editor_height = 10; //since testing doesnt start ui.rs, height isnt set
         editor
@@ -2379,9 +2371,10 @@ mod unit_editor_cutcopy_tests {
     use crate::config::Config;
     use crate::core::cursor::CursorPosition;
     use crate::core::editor::Editor;
+    use std::sync::Arc;
 
     fn create_editor_with_editor_content(vec: Vec<String>) -> Editor {
-        let mut editor = Editor::new(&Config::default());
+        let mut editor = Editor::new(Arc::new(Config::default().editor));
         editor.editor_content = vec;
         editor.editor_height = 10; //since testing doesnt start ui.rs, height isnt set
         editor
@@ -2664,10 +2657,11 @@ mod unit_editor_undoredo_tests {
     use super::super::editor::EditAction;
     use super::super::editor::Editor;
     use crate::config::Config;
+    use std::sync::Arc;
 
     //init functions
     fn create_editor_with_editor_content(vec: Vec<String>) -> Editor {
-        let mut editor = Editor::new(&Config::default());
+        let mut editor = Editor::new(Arc::new(Config::default().editor));
         editor.editor_content = vec;
         editor.editor_height = 10; //since testing doesnt start ui.rs, height isnt set
         editor

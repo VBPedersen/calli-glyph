@@ -1,24 +1,24 @@
 #[cfg(test)]
 mod editor_basic_tests {
-    use calliglyph::config::{Config, EditorConfig};
+    use calliglyph::config::{Config};
     use calliglyph::core::cursor::CursorPosition;
     use calliglyph::core::editor::Editor;
     use calliglyph::errors::editor_errors::EditorError;
     use calliglyph::input::input_action::{Direction, InputAction};
+    use std::sync::Arc;
     trait EditorTestExt {
         fn handle_action_test(&mut self, action: InputAction) -> Result<(), EditorError>;
     }
 
     impl EditorTestExt for Editor {
         fn handle_action_test(&mut self, action: InputAction) -> Result<(), EditorError> {
-            let config = EditorConfig::default();
-            return self.handle_input_action(action, &config);
+            return self.handle_input_action(action);
         }
     }
 
     /// Helper to create an editor with some starting text.
     fn create_editor_with_content(lines: Vec<&str>) -> Editor {
-        let mut editor = Editor::new(&Config::default());
+        let mut editor = Editor::new(Arc::new(Config::default().editor));
         editor.editor_content = lines.into_iter().map(String::from).collect();
         editor.editor_height = 10;
         editor
@@ -629,13 +629,14 @@ mod editor_basic_tests {
 
 #[cfg(test)]
 mod editor_paste_tests {
-    use calliglyph::config::{Config, EditorConfig};
+    use calliglyph::config::{Config};
     use calliglyph::core::editor::Editor;
     use calliglyph::errors::editor_errors::EditorError;
     use calliglyph::input::input_action::InputAction;
+    use std::sync::Arc;
 
     fn editor_with(lines: Vec<&str>) -> Editor {
-        let mut e = Editor::new(&Config::default());
+        let mut e = Editor::new(Arc::new(Config::default().editor));
         e.editor_content = lines.into_iter().map(|l| l.to_string()).collect();
         e
     }
@@ -650,8 +651,7 @@ mod editor_paste_tests {
 
     impl EditorTestExt for Editor {
         fn handle_action_test(&mut self, action: InputAction) -> Result<(), EditorError> {
-            let config = EditorConfig::default();
-            return self.handle_input_action(action, &config);
+            self.handle_input_action(action)
         }
     }
 
@@ -747,11 +747,12 @@ mod editor_paste_tests {
 
 #[cfg(test)]
 mod editor_cut_tests {
-    use calliglyph::config::{Config, EditorConfig};
+    use calliglyph::config::{Config};
     use calliglyph::core::cursor::CursorPosition;
     use calliglyph::core::editor::Editor;
     use calliglyph::errors::editor_errors::EditorError;
     use calliglyph::input::input_action::InputAction;
+    use std::sync::Arc;
 
     trait EditorTestExt {
         fn handle_action_test(&mut self, action: InputAction) -> Result<(), EditorError>;
@@ -759,13 +760,12 @@ mod editor_cut_tests {
 
     impl EditorTestExt for Editor {
         fn handle_action_test(&mut self, action: InputAction) -> Result<(), EditorError> {
-            let config = EditorConfig::default();
-            return self.handle_input_action(action, &config);
+            self.handle_input_action(action)
         }
     }
     /// Helper to create an editor with some starting text.
     fn create_editor_with_content(lines: Vec<&str>) -> Editor {
-        let mut editor = Editor::new(&Config::default());
+        let mut editor = Editor::new(Arc::new(Config::default().editor));
         editor.editor_content = lines.into_iter().map(String::from).collect();
         editor.editor_height = 10;
         editor
@@ -792,5 +792,101 @@ mod editor_cut_tests {
         assert_eq!(editor.editor_content[0], "Hello World");
         assert_eq!(editor.editor_content[1], "End");
         assert_eq!(editor.editor_content.len(), 2);
+    }
+}
+
+#[cfg(test)]
+mod editor_scroll_tests {
+    use calliglyph::config::EditorConfig;
+    use calliglyph::core::editor::Editor;
+    use calliglyph::input::input_action::{Direction, InputAction};
+    use std::sync::Arc;
+
+    fn setup_editor(lines: Vec<&str>, scrolloff: u16, margin: u16) -> Editor {
+        let config = EditorConfig {
+            scrolloff,
+            scroll_margin_bottom: margin,
+            scroll_lines: 1,
+            ..Default::default()
+        };
+
+        let mut editor = Editor::new(Arc::new(config.clone()));
+        editor.editor_content = lines.into_iter().map(|s| s.to_string()).collect();
+        editor.editor_height = 10; // Fixed height for predictable math
+        editor
+    }
+
+    #[test]
+    fn test_scroll_down_pushes_cursor_with_scrolloff() {
+        // 15 lines, scrolloff 3. Viewport is 0-9.
+        // Cursor starts at (0,0).
+        let mut ed = setup_editor(vec!["a"; 15], 3, 5);
+
+        // Scroll down 10 times.
+        // With scrolloff 3, the cursor should eventually be pushed
+        // to stay at least 3 lines from the bottom.
+        for _ in 0..10 {
+            ed.move_scroll_offset(1);
+        }
+
+        assert_eq!(ed.scroll_offset, 4);
+        // Cursor should be at line amount of scrolls
+        assert_eq!(ed.cursor.y, 10);
+    }
+
+    #[test]
+    fn test_scroll_into_bottom_margin_pins_cursor() {
+        // 5 lines of text, 10 viewport height, 10 margin.
+        let mut ed = setup_editor(vec!["line"; 5], 2, 10);
+
+        // Move cursor to the last line (index 4)
+        ed.cursor.y = 4;
+
+        // Scroll down. Cursor cannot go past index 4.
+        // Scroll should increase, showing "void" below.
+        for _ in 0..100 {
+            ed.move_scroll_offset(1);
+        }
+        println!("{:?}", ed.scroll_offset);
+        assert_eq!(ed.cursor.y, 4, "Cursor must not leave actual text");
+        assert!(
+            ed.scroll_offset > 0,
+            "View should still move down into margin"
+        );
+    }
+
+    #[test]
+    fn test_keyboard_navigation_respects_scrolloff_bottom() {
+        let mut ed = setup_editor(vec!["a"; 20], 3, 0);
+
+        // Move cursor down to the scrolloff trigger (Line 7 in a 10-height window)
+        for _ in 0..6 {
+            ed.cursor.y += 1;
+        }
+
+        // This move should trigger a scroll update
+        ed.handle_input_action(InputAction::MoveCursor(Direction::Down))
+            .unwrap();
+
+        assert_eq!(
+            ed.scroll_offset, 1,
+            "Keyboard move should have pushed scroll_offset"
+        );
+    }
+
+    #[test]
+    fn test_scrolling_up_from_margin_snaps_cursor() {
+        let mut ed = setup_editor(vec!["a"; 20], 5, 5);
+        ed.scroll_offset = 1;
+        ed.cursor.y = 5;
+
+        // Scroll up. Cursor should be pulled down to stay within scrolloff
+        ed.move_scroll_offset(-1);
+
+        assert_eq!(ed.scroll_offset, 0);
+        assert_eq!(
+            ed.cursor.y, 4,
+            "Cursor should have been pulled down by top scrolloff"
+        );
     }
 }

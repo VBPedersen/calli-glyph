@@ -226,6 +226,18 @@ impl Config {
                 config.scrolloff
             ));
         }
+
+        // Validate history limits
+        if config.undo_history_limit == 0 {
+            result
+                .warnings
+                .push("performance.undo_history_limit is 0. Undo will not work.".to_string());
+        } else if config.undo_history_limit > 10000 {
+            result.warnings.push(format!(
+                "performance.undo_history_limit is {} (very large). May use excessive memory.",
+                config.undo_history_limit
+            ));
+        }
     }
 
     fn validate_ui_config(config: &UIConfig, result: &mut ValidationResult) {
@@ -260,18 +272,6 @@ impl Config {
             result.warnings.push(
                 "performance.cursor_blink_rate_ms < 100ms. Cursor may blink too fast.".to_string(),
             );
-        }
-
-        // Validate history limits
-        if config.undo_history_limit == 0 {
-            result
-                .warnings
-                .push("performance.undo_history_limit is 0. Undo will not work.".to_string());
-        } else if config.undo_history_limit > 10000 {
-            result.warnings.push(format!(
-                "performance.undo_history_limit is {} (very large). May use excessive memory.",
-                config.undo_history_limit
-            ));
         }
     }
 

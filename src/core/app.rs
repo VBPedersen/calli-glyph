@@ -18,6 +18,7 @@ use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 #[derive(Debug)]
@@ -57,11 +58,13 @@ pub enum ActiveArea {
 
 impl Default for App {
     fn default() -> Self {
+        let config = Config::default();
+        let temp_config = Arc::new(config.editor.clone());
         Self {
             running: Default::default(),
-            config: Config::default(),
+            config,
             active_area: Default::default(),
-            editor: Editor::new(&Config::default()),
+            editor: Editor::new(temp_config),
             command_line: CommandLine::new(),
             cursor_visible: true,
             terminal_height: 0,
@@ -79,11 +82,12 @@ impl Default for App {
 impl App {
     /// Construct a new instance of [`App`].
     pub fn new(config: Config, launch_config: AppLaunchConfig) -> Self {
+        let editor_config_arc = Arc::new(config.editor.clone());
         Self {
             running: Default::default(),
-            config: config.clone(),
+            config,
             active_area: Default::default(),
-            editor: Editor::new(&config),
+            editor: Editor::new(editor_config_arc),
             command_line: CommandLine::new(),
             cursor_visible: true,
             terminal_height: 0,
@@ -216,7 +220,7 @@ impl App {
         self.check_for_app_related_input_actions(action.clone());
         match self.active_area {
             ActiveArea::Editor => {
-                if let Err(e) = self.editor.handle_input_action(action, &self.config.editor) {
+                if let Err(e) = self.editor.handle_input_action(action) {
                     let popup = Box::new(ErrorPopup::new("Editor Error", EditorFailure(e)));
                     self.open_popup(popup);
                 }

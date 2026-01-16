@@ -89,7 +89,7 @@ fn test_parsing_invalid_action_fails() {
 // Helper to clean up after test
 fn cleanup_test_path(path: &PathBuf) {
     if path.exists() {
-        let _ = fs::remove_file(path);
+        fs::remove_file(path).expect("Failed to remove test config file");
     }
     Config::set_test_config_path(None);
 }
@@ -101,7 +101,9 @@ fn test_config_load_fallback_on_no_file() {
     Config::set_test_config_path(Some(temp_path.clone()));
 
     // Ensure the file does not exist before loading
-    cleanup_test_path(&temp_path);
+    if temp_path.clone().exists() {
+        fs::remove_file(temp_path.clone()).expect("Failed to remove test config file");
+    }
 
     // Action: Load config
     let loaded_config = Config::load();
@@ -112,8 +114,8 @@ fn test_config_load_fallback_on_no_file() {
         "Editor default tab_size failed."
     );
 
-    // It should not save the default config
-    assert!(!temp_path.exists());
+    // It should save the default config to temp path
+    assert!(temp_path.clone().exists());
 
     // Cleanup
     cleanup_test_path(&temp_path);
@@ -129,7 +131,7 @@ fn test_config_load_and_save_success() {
     let mut custom_config = Config::default();
     // Set custom values on nested structs
     custom_config.editor.tab_width = 8;
-    custom_config.performance.undo_history_limit = 500;
+    custom_config.editor.undo_history_limit = 500;
 
     custom_config
         .keymaps
@@ -144,7 +146,7 @@ fn test_config_load_and_save_success() {
 
     // Assertions (Load): Check custom values
     assert_eq!(loaded_config.editor.tab_width, 8);
-    assert_eq!(loaded_config.performance.undo_history_limit, 500);
+    assert_eq!(loaded_config.editor.undo_history_limit, 500);
 
     // Check if the custom keymap was loaded and mapped
     let _ = loaded_config.runtime_keymaps.as_ref().unwrap();
@@ -222,7 +224,8 @@ fn test_config_reload_success() {
         auto_save_delay_ms = 1000
         show_whitespace = false
         highlight_current_line = false
-
+        undo_history_limit = 500
+        
         [keymaps.editor]
 
         [keymaps.command_line]
@@ -240,7 +243,6 @@ fn test_config_reload_success() {
         [performance]
         tick_rate_ms = 50
         cursor_blink_rate_ms = 500
-        undo_history_limit = 500
         lazy_redraw = false
     "#;
     fs::write(&temp_path, new_content).expect("Failed to write updated content");
@@ -254,7 +256,7 @@ fn test_config_reload_success() {
         "Reloaded editor setting failed."
     );
     assert_eq!(
-        app_config.performance.undo_history_limit, 500,
+        app_config.editor.undo_history_limit, 500,
         "Reloaded performance setting failed."
     );
     eprintln!("{}", format!("{}", app_config.runtime_keymaps.is_some()));

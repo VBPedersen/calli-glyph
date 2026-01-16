@@ -15,6 +15,7 @@ pub struct EditorConfig {
     pub scrolloff: u16,            // Lines to keep visible above/below cursor
     pub scroll_lines: u16,         // Lines to scroll with mouse wheel
     pub scroll_margin_bottom: u16, // Empty lines at bottom when scrolling
+    pub undo_history_limit: usize,
 }
 
 impl Default for EditorConfig {
@@ -32,6 +33,7 @@ impl Default for EditorConfig {
             scrolloff: 3,
             scroll_lines: 1,
             scroll_margin_bottom: 5,
+            undo_history_limit: 1000,
         }
     }
 }
