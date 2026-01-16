@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod editor_basic_tests {
-    use calliglyph::config::{Config};
+    use calliglyph::config::Config;
     use calliglyph::core::cursor::CursorPosition;
     use calliglyph::core::editor::Editor;
     use calliglyph::errors::editor_errors::EditorError;
@@ -629,7 +629,7 @@ mod editor_basic_tests {
 
 #[cfg(test)]
 mod editor_paste_tests {
-    use calliglyph::config::{Config};
+    use calliglyph::config::Config;
     use calliglyph::core::editor::Editor;
     use calliglyph::errors::editor_errors::EditorError;
     use calliglyph::input::input_action::InputAction;
@@ -747,7 +747,7 @@ mod editor_paste_tests {
 
 #[cfg(test)]
 mod editor_cut_tests {
-    use calliglyph::config::{Config};
+    use calliglyph::config::Config;
     use calliglyph::core::cursor::CursorPosition;
     use calliglyph::core::editor::Editor;
     use calliglyph::errors::editor_errors::EditorError;
