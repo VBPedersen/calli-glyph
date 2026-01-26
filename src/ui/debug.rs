@@ -130,7 +130,7 @@ pub fn render_debug_panel(frame: &mut Frame, app: &App, area: Rect) {
 
     match app.debug_view.active_tab {
         DebugTab::Overview => overview::render_overview(frame, app, chunks[1]),
-        DebugTab::Logs => logs_list::render_logs(frame, app, chunks[1]),
+        DebugTab::Logs => logs_list::render_logs(frame, chunks[1]),
         DebugTab::Clipboard => clipboard_view::render_clipboard(frame, app, chunks[1]),
         DebugTab::History => action_history::render_history(frame, app, chunks[1]),
         DebugTab::Snapshots => snapshots_list::render_snapshots_list(frame, app, chunks[1]),

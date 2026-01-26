@@ -102,6 +102,7 @@ dependencies = [
  "color-eyre",
  "crossterm",
  "dirs",
+ "once_cell",
  "ratatui",
  "serde",
  "sysinfo",

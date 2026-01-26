@@ -63,12 +63,12 @@ impl Config {
         let config_path = Self::get_config_path()?;
 
         let mut config = if config_path.exists() {
-            eprintln!("[INFO] [CONFIG] Loading config from: {:?}", config_path);
+            log_info!("[CONFIG] Loading config from {:?}", config_path);
             let content = fs::read_to_string(&config_path)?;
             toml::from_str(&content)?
         } else {
-            eprintln!(
-                "[WARN] [CONFIG] Config file not found at {:?}. Using default.",
+            log_warn!(
+                "[CONFIG] Config file not found at {:?}. Using default.",
                 config_path
             );
             let config = Config::default();
@@ -84,7 +84,11 @@ impl Config {
     /// Loads config from path, and falling back to default if errors or unsuccessful
     pub fn load() -> Self {
         Self::try_load().unwrap_or_else(|e| {
-            eprintln!("[ERROR] [CONFIG] Error loading configuration: {:?}. Falling back to default configuration.", e);
+            log_error!(
+                "[CONFIG] Error loading configuration: {:?}. \
+            Falling back to default configuration.",
+                e
+            );
             Self::default()
         })
     }
@@ -93,7 +97,7 @@ impl Config {
     pub fn reload(&mut self) -> Result<Self, ConfigError> {
         let config = Self::try_load()?;
         *self = config.clone();
-        eprintln!("[INFO] [CONFIG] Successfully reloaded configuration.");
+        log_info!("[CONFIG] Successfully reloaded configuration.");
         Ok(config)
     }
 

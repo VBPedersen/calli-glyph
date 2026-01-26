@@ -21,10 +21,11 @@ impl AppLaunchConfig {
 
         if args.reset_config {
             if config_path.exists() {
-                //TODO log
+                log_info!("Removing config file");
                 fs::remove_file(&config_path)?;
+                log_info!("Config file removed");
             } else {
-                //TODO log
+                log_info!("No config file found when trying to reset");
             }
         }
 

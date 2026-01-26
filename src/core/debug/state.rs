@@ -1,4 +1,4 @@
-use super::{DebugLogger, LogEntry, LogLevel, PerformanceMetrics};
+use super::PerformanceMetrics;
 use crate::core::app::ActiveArea;
 use crate::core::cursor::{Cursor, CursorPosition};
 use crate::core::editor::editor::EditAction;
@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 #[derive(Debug)]
 pub struct DebugState {
     pub enabled: bool,
-    pub logger: DebugLogger,
+    //pub logger: DebugLogger,
     pub metrics: PerformanceMetrics,
     pub snapshots: SnapshotHistory,
     pub capture_mode: CaptureMode,
@@ -82,14 +82,14 @@ impl DebugState {
     pub fn new() -> Self {
         Self {
             enabled: false,
-            logger: DebugLogger::new(1000),
+            //logger: DebugLogger::new(1000),
             metrics: PerformanceMetrics::new(),
             snapshots: SnapshotHistory::new(50),
             capture_mode: CaptureMode::OnEvent,
         }
     }
 
-    /// Logs entry to DebugLogger
+    /*/// Logs entry to DebugLogger
     pub fn log(&mut self, level: LogLevel, message: impl Into<String>) {
         if !self.enabled {
             return;
@@ -100,7 +100,7 @@ impl DebugState {
             message: message.into(),
             context: None,
         });
-    }
+    }*/
 
     //if debugging enabled then tick on metrics
     pub fn tick_frame(&mut self) {
@@ -215,7 +215,7 @@ impl DebugState {
     }
 
     pub fn clear_logs(&mut self) {
-        self.logger.clear();
+        crate::core::debug::clear_all_logs();
     }
 
     pub fn clear_snapshots(&mut self) {
@@ -224,7 +224,8 @@ impl DebugState {
 
     pub fn set_capture_mode(&mut self, mode: CaptureMode) {
         self.capture_mode = mode;
-        self.log(LogLevel::Info, format!("Capture mode set to: {:?}", mode));
+        log_info!("Capture mode set to: {:?}", mode);
+        //self.log(LogLevel::Info, format!("Capture mode set to: {:?}", mode));
     }
 }
 

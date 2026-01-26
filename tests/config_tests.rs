@@ -259,7 +259,7 @@ fn test_config_reload_success() {
         app_config.editor.undo_history_limit, 500,
         "Reloaded performance setting failed."
     );
-    eprintln!("{}", format!("{}", app_config.runtime_keymaps.is_some()));
+
     // Check keymaps were reparsed (they should be empty based on the new content)
     assert!(app_config
         .runtime_keymaps

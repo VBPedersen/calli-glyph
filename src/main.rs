@@ -1,16 +1,8 @@
-pub use core::app::App;
+pub use calliglyph::core::app::App;
 
-pub mod app_config;
-mod args;
-mod config;
-pub mod core; //expose app module
-pub mod errors;
-pub mod input; //expose input module
-pub mod ui;
-
-use crate::app_config::AppLaunchConfig;
-use crate::args::AppLaunchArgs;
-use crate::config::Config;
+use calliglyph::app_config::AppLaunchConfig;
+use calliglyph::args::AppLaunchArgs;
+use calliglyph::config::Config;
 use clap::Parser;
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use crossterm::terminal::LeaveAlternateScreen;

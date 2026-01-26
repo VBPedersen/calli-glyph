@@ -1,3 +1,38 @@
+// GLOBAL TEST SETUP - Runs before each test
+
+use calliglyph::core::debug::clear_all_logs;
+use once_cell::sync::Lazy;
+use std::sync::Mutex;
+
+static TEST_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+/// RAII guard that clears logs when created and dropped
+/// Automatically applied to every test via init_test_logger()
+struct LoggerGuard {
+    _lock: std::sync::MutexGuard<'static, ()>,
+}
+
+impl LoggerGuard {
+    fn new() -> Self {
+        // Acquire lock - blocks until other tests release it
+        let lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+        // Clear logs before test
+        clear_all_logs();
+        LoggerGuard { _lock: lock }
+    }
+}
+
+impl Drop for LoggerGuard {
+    fn drop(&mut self) {
+        clear_all_logs();
+    }
+}
+
+/// Call this at the start of any test to ensure clean logger state
+fn init_test_logger() -> LoggerGuard {
+    LoggerGuard::new()
+}
+
+// Tests using local instance DebugLogger struct, not the global one
 #[cfg(test)]
 mod debug_logger_tests {
     use calliglyph::core::debug::{DebugLogger, LogEntry, LogLevel};
@@ -498,33 +533,41 @@ mod debug_snapshot_tests {
 
 #[cfg(test)]
 mod debug_state_tests {
-    use calliglyph::core::debug::{CaptureMode, DebugState, LogLevel};
+    use super::*;
+    use calliglyph::core::debug::{get_log_count, CaptureMode, DebugState};
+    use calliglyph::log_info;
 
     #[test]
     fn test_debug_state_initialization() {
+        let _guard = init_test_logger();
         let debug_state = DebugState::new();
         assert!(!debug_state.enabled);
         assert_eq!(debug_state.capture_mode, CaptureMode::OnEvent);
-        assert_eq!(debug_state.logger.entries().len(), 0);
+        assert_eq!(get_log_count(), 0);
         assert_eq!(debug_state.snapshots.len(), 0);
     }
 
     #[test]
     fn test_debug_state_log_when_enabled() {
+        let _guard = init_test_logger();
         let mut debug_state = DebugState::new();
         debug_state.enabled = true;
 
-        debug_state.log(LogLevel::Info, "Test message");
-        assert_eq!(debug_state.logger.entries().len(), 1);
+        log_info!("Test message");
+
+        let logger_len = get_log_count();
+        assert_eq!(logger_len, 1);
     }
 
     #[test]
-    fn test_debug_state_log_when_disabled() {
+    fn test_debug_state_log_when_disabled_should_still_log() {
+        let _guard = init_test_logger();
         let mut debug_state = DebugState::new();
         debug_state.enabled = false;
 
-        debug_state.log(LogLevel::Info, "Test message");
-        assert_eq!(debug_state.logger.entries().len(), 0);
+        log_info!("Test message");
+
+        assert_eq!(get_log_count(), 1);
     }
 
     #[test]
@@ -547,25 +590,28 @@ mod debug_state_tests {
 
     #[test]
     fn test_debug_state_set_capture_mode() {
+        let _guard = init_test_logger();
         let mut debug_state = DebugState::new();
         debug_state.enabled = true;
 
         debug_state.set_capture_mode(CaptureMode::EveryFrame);
         assert_eq!(debug_state.capture_mode, CaptureMode::EveryFrame);
-        assert_eq!(debug_state.logger.entries().len(), 1); // Should log the change
+        assert_eq!(get_log_count(), 1); // Should log the change
     }
 
     #[test]
     fn test_debug_state_clear_logs() {
+        let _guard = init_test_logger();
         let mut debug_state = DebugState::new();
         debug_state.enabled = true;
-
-        debug_state.log(LogLevel::Info, "Test 1");
-        debug_state.log(LogLevel::Info, "Test 2");
-        assert_eq!(debug_state.logger.entries().len(), 2);
+        clear_all_logs();
+        log_info!("Test 1");
+        log_info!("Test 2");
+        assert_eq!(get_log_count(), 2);
 
         debug_state.clear_logs();
-        assert_eq!(debug_state.logger.entries().len(), 0);
+
+        assert_eq!(get_log_count(), 0);
     }
 }
 
@@ -732,26 +778,32 @@ mod debug_view_tests {
 
 #[cfg(test)]
 mod debug_integration_tests {
+    use super::*;
     use calliglyph::core::app::ActiveArea;
     use calliglyph::core::cursor::Cursor;
-    use calliglyph::core::debug::{CaptureMode, DebugState, LogLevel, SnapshotTrigger};
+    use calliglyph::core::debug::{
+        get_log_count, get_log_count_by_level, CaptureMode, DebugState, LogLevel, SnapshotTrigger,
+    };
+    use calliglyph::{log_debug, log_error, log_info};
     use std::collections::VecDeque;
 
     #[test]
     fn test_full_debug_workflow() {
+        let _guard = init_test_logger();
         let mut debug_state = DebugState::new();
-
         // Enable debugging
         debug_state.enabled = true;
 
+        clear_all_logs();
         // Log some events
-        debug_state.log(LogLevel::Info, "Application started");
-        debug_state.log(LogLevel::Debug, "Loading file");
-        debug_state.log(LogLevel::Error, "File not found");
+        log_info!("Application started");
+        log_debug!("Loading file");
+        log_error!("File not found");
 
-        assert_eq!(debug_state.logger.entries().len(), 3);
-        assert_eq!(debug_state.logger.count_by_level(LogLevel::Error), 1);
-
+        assert_eq!(get_log_count(), 3);
+        assert_eq!(get_log_count_by_level(LogLevel::Error), 1);
+        assert_eq!(get_log_count_by_level(LogLevel::Info), 1);
+        assert_eq!(get_log_count_by_level(LogLevel::Debug), 1);
         // Tick some frames
         debug_state.tick_frame();
         debug_state.tick_frame();

@@ -1,23 +1,21 @@
 use crate::core::app::ActiveArea;
 use crate::core::app::App;
 use crate::core::cursor::CursorPosition;
-use crate::core::debug::{LogLevel, Selection};
+use crate::core::debug::Selection;
 use crate::input::input_action::{DebugAction, InputAction};
 use crate::ui::debug::DebugTab;
 
 impl App {
     /// Toggle debug
     pub fn toggle_debug(&mut self) {
-        use crate::core::debug::LogLevel;
         self.debug_state.enabled = !self.debug_state.enabled;
 
         if self.debug_state.enabled {
             self.active_area = ActiveArea::DebugConsole;
-            self.debug_state.log(LogLevel::Info, "Debug mode activated");
+            log_info!("Debug mode enabled");
         } else {
             self.active_area = ActiveArea::Editor;
-            self.debug_state
-                .log(LogLevel::Info, "Debug mode deactivated");
+            log_info!("Debug mode disabled");
         }
     }
 
@@ -67,12 +65,12 @@ impl App {
 
             DebugAction::DebugClearLogs => {
                 self.debug_state.clear_logs();
-                self.debug_state.log(LogLevel::Info, "Logs cleared");
+                log_info!("Logs cleared");
             }
 
             DebugAction::DebugClearSnapshots => {
                 self.debug_state.clear_snapshots();
-                self.debug_state.log(LogLevel::Info, "Snapshots cleared");
+                log_info!("Snapshots cleared");
             }
             DebugAction::DebugManualSnapshot => {
                 self.debug_state.capture_manual_snapshot(
@@ -95,8 +93,7 @@ impl App {
                     self.editor.undo_redo_manager.undo_stack.clone(),
                     self.file_path.clone(),
                 );
-                self.debug_state
-                    .log(LogLevel::Info, "Manual snapshot captured");
+                log_info!("Manual snapshot captured");
             }
 
             DebugAction::DebugCycleMode => {
@@ -107,16 +104,12 @@ impl App {
                     CaptureMode::Manual => CaptureMode::EveryFrame,
                     CaptureMode::EveryFrame => CaptureMode::None,
                 };
-                self.debug_state.log(
-                    LogLevel::Info,
-                    format!("Capture mode: {:?}", self.debug_state.capture_mode),
-                );
+                log_info!("Capture mode: {:?}", self.debug_state.capture_mode);
             }
 
             DebugAction::DebugResetMetrics => {
                 self.debug_state.metrics.reset();
-                self.debug_state
-                    .log(LogLevel::Info, "Performance metrics reset");
+                log_info!("Performance metrics cleared");
             }
 
             DebugAction::DebugViewSnapshot => {

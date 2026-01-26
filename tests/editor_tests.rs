@@ -847,7 +847,6 @@ mod editor_scroll_tests {
         for _ in 0..100 {
             ed.move_scroll_offset(1);
         }
-        println!("{:?}", ed.scroll_offset);
         assert_eq!(ed.cursor.y, 4, "Cursor must not leave actual text");
         assert!(
             ed.scroll_offset > 0,

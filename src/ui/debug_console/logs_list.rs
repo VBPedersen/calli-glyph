@@ -1,5 +1,4 @@
-use crate::core::app::App;
-use crate::core::debug::LogLevel;
+use crate::core::debug::{LogEntry, LogLevel};
 use ratatui::style::Modifier;
 use ratatui::{
     layout::Rect,
@@ -10,11 +9,10 @@ use ratatui::{
 };
 
 //TODO possibly make logs interactble and scrolling
-pub fn render_logs(frame: &mut Frame, app: &App, area: Rect) {
-    let entries: Vec<ListItem> = app
-        .debug_state
-        .logger
-        .entries()
+pub fn render_logs(frame: &mut Frame, area: Rect) {
+    let log_entries: Vec<LogEntry> = crate::core::debug::get_all_logs();
+
+    let entries: Vec<ListItem> = log_entries
         .iter()
         .rev()
         .map(|entry| {
@@ -39,10 +37,7 @@ pub fn render_logs(frame: &mut Frame, app: &App, area: Rect) {
         .collect();
 
     let block = Block::default()
-        .title(format!(
-            "Event Log ({} entries)",
-            app.debug_state.logger.entries().len()
-        ))
+        .title(format!("Event Log ({} entries)", log_entries.len()))
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Yellow));
 

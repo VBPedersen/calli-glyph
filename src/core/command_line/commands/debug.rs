@@ -2,7 +2,7 @@ use crate::core::app::ActiveArea;
 use crate::core::app::App;
 use crate::core::command_line::command::CommandFlag;
 use crate::core::cursor::CursorPosition;
-use crate::core::debug::{CaptureMode, LogLevel, Selection};
+use crate::core::debug::{CaptureMode, Selection};
 use crate::errors::command_errors::CommandError;
 use std::collections::HashSet;
 
@@ -58,21 +58,21 @@ pub fn debug_command(
     match sub_command {
         DebugSubcommand::Enable => {
             app.debug_state.enabled = true;
-            app.debug_state.log(LogLevel::Info, "Debug enabled");
+            log_info!("Debug enabled");
             Ok(())
         }
         DebugSubcommand::Disable => {
-            app.debug_state.enabled = true;
-            app.debug_state.log(LogLevel::Info, "Debug enabled");
+            app.debug_state.enabled = false;
+            log_info!("Debug disabled");
             Ok(())
         }
         DebugSubcommand::Console => {
             if !app.debug_state.enabled {
                 app.debug_state.enabled = true;
-                app.debug_state.log(LogLevel::Info, "Debug mode enabled");
+                log_info!("Debug enabled");
             }
             app.active_area = ActiveArea::DebugConsole;
-            app.debug_state.log(LogLevel::Info, "Debug console opened");
+            log_info!("Debug console opened");
             Ok(())
         }
         DebugSubcommand::Toggle => {
@@ -89,7 +89,7 @@ pub fn debug_command(
         }
         DebugSubcommand::Clear => {
             app.debug_state.clear_logs();
-            app.debug_state.log(LogLevel::Info, "Logs Cleared");
+            log_info!("logs cleared");
             Ok(())
         }
         DebugSubcommand::Snapshot => {
@@ -113,18 +113,17 @@ pub fn debug_command(
                 app.editor.undo_redo_manager.redo_stack.clone(),
                 app.file_path.clone(),
             );
-            app.debug_state
-                .log(LogLevel::Info, "Manual snapshot Captured");
+            log_info!("Manual snapshot captured");
             Ok(())
         }
         DebugSubcommand::Reset => {
             app.debug_state.metrics.reset();
-            app.debug_state.log(LogLevel::Info, "Metrics Reset");
+            log_info!("Performance metrics cleared");
             Ok(())
         }
         DebugSubcommand::ClearSnapshots => {
             app.debug_state.clear_snapshots();
-            app.debug_state.log(LogLevel::Info, "Snapshots cleared");
+            log_info!("Snapshots cleared");
             Ok(())
         }
         DebugSubcommand::ModeNone => {

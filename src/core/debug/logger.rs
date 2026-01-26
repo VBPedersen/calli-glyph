@@ -8,7 +8,7 @@ pub struct DebugLogger {
     max_entries: usize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LogEntry {
     pub timestamp: Instant,
     pub level: LogLevel,

@@ -2,7 +2,7 @@ use super::command_line::{command, command_executor, CommandLine};
 use super::editor::Editor;
 use crate::app_config::AppLaunchConfig;
 use crate::config::Config;
-use crate::core::debug::{DebugState, LogLevel};
+use crate::core::debug::DebugState;
 use crate::errors::error::AppError;
 use crate::errors::error::AppError::EditorFailure;
 use crate::input::input::handle_input;
@@ -134,7 +134,7 @@ impl App {
                 if let Some(path) = &self.file_path.clone() {
                     let _ = self.save_to_path(&*path.clone());
                     self.content_modified = false;
-                    self.debug_state.log(LogLevel::Info, "Auto-saved file");
+                    log_info!("Auto-saved file: {:?}", path);
                 }
                 last_auto_save = Instant::now();
             }
@@ -172,10 +172,8 @@ impl App {
     /// Function to read a file to the editor if file path is some.
     fn read_file_to_editor_if_path_provided(&mut self) {
         self.editor.editor_content = if let Some(ref path) = self.file_path {
-            self.debug_state.log(
-                LogLevel::Info,
-                format!("Attempting to load file : {}", path.display()),
-            );
+            log_info!("Attempting to load file : {}", path.display());
+
             match File::open(path) {
                 Ok(f) => {
                     let mut buff_read_file = BufReader::new(f);
@@ -214,8 +212,7 @@ impl App {
         // Makes no sense to debug actions on debugger console to log
         if self.debug_state.enabled && self.active_area != ActiveArea::DebugConsole {
             self.debug_state.metrics.record_event();
-            self.debug_state
-                .log(LogLevel::Trace, format!("Action: {:?}", action));
+            log_info!("Action: {:?}", action);
         }
         self.check_for_app_related_input_actions(action.clone());
         match self.active_area {
