@@ -5,7 +5,10 @@ use crate::core::app::App;
 use crate::core::command_line::command::CommandFlag;
 use crate::errors::command_errors::CommandError;
 use crate::ui::popups::config_validation_result_popup::ValidationResultPopup;
+use crate::ui::popups::scrollable_text_popup::ScrollableTextPopup;
+use ratatui::text::Line;
 use std::collections::HashSet;
+use std::path::Path;
 
 enum ConfigSubcommand {
     Reload,
@@ -144,17 +147,64 @@ pub fn edit_config_command(app: &mut App) -> Result<(), CommandError> {
 
 ///Show config.toml as scrollable popup window
 pub fn show_config_command(app: &mut App) -> Result<(), CommandError> {
-    match app.config.reload() {
-        Ok(_) => {
-            //TODO
-            // show config possibly in previewer popup or something
+    let config_path = Config::get_config_path()
+        .map_err(|e| CommandError::ExecutionFailed(format!("Failed to get config path: {}", e)))?;
+
+    // Ensure config exists
+    if !config_path.exists() {
+        app.config.save().map_err(|e| {
+            CommandError::ExecutionFailed(format!("Failed to create config: {}", e))
+        })?;
+    }
+
+    // Load config content into popup
+    match std::fs::read_to_string(&config_path) {
+        Ok(content) => {
+            let lines: Vec<Line> = content
+                .lines()
+                .map(|line| Line::from(line.to_string()))
+                .collect();
+            let display_path = shorten_path(&prettify_config_path(&*config_path), 30);
+            let title = format!("{}", display_path);
+            let popup = Box::new(ScrollableTextPopup::new(String::from(title), lines));
+            app.open_popup(popup);
+
             Ok(())
         }
         Err(e) => Err(CommandError::ExecutionFailed(format!(
-            "Failed to show config: {}",
+            "Failed to read config: {}",
             e
         ))),
     }
+}
+
+//TODO move if needed elsewhere as well,
+// for now just leave here
+pub fn prettify_config_path(path: &Path) -> String {
+    let path_str = path.to_string_lossy();
+
+    // Get home dir
+    if let Some(home_dir) = dirs::home_dir() {
+        let home_str = home_dir.to_string_lossy();
+        if path_str.starts_with(&*home_str) {
+            return path_str.replacen(&*home_str, "~", 1);
+        }
+    }
+    path_str.into_owned()
+}
+
+pub fn shorten_path(path: &str, max_len: usize) -> String {
+    if path.len() <= max_len {
+        return path.to_string();
+    }
+
+    let chars: Vec<char> = path.chars().collect();
+    let keep_side = (max_len - 3) / 2; // Subtract 3 for "..."
+
+    let start: String = chars.iter().take(keep_side).collect();
+    let end: String = chars.iter().skip(chars.len() - keep_side).collect();
+
+    format!("{}...{}", start, end)
 }
 
 pub fn validate_config_command(app: &mut App) -> Result<(), CommandError> {
