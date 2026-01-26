@@ -64,6 +64,8 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
             (KeyModifiers::NONE, KeyCode::Left) => Some(InputAction::MoveCursor(Direction::Left)),
             (KeyModifiers::NONE, KeyCode::Right) => Some(InputAction::MoveCursor(Direction::Right)),
             (KeyModifiers::NONE, KeyCode::Enter) => Some(InputAction::ENTER),
+            (KeyModifiers::NONE, KeyCode::Esc) => Some(InputAction::ENTER),
+
             _ => Some(InputAction::NoOp),
         },
     };

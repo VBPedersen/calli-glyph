@@ -4,6 +4,7 @@ use crate::config::Config;
 use crate::core::app::App;
 use crate::core::command_line::command::CommandFlag;
 use crate::errors::command_errors::CommandError;
+use crate::ui::popups::config_validation_result_popup::ValidationResultPopup;
 use std::collections::HashSet;
 
 enum ConfigSubcommand {
@@ -158,20 +159,10 @@ pub fn show_config_command(app: &mut App) -> Result<(), CommandError> {
 
 pub fn validate_config_command(app: &mut App) -> Result<(), CommandError> {
     let result = app.config.validate();
-    // Display detailed report in editor or status
-    let report = result.detailed_report();
 
-    // Only open popup if any errors or warns, else just status msg TODO when made
-    //for now just print
-    eprintln!("\n{}", report);
-
-    if result.is_valid() {
-        Ok(())
-    } else {
-        Err(CommandError::ExecutionFailed(
-            "Config validation failed. See errors above.".to_string(),
-        ))
-    }
+    let popup = Box::new(ValidationResultPopup::new(result));
+    app.open_popup(popup);
+    Ok(())
 }
 
 pub fn set_config_command(app: &mut App, key: String, value: String) -> Result<(), CommandError> {

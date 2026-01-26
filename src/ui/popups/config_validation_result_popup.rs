@@ -1,54 +1,67 @@
 use crate::config::ValidationResult;
+use crate::input::input_action::{Direction, InputAction};
 use crate::ui::popups::popup::{Popup, PopupResult, PopupType};
+use ratatui::layout::{Constraint, Layout};
+use ratatui::widgets::Wrap;
 use ratatui::{
     layout::Rect,
     style::{Color, Modifier, Style},
-    text::{Line, Span, Text},
+    text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
     Frame,
 };
 
-use crate::input::input_action::InputAction;
-
 #[derive(Debug)]
 pub struct ValidationResultPopup {
     result: ValidationResult,
+    scroll_offset: usize,
 }
 
 impl ValidationResultPopup {
     pub fn new(result: ValidationResult) -> Self {
-        Self { result }
+        Self {
+            result,
+            scroll_offset: 0,
+        }
+    }
+
+    pub fn scroll_up(&mut self) {
+        self.scroll_offset = self.scroll_offset.saturating_sub(1);
+    }
+
+    pub fn scroll_down(&mut self) {
+        self.scroll_offset = self.scroll_offset.saturating_add(1);
     }
 }
 
 impl Popup for ValidationResultPopup {
     fn render(&self, frame: &mut Frame, area: Rect) {
-        let border_color = if self.result.errors.is_empty() {
-            Color::Yellow
+        let border_color = if self.result.is_valid() {
+            Color::Green
         } else {
             Color::Red
         };
 
-        let main_title = if self.result.errors.is_empty() {
-            "Config Validation Complete"
-        } else {
-            "Config Validation Failed"
-        };
-
         // popup border and title
         let block = Block::default()
-            .title(main_title)
+            .title("Config Validation Results")
             .borders(Borders::ALL)
             .border_style(Style::default().fg(border_color));
 
-        frame.render_widget(&block, area); // Render block
         let inner_area = block.inner(area);
+        frame.render_widget(block, area); // Render block
 
-        // lines like Header, Errors, Warnings
-        let mut lines = Vec::new();
+        let chunks = Layout::default()
+            .direction(ratatui::layout::Direction::Vertical)
+            .constraints([
+                Constraint::Length(3), // Summary
+                Constraint::Min(1),    // Details
+                Constraint::Length(2), // Footer
+            ])
+            .split(inner_area);
 
-        // Status Header
-        let status_style = if self.result.valid && self.result.errors.is_empty() {
+        // Summary
+        let summary_style = if self.result.valid {
             Style::default()
                 .fg(Color::Green)
                 .add_modifier(Modifier::BOLD)
@@ -56,64 +69,61 @@ impl Popup for ValidationResultPopup {
             Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
         };
 
-        lines.push(Line::from(vec![
-            Span::styled("Status: ", Style::default().add_modifier(Modifier::BOLD)),
-            Span::styled(
-                if self.result.valid && self.result.errors.is_empty() {
-                    "VALID"
-                } else {
-                    "INVALID"
-                },
-                status_style,
-            ),
-        ]));
-        lines.push(Line::from("")); // Spacer
+        let summary = Paragraph::new(vec![
+            Line::from(Span::styled(self.result.summary(), summary_style)),
+            Line::from(""),
+        ]);
+        frame.render_widget(summary, chunks[0]);
 
-        // Errors Section
+        // Details
+        let mut items = Vec::new();
+
         if !self.result.errors.is_empty() {
-            lines.push(Line::from(Span::styled(
+            items.push(Line::from(Span::styled(
                 "ERRORS:",
-                Style::default()
-                    .fg(Color::Red)
-                    .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
             )));
-            for error in &self.result.errors {
-                lines.push(Line::from(Span::styled(
-                    format!("  • {}", error),
-                    Style::default().fg(Color::Red),
-                )));
+            for (i, error) in self.result.errors.iter().enumerate() {
+                items.push(Line::from(vec![
+                    Span::styled(
+                        format!("  {}. ", i + 1),
+                        Style::default().fg(Color::DarkGray),
+                    ),
+                    Span::styled(error, Style::default().fg(Color::Red)),
+                ]));
             }
-            lines.push(Line::from("")); // Spacer
+            items.push(Line::from(""));
         }
 
-        // Warnings Section
         if !self.result.warnings.is_empty() {
-            lines.push(Line::from(Span::styled(
+            items.push(Line::from(Span::styled(
                 "WARNINGS:",
                 Style::default()
                     .fg(Color::Yellow)
-                    .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+                    .add_modifier(Modifier::BOLD),
             )));
-            for warning in &self.result.warnings {
-                lines.push(Line::from(Span::styled(
-                    format!("  - {}", warning),
-                    Style::default().fg(Color::Yellow),
-                )));
+            for (i, warning) in self.result.warnings.iter().enumerate() {
+                items.push(Line::from(vec![
+                    Span::styled(
+                        format!("  {}. ", i + 1),
+                        Style::default().fg(Color::DarkGray),
+                    ),
+                    Span::styled(warning, Style::default().fg(Color::Yellow)),
+                ]));
             }
-            lines.push(Line::from("")); // Spacer
         }
 
+        // Render details with scroll offset and wrap
+        let paragraph = Paragraph::new(items)
+            .block(Block::default().borders(Borders::NONE))
+            .wrap(Wrap { trim: true })
+            .scroll((self.scroll_offset as u16, 0));
+        frame.render_widget(paragraph, chunks[1]);
+
         // Footer
-        lines.push(Line::from(Span::styled(
-            "Press [Enter] to close.",
-            Style::default().fg(Color::DarkGray),
-        )));
-
-        // Render the Paragraph widget
-        let text_content = Text::from(lines);
-        let paragraph = Paragraph::new(text_content).style(Style::default().fg(Color::White));
-
-        frame.render_widget(paragraph, inner_area);
+        let help = Paragraph::new("↑↓: Scroll | Enter/Esc: Close")
+            .style(Style::default().fg(Color::DarkGray));
+        frame.render_widget(help, chunks[2]);
     }
 
     fn get_popup_type(&self) -> PopupType {
@@ -123,6 +133,17 @@ impl Popup for ValidationResultPopup {
     fn handle_input_action(&mut self, action: InputAction) -> PopupResult {
         match action {
             InputAction::ENTER => PopupResult::Affirmed,
+            InputAction::MoveCursor(dir) => match dir {
+                Direction::Up => {
+                    self.scroll_up();
+                    PopupResult::None
+                }
+                Direction::Down => {
+                    self.scroll_down();
+                    PopupResult::None
+                }
+                _ => PopupResult::None,
+            },
             _ => PopupResult::None,
         }
     }
