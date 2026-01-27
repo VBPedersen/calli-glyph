@@ -1,21 +1,23 @@
 #[cfg(test)]
 mod integration_app_tests {
-    use calliglyph::config::command_binds::*;
+    use calliglyph::app_config::AppLaunchConfig;
+    use calliglyph::config::Config;
     use calliglyph::core::app::*;
+    use calliglyph::core::command_line::command_binds::command_binds::*;
     use calliglyph::input::input_action::InputAction;
     use calliglyph::ui::popups::popup::PopupResult;
     use std::fs;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
     use tempfile::NamedTempFile;
 
     //init functions
     fn create_app() -> App {
-        let app = App::new();
+        let app = App::new(Config::default(), AppLaunchConfig::default());
         app
     }
 
-    fn test_save_path(filename: &str) -> String {
-        format!("test_saves/{}", filename)
+    fn test_save_path(filename: &str) -> PathBuf {
+        PathBuf::from(format!("test_saves/{}", filename))
     }
 
     #[test]
@@ -93,7 +95,7 @@ mod integration_app_tests {
     }
 
     fn create_app_with_editor_content(vec: Vec<String>) -> App {
-        let mut app = App::new();
+        let mut app = App::new(Config::default(), AppLaunchConfig::default());
         app.editor.editor_content = vec;
         app
     }
@@ -119,7 +121,7 @@ mod integration_app_tests {
     #[test]
     fn test_save_with_existing_file_path() {
         let temp_file = NamedTempFile::new().unwrap();
-        let file_path = temp_file.path().to_str().unwrap().to_string();
+        let file_path = temp_file.path().to_path_buf();
 
         let mut app = create_app_with_editor_content(vec!["New content".to_string()]);
         app.file_path = Some(file_path.clone());
@@ -148,7 +150,7 @@ mod integration_app_tests {
     #[test]
     fn test_does_not_save_if_no_changes() {
         let temp_file = NamedTempFile::new().unwrap();
-        let file_path = temp_file.path().to_str().unwrap().to_string();
+        let file_path = temp_file.path().to_path_buf();
         fs::write(&file_path, "Unchanged content").unwrap();
         let mut app = create_app_with_editor_content(vec!["Unchanged content".to_string()]);
         app.file_path = Some(file_path.clone());

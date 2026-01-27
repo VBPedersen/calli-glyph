@@ -1,5 +1,5 @@
 use crate::core::app::App;
-use crate::core::debug::LogLevel;
+use crate::core::debug::{LogEntry, LogLevel};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::prelude::{Color, Line, Modifier, Span, Style};
 use ratatui::widgets::{Block, Borders, List, ListItem, Paragraph};
@@ -17,7 +17,7 @@ pub fn render_overview(frame: &mut Frame, app: &App, area: Rect) {
 
     render_performance_summary(frame, app, chunks[0]);
     render_app_state_summary(frame, app, chunks[1]);
-    render_recent_logs(frame, app, chunks[2]);
+    render_recent_logs(frame, chunks[2]);
 }
 
 fn render_performance_summary(frame: &mut Frame, app: &App, area: Rect) {
@@ -56,17 +56,19 @@ fn render_performance_summary(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 fn render_app_state_summary(frame: &mut Frame, app: &App, area: Rect) {
-    let logger = &app.debug_state.logger;
+    // Get log stats from global logger
+    let total_logs = crate::core::debug::get_all_logs().len();
+    let error_count = crate::core::debug::get_log_count_by_level(LogLevel::Error);
+    let warn_count = crate::core::debug::get_log_count_by_level(LogLevel::Warn);
 
     let text = vec![
         Line::from(format!("Active Area: {:?}", app.active_area)),
         Line::from(format!("Capture Mode: {:?}", app.debug_state.capture_mode)),
         Line::from(""),
-        Line::from(format!("Total Logs: {}", logger.entries().len())),
+        Line::from(format!("Total Logs: {}", total_logs)),
         Line::from(format!(
             "  Errors: {} | Warnings: {}",
-            logger.count_by_level(LogLevel::Error),
-            logger.count_by_level(LogLevel::Warn)
+            error_count, warn_count
         )),
         Line::from(""),
         Line::from(format!("Snapshots: {}", app.debug_state.snapshots.len())),
@@ -81,11 +83,10 @@ fn render_app_state_summary(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_widget(paragraph, area);
 }
 
-fn render_recent_logs(frame: &mut Frame, app: &App, area: Rect) {
-    let entries: Vec<ListItem> = app
-        .debug_state
-        .logger
-        .entries()
+fn render_recent_logs(frame: &mut Frame, area: Rect) {
+    let log_entries: Vec<LogEntry> = crate::core::debug::get_all_logs();
+
+    let entries: Vec<ListItem> = log_entries
         .iter()
         .rev()
         .take(area.height.saturating_sub(2) as usize)

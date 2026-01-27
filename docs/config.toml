@@ -1,0 +1,34 @@
+# --- Section: Configuration and config command ---
+[config]
+name = "Configuration and config command"
+description = "The configuration feature allows for defining custom config.toml for the calliglyph app, with it comes commands for viewing, editing, reloading, and resetting the application's configuration file (.config). These commands allow users to manage system behavior and keybindings."
+
+[[config.commands]]
+command = ":config"
+keys = "N/A"
+description = "The main command for managing the application configuration. When executed without a subcommand, it defaults to :config show."
+
+[[config.commands]]
+command = ":config show"
+keys = "N/A"
+description = "Displays the current active configuration settings (including both system defaults and user-defined overrides) in an overlay or the Developer Console."
+
+[[config.commands]]
+command = ":config edit"
+keys = "N/A"
+description = "Opens the user's configuration file (.config) in a new editor buffer, allowing for direct modification. Note: Changes require a :config reload to take effect or a save and a reload."
+
+[[config.commands]]
+command = ":config set <key> <value>"
+keys = "N/A"
+description = "Temporarily sets a specific configuration <key> to a new <value> for the current session. This change is NOT saved to the user's .config file."
+
+[[config.commands]]
+command = ":config reload"
+keys = "N/A"
+description = "Reparses and applies the settings from the user's .config file, discarding any temporary settings made via :config set."
+
+[[config.commands]]
+command = ":config reset"
+keys = "N/A"
+description = "Resets the application configuration to the system defaults, discarding all user-defined settings and temporary changes. The user's .config file remains unchanged."

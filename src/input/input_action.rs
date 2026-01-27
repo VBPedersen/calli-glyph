@@ -12,6 +12,7 @@ pub enum InputAction {
     PASTE,
     UNDO,
     REDO,
+    SAVE,
     ToggleActiveArea,
     WriteChar(char),
     QUIT,
@@ -33,8 +34,7 @@ pub enum DebugAction {
     DebugCycleMode,
     DebugResetMetrics,
     ExitDebug,
-    DebugViewSnapshot,
-    DebugCloseSnapshotViewer,
+    DebugInteract,
 }
 
 ///direction enum to use in action enum values

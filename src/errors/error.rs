@@ -1,4 +1,5 @@
 use super::command_errors::CommandError;
+use super::config_errors::ConfigError;
 use super::editor_errors::EditorError;
 use thiserror::Error;
 
@@ -15,4 +16,7 @@ pub enum AppError {
 
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
+
+    #[error("Config related failure: {0}")]
+    ConfigFailure(#[from] ConfigError),
 }

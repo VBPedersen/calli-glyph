@@ -1,4 +1,4 @@
-use crate::config::command_binds::*;
+use crate::core::command_line::command_binds::command_binds::*;
 use std::collections::HashSet;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Command {
@@ -18,6 +18,10 @@ pub enum Command {
     },
     //DEBUG
     Debug {
+        args: Vec<String>,
+        flags: HashSet<CommandFlag>,
+    }, //DEBUG
+    Config {
         args: Vec<String>,
         flags: HashSet<CommandFlag>,
     },
@@ -63,6 +67,7 @@ pub fn parse_command(bind: String, raw_args: Vec<String>) -> Command {
         COMMAND_EXIT_DONT_SAVE => Command::QuitForce,
         COMMAND_HELP => Command::Help,
         COMMAND_DEBUG => Command::Debug { args, flags },
+        COMMAND_CONFIG => Command::Config { args, flags },
         _ => Command::Unknown { name: bind, args },
     }
 }

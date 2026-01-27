@@ -1,15 +1,16 @@
-use super::{DebugLogger, LogEntry, LogLevel, PerformanceMetrics};
+use super::PerformanceMetrics;
 use crate::core::app::ActiveArea;
 use crate::core::cursor::{Cursor, CursorPosition};
 use crate::core::editor::editor::EditAction;
 use std::collections::VecDeque;
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 /// Main debug state - tracks entire application
 #[derive(Debug)]
 pub struct DebugState {
     pub enabled: bool,
-    pub logger: DebugLogger,
+    //pub logger: DebugLogger,
     pub metrics: PerformanceMetrics,
     pub snapshots: SnapshotHistory,
     pub capture_mode: CaptureMode,
@@ -57,14 +58,14 @@ pub struct AppSnapshot {
     pub clipboard_size: usize,
 
     //history state
-    pub undo_stack: Vec<EditAction>,
-    pub redo_stack: Vec<EditAction>,
+    pub undo_stack: VecDeque<EditAction>,
+    pub redo_stack: VecDeque<EditAction>,
     pub undo_depth: usize,
     pub redo_depth: usize,
 
     // App state
     pub active_area: String,
-    pub file_path: Option<String>,
+    pub file_path: Option<PathBuf>,
 
     //performance at time
     pub frame_time: Duration,
@@ -81,24 +82,11 @@ impl DebugState {
     pub fn new() -> Self {
         Self {
             enabled: false,
-            logger: DebugLogger::new(1000),
+            //logger: DebugLogger::new(1000),
             metrics: PerformanceMetrics::new(),
             snapshots: SnapshotHistory::new(50),
             capture_mode: CaptureMode::OnEvent,
         }
-    }
-
-    /// Logs entry to DebugLogger
-    pub fn log(&mut self, level: LogLevel, message: impl Into<String>) {
-        if !self.enabled {
-            return;
-        }
-        self.logger.push(LogEntry {
-            timestamp: Instant::now(),
-            level,
-            message: message.into(),
-            context: None,
-        });
     }
 
     //if debugging enabled then tick on metrics
@@ -119,9 +107,9 @@ impl DebugState {
         buffer_content: Vec<String>,
         scroll_offset: i16,
         clipboard_entries: Vec<String>,
-        undo_stack: Vec<EditAction>,
-        redo_stack: Vec<EditAction>,
-        file_path: Option<String>,
+        undo_stack: VecDeque<EditAction>,
+        redo_stack: VecDeque<EditAction>,
+        file_path: Option<PathBuf>,
     ) {
         if !self.enabled {
             return;
@@ -159,9 +147,9 @@ impl DebugState {
         buffer_content: Vec<String>,
         scroll_offset: i16,
         clipboard_entries: Vec<String>,
-        undo_stack: Vec<EditAction>,
-        redo_stack: Vec<EditAction>,
-        file_path: Option<String>,
+        undo_stack: VecDeque<EditAction>,
+        redo_stack: VecDeque<EditAction>,
+        file_path: Option<PathBuf>,
     ) {
         self.capture_snapshot_internal(
             active_area,
@@ -187,9 +175,9 @@ impl DebugState {
         buffer_content: Vec<String>,
         scroll_offset: i16,
         clipboard_entries: Vec<String>,
-        undo_stack: Vec<EditAction>,
-        redo_stack: Vec<EditAction>,
-        file_path: Option<String>,
+        undo_stack: VecDeque<EditAction>,
+        redo_stack: VecDeque<EditAction>,
+        file_path: Option<PathBuf>,
     ) {
         let snapshot = AppSnapshot {
             timestamp: Instant::now(),
@@ -214,7 +202,7 @@ impl DebugState {
     }
 
     pub fn clear_logs(&mut self) {
-        self.logger.clear();
+        crate::core::debug::clear_all_logs();
     }
 
     pub fn clear_snapshots(&mut self) {
@@ -223,7 +211,8 @@ impl DebugState {
 
     pub fn set_capture_mode(&mut self, mode: CaptureMode) {
         self.capture_mode = mode;
-        self.log(LogLevel::Info, format!("Capture mode set to: {:?}", mode));
+        log_info!("Capture mode set to: {:?}", mode);
+        //self.log(LogLevel::Info, format!("Capture mode set to: {:?}", mode));
     }
 }
 

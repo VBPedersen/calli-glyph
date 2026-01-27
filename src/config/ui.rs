@@ -1,0 +1,31 @@
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct UIConfig {
+    pub theme: String,
+    pub show_status_bar: bool,
+    pub show_tab_bar: bool, //TODO later feature add tabs to the editor
+    pub cursor_style: CursorStyle,
+    pub cursor_blink: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CursorStyle {
+    Block,
+    Line,
+    Underline,
+}
+
+impl Default for UIConfig {
+    fn default() -> Self {
+        Self {
+            theme: "default".to_string(),
+            show_status_bar: true,
+            show_tab_bar: false,
+            cursor_style: CursorStyle::Block,
+            cursor_blink: true,
+        }
+    }
+}

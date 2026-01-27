@@ -1,4 +1,5 @@
 pub mod command;
+pub mod command_binds;
 pub mod command_executor;
 mod command_line;
 pub mod commands;
