@@ -10,7 +10,6 @@ use ratatui::{
     Frame,
 };
 
-//TODO possibly make logs interactble and scrolling
 pub fn render_logs(frame: &mut Frame, state: &mut DebugView, area: Rect) {
     let log_entries: Vec<LogEntry> = crate::core::debug::get_all_logs();
     state.max_logs = log_entries.len();
