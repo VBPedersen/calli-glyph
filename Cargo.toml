@@ -1,6 +1,6 @@
 [package]
 name = "calliglyph"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Victor B. Pedersen <vpede23@sdu.student.dk>"]
 license = "MIT"
 edition = "2021"

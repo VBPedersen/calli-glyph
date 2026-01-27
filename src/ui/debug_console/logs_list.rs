@@ -1,4 +1,3 @@
-use crate::core::app::App;
 use crate::core::debug::{LogEntry, LogLevel};
 use crate::ui::debug::DebugView;
 use ratatui::style::Modifier;

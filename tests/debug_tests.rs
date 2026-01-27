@@ -36,7 +36,6 @@ fn init_test_logger() -> LoggerGuard {
 #[cfg(test)]
 mod debug_logger_tests {
     use calliglyph::core::debug::{DebugLogger, LogEntry, LogLevel};
-    use std::time::Instant;
 
     #[test]
     fn test_logger_push_entry() {

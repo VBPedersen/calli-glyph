@@ -3,7 +3,6 @@ mod logger;
 mod metrics;
 mod state;
 
-use chrono::Local;
 pub use logger::{DebugLogger, LogEntry, LogLevel};
 pub use metrics::PerformanceMetrics;
 use once_cell::sync::Lazy;
@@ -11,7 +10,6 @@ pub use state::{
     AppSnapshot, CaptureMode, DebugState, Selection, SnapshotHistory, SnapshotTrigger,
 };
 use std::sync::Mutex;
-use std::time::Instant;
 
 /// Global Debug instance
 pub static GLOBAL_LOGGER: Lazy<Mutex<DebugLogger>> =
