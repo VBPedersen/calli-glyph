@@ -71,6 +71,7 @@ impl Popup for ScrollableTextPopup<'_> {
     fn handle_input_action(&mut self, action: InputAction) -> PopupResult {
         match action {
             InputAction::ENTER => PopupResult::Affirmed,
+            InputAction::ToggleActiveArea => PopupResult::Affirmed,
             InputAction::MoveCursor(dir) => match dir {
                 Direction::Up => {
                     self.scroll_up();

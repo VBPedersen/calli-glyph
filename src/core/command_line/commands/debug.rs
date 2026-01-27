@@ -41,12 +41,9 @@ fn parse_to_subcommand(args: Vec<String>) -> DebugSubcommand {
         "mode-manual" => DebugSubcommand::ModeManual,
         "mode-frame" => DebugSubcommand::ModeFrame,
         _ => DebugSubcommand::Toggle,
-        //TODO want to make it so default with just :debug is toggle,
-        // but if subcommand is not recognized CommandError popup
     }
 }
 
-//TODO implement returning relevant CommandErrors when necessary
 /// Executes DebugSubcommands of the debug main command
 pub fn debug_command(
     app: &mut App,

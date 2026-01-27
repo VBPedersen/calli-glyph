@@ -57,14 +57,12 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
         }
         ActiveArea::DebugConsole => keymaps.get_debug_action(key.modifiers, key.code).cloned(),
         ActiveArea::Popup => match (key.modifiers, key.code) {
-            //TODO Figure out if popup keybinds should be configurable,
-            // for now they are standard figure this is probably best behaviour
             (KeyModifiers::NONE, KeyCode::Up) => Some(InputAction::MoveCursor(Direction::Up)),
             (KeyModifiers::NONE, KeyCode::Down) => Some(InputAction::MoveCursor(Direction::Down)),
             (KeyModifiers::NONE, KeyCode::Left) => Some(InputAction::MoveCursor(Direction::Left)),
             (KeyModifiers::NONE, KeyCode::Right) => Some(InputAction::MoveCursor(Direction::Right)),
             (KeyModifiers::NONE, KeyCode::Enter) => Some(InputAction::ENTER),
-            (KeyModifiers::NONE, KeyCode::Esc) => Some(InputAction::ENTER),
+            (KeyModifiers::NONE, KeyCode::Esc) => Some(InputAction::ToggleActiveArea),
 
             _ => Some(InputAction::NoOp),
         },
