@@ -1,3 +1,4 @@
+use chrono::{DateTime, Local};
 use std::collections::VecDeque;
 use std::fmt::{Display, Formatter};
 use std::time::Instant;
@@ -11,9 +12,22 @@ pub struct DebugLogger {
 #[derive(Debug, Clone)]
 pub struct LogEntry {
     pub timestamp: Instant,
+    pub time_at: DateTime<Local>,
     pub level: LogLevel,
     pub message: String,
     pub context: Option<String>,
+}
+
+impl LogEntry {
+    pub fn new(level: LogLevel, message: String, context: Option<String>) -> Self {
+        LogEntry {
+            timestamp: Instant::now(),
+            time_at: Local::now(),
+            level,
+            message,
+            context,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]

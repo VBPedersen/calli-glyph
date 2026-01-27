@@ -89,19 +89,6 @@ impl DebugState {
         }
     }
 
-    /*/// Logs entry to DebugLogger
-    pub fn log(&mut self, level: LogLevel, message: impl Into<String>) {
-        if !self.enabled {
-            return;
-        }
-        self.logger.push(LogEntry {
-            timestamp: Instant::now(),
-            level,
-            message: message.into(),
-            context: None,
-        });
-    }*/
-
     //if debugging enabled then tick on metrics
     pub fn tick_frame(&mut self) {
         if self.enabled {

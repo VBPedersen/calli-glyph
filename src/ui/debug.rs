@@ -7,15 +7,17 @@ use ratatui::{
 };
 
 use crate::core::app::App;
+use crate::core::debug::LogEntry;
 use crate::ui::debug_console::{
-    action_history, clipboard_view, logs_list, overview, performance_viewer, snapshot_viewer,
-    snapshots_list,
+    action_history, clipboard_view, log_viewer, logs_list, overview, performance_viewer,
+    snapshot_viewer, snapshots_list,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DebugTab {
     Overview,
     Logs,
+    LogViewer,
     Clipboard,
     History,
     Snapshots,
@@ -29,7 +31,11 @@ pub struct DebugView {
     pub active_tab: DebugTab,
     pub scroll_offset: usize,
     pub selected_snapshot: Option<usize>, //snapshot currently selected
-    pub viewing_snapshot: bool,           // is vieweing snapshot
+    pub viewing_snapshot: bool,           // is viewing snapshot
+    pub max_logs: usize,                  // current max amount of logs, should be updated when new
+    pub selected_log: Option<usize>,      // log entry currently selected
+    pub active_log_entry: Option<LogEntry>, // the log being viewed
+    pub viewing_log: bool,                // is viewing log entry
 }
 
 impl DebugView {
@@ -39,6 +45,10 @@ impl DebugView {
             scroll_offset: 0,
             selected_snapshot: None,
             viewing_snapshot: false,
+            max_logs: 0,
+            selected_log: None,
+            active_log_entry: None,
+            viewing_log: false,
         }
     }
 
@@ -68,7 +78,38 @@ impl DebugView {
         self.active_tab = DebugTab::Snapshots;
     }
 
+    pub fn open_log_entry(&mut self) {
+        if let Some(idx) = self.selected_log {
+            let logs = crate::core::debug::get_all_logs();
+            // Capture the log once.
+            if let Some(entry) = logs.iter().rev().nth(idx) {
+                self.active_log_entry = Some(entry.clone());
+                self.viewing_log = true;
+                self.active_tab = DebugTab::LogViewer;
+            }
+        }
+    }
+
+    pub fn close_log_entry(&mut self) {
+        self.viewing_log = false;
+        self.active_tab = DebugTab::Logs;
+        self.active_log_entry = None;
+    }
+
     //------------------------------------
+
+    pub fn select_next_log(&mut self, max: usize) {
+        self.selected_log = Some(self.selected_log.map(|i| (i + 1) % max).unwrap_or(0));
+    }
+
+    pub fn select_prev_log(&mut self, max: usize) {
+        self.selected_log = Some(
+            self.selected_log
+                .map(|i| (i + max - 1) % max)
+                .unwrap_or(max - 1),
+        );
+    }
+
     pub fn next_tab(&mut self) {
         self.active_tab = match self.active_tab {
             DebugTab::Overview => DebugTab::Logs,
@@ -112,7 +153,7 @@ impl DebugView {
 // ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═══╝╚══════╝╚══════╝    ╚═╝  ╚═╝╚══════╝╚═╝  ╚═══╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝
 
 /// Debug panel
-pub fn render_debug_panel(frame: &mut Frame, app: &App, area: Rect) {
+pub fn render_debug_panel(frame: &mut Frame, app: &mut App, area: Rect) {
     if !app.debug_state.enabled {
         return;
     }
@@ -130,7 +171,8 @@ pub fn render_debug_panel(frame: &mut Frame, app: &App, area: Rect) {
 
     match app.debug_view.active_tab {
         DebugTab::Overview => overview::render_overview(frame, app, chunks[1]),
-        DebugTab::Logs => logs_list::render_logs(frame, chunks[1]),
+        DebugTab::Logs => logs_list::render_logs(frame, &mut app.debug_view, chunks[1]),
+        DebugTab::LogViewer => log_viewer::render_log_viewer(frame, app, chunks[1]),
         DebugTab::Clipboard => clipboard_view::render_clipboard(frame, app, chunks[1]),
         DebugTab::History => action_history::render_history(frame, app, chunks[1]),
         DebugTab::Snapshots => snapshots_list::render_snapshots_list(frame, app, chunks[1]),

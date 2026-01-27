@@ -1,4 +1,6 @@
+use crate::core::app::App;
 use crate::core::debug::{LogEntry, LogLevel};
+use crate::ui::debug::DebugView;
 use ratatui::style::Modifier;
 use ratatui::{
     layout::Rect,
@@ -9,15 +11,23 @@ use ratatui::{
 };
 
 //TODO possibly make logs interactble and scrolling
-pub fn render_logs(frame: &mut Frame, area: Rect) {
+pub fn render_logs(frame: &mut Frame, state: &mut DebugView, area: Rect) {
     let log_entries: Vec<LogEntry> = crate::core::debug::get_all_logs();
-
+    state.max_logs = log_entries.len();
     let entries: Vec<ListItem> = log_entries
         .iter()
+        .enumerate()
         .rev()
-        .map(|entry| {
+        .map(|(i, entry)| {
             let level_style = get_log_level_style(entry.level);
             let elapsed = entry.timestamp.elapsed();
+
+            let is_selected = state.selected_log == Some(i);
+            let style = if is_selected {
+                Style::default().bg(Color::DarkGray).fg(Color::White)
+            } else {
+                Style::default()
+            };
 
             let content = Line::from(vec![
                 Span::styled(
@@ -32,7 +42,7 @@ pub fn render_logs(frame: &mut Frame, area: Rect) {
                 Span::raw(&entry.message),
             ]);
 
-            ListItem::new(content)
+            ListItem::new(content).style(style)
         })
         .collect();
 

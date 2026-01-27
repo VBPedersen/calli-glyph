@@ -41,13 +41,11 @@ mod debug_logger_tests {
     #[test]
     fn test_logger_push_entry() {
         let mut logger = DebugLogger::new(10);
-        logger.push(LogEntry {
-            timestamp: Instant::now(),
-            level: LogLevel::Info,
-            message: "Test message".to_string(),
-            context: None,
-        });
-
+        logger.push(LogEntry::new(
+            LogLevel::Info,
+            "Test message".to_string(),
+            None,
+        ));
         assert_eq!(logger.entries().len(), 1);
         assert_eq!(logger.entries()[0].message, "Test message");
     }
@@ -57,12 +55,11 @@ mod debug_logger_tests {
         let mut logger = DebugLogger::new(3);
 
         for i in 0..5 {
-            logger.push(LogEntry {
-                timestamp: Instant::now(),
-                level: LogLevel::Info,
-                message: format!("Message {}", i),
-                context: None,
-            });
+            logger.push(LogEntry::new(
+                LogLevel::Info,
+                format!("Message {}", i),
+                None,
+            ));
         }
 
         assert_eq!(logger.entries().len(), 3);
@@ -74,12 +71,7 @@ mod debug_logger_tests {
     #[test]
     fn test_logger_clear() {
         let mut logger = DebugLogger::new(10);
-        logger.push(LogEntry {
-            timestamp: Instant::now(),
-            level: LogLevel::Info,
-            message: "Test".to_string(),
-            context: None,
-        });
+        logger.push(LogEntry::new(LogLevel::Info, "Test".to_string(), None));
 
         assert_eq!(logger.entries().len(), 1);
         logger.clear();
@@ -90,24 +82,13 @@ mod debug_logger_tests {
     fn test_logger_filter_by_level() {
         let mut logger = DebugLogger::new(10);
 
-        logger.push(LogEntry {
-            timestamp: Instant::now(),
-            level: LogLevel::Error,
-            message: "Error msg".to_string(),
-            context: None,
-        });
-        logger.push(LogEntry {
-            timestamp: Instant::now(),
-            level: LogLevel::Info,
-            message: "Info msg".to_string(),
-            context: None,
-        });
-        logger.push(LogEntry {
-            timestamp: Instant::now(),
-            level: LogLevel::Warn,
-            message: "Warn msg".to_string(),
-            context: None,
-        });
+        logger.push(LogEntry::new(
+            LogLevel::Error,
+            "Error msg".to_string(),
+            None,
+        ));
+        logger.push(LogEntry::new(LogLevel::Info, "Info msg".to_string(), None));
+        logger.push(LogEntry::new(LogLevel::Warn, "Warn msg".to_string(), None));
 
         let errors = logger.filter_by_level(LogLevel::Error);
         assert_eq!(errors.len(), 1);
@@ -122,20 +103,10 @@ mod debug_logger_tests {
         let mut logger = DebugLogger::new(10);
 
         for _ in 0..3 {
-            logger.push(LogEntry {
-                timestamp: Instant::now(),
-                level: LogLevel::Error,
-                message: "Error".to_string(),
-                context: None,
-            });
+            logger.push(LogEntry::new(LogLevel::Error, "Error".to_string(), None));
         }
         for _ in 0..2 {
-            logger.push(LogEntry {
-                timestamp: Instant::now(),
-                level: LogLevel::Warn,
-                message: "Warn".to_string(),
-                context: None,
-            });
+            logger.push(LogEntry::new(LogLevel::Warn, "Warn".to_string(), None));
         }
 
         assert_eq!(logger.count_by_level(LogLevel::Error), 3);

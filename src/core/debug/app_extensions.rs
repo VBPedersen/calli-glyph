@@ -36,6 +36,9 @@ impl App {
                 DebugTab::SnapshotViewer => {
                     self.debug_view.close_snapshot_viewer();
                 }
+                DebugTab::LogViewer => {
+                    self.debug_view.close_log_entry();
+                }
                 _ => self.toggle_debug(),
             },
 
@@ -52,6 +55,10 @@ impl App {
                     let max = self.debug_state.snapshots.len();
                     self.debug_view.select_next_snapshot(max);
                 }
+                DebugTab::Logs => {
+                    let max = self.debug_view.max_logs;
+                    self.debug_view.select_next_log(max);
+                }
                 _ => self.debug_view.scroll_up(),
             },
 
@@ -59,6 +66,10 @@ impl App {
                 DebugTab::Snapshots => {
                     let max = self.debug_state.snapshots.len();
                     self.debug_view.select_prev_snapshot(max);
+                }
+                DebugTab::Logs => {
+                    let max = self.debug_view.max_logs;
+                    self.debug_view.select_prev_log(max);
                 }
                 _ => self.debug_view.scroll_down(),
             },
@@ -112,17 +123,15 @@ impl App {
                 log_info!("Performance metrics cleared");
             }
 
-            DebugAction::DebugViewSnapshot => {
-                self.debug_view.open_snapshot_viewer();
-            }
-
-            DebugAction::DebugCloseSnapshotViewer => {
-                if self.debug_view.viewing_snapshot {
-                    self.debug_view.close_snapshot_viewer();
-                } else {
-                    self.toggle_debug(); // Exit debug if not viewing snapshot
+            DebugAction::DebugInteract => match self.debug_view.active_tab {
+                DebugTab::Snapshots => {
+                    self.debug_view.open_snapshot_viewer();
                 }
-            }
+                DebugTab::Logs => {
+                    self.debug_view.open_log_entry();
+                }
+                _ => {}
+            },
         }
     }
 }

@@ -3,6 +3,7 @@ mod logger;
 mod metrics;
 mod state;
 
+use chrono::Local;
 pub use logger::{DebugLogger, LogEntry, LogLevel};
 pub use metrics::PerformanceMetrics;
 use once_cell::sync::Lazy;
@@ -16,15 +17,12 @@ use std::time::Instant;
 pub static GLOBAL_LOGGER: Lazy<Mutex<DebugLogger>> =
     Lazy::new(|| Mutex::new(DebugLogger::new(1000)));
 
+//TODO Add logging function for other type of logging, which includes context
+
 /// Global logging function
 pub fn debug_log(level: LogLevel, message: impl Into<String>) {
     if let Ok(mut logger) = GLOBAL_LOGGER.lock() {
-        logger.push(LogEntry {
-            timestamp: Instant::now(),
-            level,
-            message: message.into(),
-            context: None,
-        });
+        logger.push(LogEntry::new(level, message.into(), None));
     }
 }
 

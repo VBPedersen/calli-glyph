@@ -152,8 +152,7 @@ impl KeymapConfig {
             "manual_snapshot" => Ok(InputAction::Debug(DebugAction::DebugManualSnapshot)),
             "cycle_mode" => Ok(InputAction::Debug(DebugAction::DebugCycleMode)),
             "reset_metrics" => Ok(InputAction::Debug(DebugAction::DebugResetMetrics)),
-            "view_snapshot" => Ok(InputAction::Debug(DebugAction::DebugViewSnapshot)),
-            "close_viewer" => Ok(InputAction::Debug(DebugAction::DebugCloseSnapshotViewer)),
+            "debug_interact" => Ok(InputAction::Debug(DebugAction::DebugInteract)),
 
             _ => Err(ConfigError::InvalidKeymap(format!(
                 "Unknown action: {}",
@@ -217,7 +216,7 @@ impl Default for KeymapConfig {
         debug.insert("c".to_string(), "clear_logs".to_string());
         debug.insert("C".to_string(), "clear_snapshots".to_string());
         debug.insert("m".to_string(), "cycle_mode".to_string());
-        debug.insert("Enter".to_string(), "view_snapshot".to_string());
+        debug.insert("Enter".to_string(), "debug_interact".to_string());
 
         Self {
             editor,
