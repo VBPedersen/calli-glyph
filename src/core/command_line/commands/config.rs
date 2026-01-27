@@ -1,5 +1,3 @@
-//TODO make command for loading, and reloading and related commands for config
-
 use crate::config::Config;
 use crate::core::app::App;
 use crate::core::command_line::command::CommandFlag;
@@ -178,8 +176,6 @@ pub fn show_config_command(app: &mut App) -> Result<(), CommandError> {
     }
 }
 
-//TODO move if needed elsewhere as well,
-// for now just leave here
 pub fn prettify_config_path(path: &Path) -> String {
     let path_str = path.to_string_lossy();
 

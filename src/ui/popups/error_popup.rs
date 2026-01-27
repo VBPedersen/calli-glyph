@@ -3,7 +3,7 @@ use crate::errors::error::AppError;
 use crate::input::input_action::InputAction;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::{Color, Line, Span, Style, Text};
-use ratatui::widgets::{Block, Borders, Clear, Paragraph};
+use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 use ratatui::Frame;
 
 pub struct ErrorPopup {
@@ -36,7 +36,8 @@ impl Popup for ErrorPopup {
         ]))
         .block(popup_block)
         .style(Style::default().fg(Color::White).bg(Color::Black))
-        .alignment(Alignment::Center);
+        .alignment(Alignment::Center)
+        .wrap(Wrap { trim: true });
 
         // Render the popup in the centered `area`
         frame.render_widget(Clear, area); // Clears the popup area to avoid overlap

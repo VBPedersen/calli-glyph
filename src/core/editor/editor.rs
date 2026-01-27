@@ -180,8 +180,6 @@ pub struct Editor {
     pub editor_config: Arc<EditorConfig>,
 }
 
-//TODO Consider making new take editor config and cahce it,
-// then only have editor config contain things needed in editor.rs
 impl Editor {
     pub fn new(config: Arc<EditorConfig>) -> Self {
         Self {
