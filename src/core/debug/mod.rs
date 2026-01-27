@@ -17,12 +17,10 @@ use std::time::Instant;
 pub static GLOBAL_LOGGER: Lazy<Mutex<DebugLogger>> =
     Lazy::new(|| Mutex::new(DebugLogger::new(1000)));
 
-//TODO Add logging function for other type of logging, which includes context
-
 /// Global logging function
-pub fn debug_log(level: LogLevel, message: impl Into<String>) {
+pub fn log(level: LogLevel, message: impl Into<String>, context: Option<String>) {
     if let Ok(mut logger) = GLOBAL_LOGGER.lock() {
-        logger.push(LogEntry::new(level, message.into(), None));
+        logger.push(LogEntry::new(level, message.into(), context));
     }
 }
 

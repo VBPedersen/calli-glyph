@@ -26,15 +26,17 @@ pub fn render_log_viewer(frame: &mut Frame, app: &App, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3), // Header/Metadata
-            Constraint::Min(1),    // Full Message
-            Constraint::Length(3), // Footer (Shortcut hints)
+            Constraint::Length(3),      // Header
+            Constraint::Percentage(60), // Message
+            Constraint::Percentage(30), // Context
+            Constraint::Length(3),      // Footer
         ])
         .split(area);
 
     render_log_header(frame, &log, log_idx, chunks[0]);
     render_log_content(frame, &log, chunks[1]);
-    render_log_footer(frame, chunks[2]);
+    render_log_context(frame, log.context.as_deref(), chunks[2]);
+    render_log_footer(frame, chunks[3]);
 }
 
 fn render_error_placeholder(frame: &mut Frame, msg: &str, area: Rect) {
@@ -83,6 +85,25 @@ fn render_log_content(frame: &mut Frame, log: &LogEntry, area: Rect) {
         .block(block)
         .wrap(Wrap { trim: false }) // Preserve formatting/indentation
         .style(Style::default().fg(Color::White));
+
+    frame.render_widget(paragraph, area);
+}
+
+fn render_log_context(frame: &mut Frame, context: Option<&str>, area: Rect) {
+    let block = Block::default()
+        .title(" Context ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Magenta));
+
+    let content = match context {
+        Some(ctx) => ctx,
+        None => "No additional context available for this entry.",
+    };
+
+    let paragraph = Paragraph::new(content)
+        .block(block)
+        .wrap(Wrap { trim: false })
+        .style(Style::default().fg(Color::DarkGray));
 
     frame.render_widget(paragraph, area);
 }
