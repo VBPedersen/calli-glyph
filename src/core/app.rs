@@ -45,7 +45,8 @@ pub type OpCallback = Box<dyn FnOnce(&mut App)>;
 pub enum PendingState {
     None,
     Saving(PathBuf),
-    Quitting,
+    Quitting,         //quitting non absolute, requires confirm
+    QuittingAbsolute, // quitting absolute, forced no confirm needed
     ConfigEdit { on_confirm: OpCallback },
 }
 
@@ -321,7 +322,7 @@ impl App {
         };
 
         // check for absolutes, here quitting should quit regardless anything
-        if matches!(pending, PendingState::Quitting) {
+        if matches!(pending, PendingState::QuittingAbsolute) {
             self.pending_states.clear();
             self.quit();
             return;
@@ -339,35 +340,31 @@ impl App {
         if confirmed {
             match state {
                 PendingState::Saving(path) => {
-                    if confirmed {
-                        //Should only execute if confirmed (clicked yes)
-                        match self.save_to_path(&*path.clone()) {
-                            Ok(()) => {
-                                self.close_popup();
-                            }
-                            Err(e) => {
-                                let popup = Box::new(ErrorPopup::new(
-                                    "Failed to save file",
-                                    AppError::InternalError(e.to_string()),
-                                ));
-                                self.open_popup(popup);
-                            }
+                    //Should only execute if confirmed (clicked yes)
+                    match self.save_to_path(&*path.clone()) {
+                        Ok(()) => {
+                            self.close_popup();
+                        }
+                        Err(e) => {
+                            let popup = Box::new(ErrorPopup::new(
+                                "Failed to save file",
+                                AppError::InternalError(e.to_string()),
+                            ));
+                            self.open_popup(popup);
                         }
                     }
                 }
                 PendingState::ConfigEdit { on_confirm } => {
-                    if confirmed {
-                        //Should only execute if confirmed (clicked yes)
-                        on_confirm(self);
-                        self.close_popup();
-                    }
+                    //Should only execute if confirmed (clicked yes)
+                    on_confirm(self);
+                    self.close_popup();
                 }
+                PendingState::Quitting => self.quit(),
                 _ => {}
             }
         }
         self.popup_result = PopupResult::None;
         self.close_popup();
-        println!("TEST{}", self.pending_states.len());
         // Check again if there's more to do (like Quitting after Saving)
         if !self.pending_states.is_empty() {
             self.handle_confirmation_popup_response();

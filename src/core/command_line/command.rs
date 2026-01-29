@@ -10,7 +10,10 @@ pub enum Command {
         args: Vec<String>,
         flags: HashSet<CommandFlag>,
     },
-    QuitForce,
+    Quit {
+        args: Vec<String>,
+        flags: HashSet<CommandFlag>,
+    },
     Help,
     Unknown {
         name: String,
@@ -69,7 +72,11 @@ pub fn parse_command(bind: String, raw_args: Vec<String>) -> Command {
             Command::Save { args, flags }
         }
         COMMAND_SAVE_AND_EXIT => Command::SaveAndExit { args, flags },
-        COMMAND_EXIT_DONT_SAVE => Command::QuitForce,
+        COMMAND_EXIT_DONT_SAVE => Command::Quit { args, flags },
+        COMMAND_EXIT_DONT_SAVE_FORCE => {
+            flags.insert(CommandFlag::Force);
+            Command::Quit { args, flags }
+        }
         COMMAND_HELP => Command::Help,
         COMMAND_DEBUG => Command::Debug { args, flags },
         COMMAND_CONFIG => Command::Config { args, flags },
