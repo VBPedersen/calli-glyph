@@ -59,10 +59,15 @@ fn parse_flags_and_args(raw_args: Vec<String>) -> (Vec<String>, HashSet<CommandF
 
 ///function to parse a command bind string to a Command enum, with possible arguments
 pub fn parse_command(bind: String, raw_args: Vec<String>) -> Command {
-    let (args, flags) = parse_flags_and_args(raw_args);
+    let (args, mut flags) = parse_flags_and_args(raw_args);
 
     match bind.as_str() {
         COMMAND_SAVE_DONT_EXIT => Command::Save { args, flags },
+        COMMAND_SAVE_DONT_EXIT_FORCE => {
+            // TODO considering if shorthand flags should just be registered like this
+            flags.insert(CommandFlag::Force);
+            Command::Save { args, flags }
+        }
         COMMAND_SAVE_AND_EXIT => Command::SaveAndExit { args, flags },
         COMMAND_EXIT_DONT_SAVE => Command::QuitForce,
         COMMAND_HELP => Command::Help,

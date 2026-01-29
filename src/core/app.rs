@@ -316,14 +316,13 @@ impl App {
 
     ///handles creating popup to confirm if file should be overridden
     pub fn handle_confirmation_popup_response(&mut self) {
-        //TODO maybe change pending_states to be VecDeque and pop front
         let Some(pending) = self.pending_states.front() else {
             return;
         };
 
         // check for absolutes, here quitting should quit regardless anything
         if matches!(pending, PendingState::Quitting) {
-            self.pending_states.pop_front();
+            self.pending_states.clear();
             self.quit();
             return;
         }
@@ -344,7 +343,6 @@ impl App {
                         //Should only execute if confirmed (clicked yes)
                         match self.save_to_path(&*path.clone()) {
                             Ok(()) => {
-                                self.pending_states.remove(0);
                                 self.close_popup();
                             }
                             Err(e) => {
@@ -367,10 +365,9 @@ impl App {
                 _ => {}
             }
         }
-
         self.popup_result = PopupResult::None;
         self.close_popup();
-
+        println!("TEST{}", self.pending_states.len());
         // Check again if there's more to do (like Quitting after Saving)
         if !self.pending_states.is_empty() {
             self.handle_confirmation_popup_response();
