@@ -40,7 +40,7 @@ pub fn save_command(
         if has_changes && app.popup_result == PopupResult::None {
             let popup = Box::new(ConfirmationPopup::new("Confirm Overwrite of file"));
             app.open_popup(popup);
-            app.pending_states.push(PendingState::Saving(path_buf));
+            app.pending_states.push_back(PendingState::Saving(path_buf));
             return Ok(());
         }
     }

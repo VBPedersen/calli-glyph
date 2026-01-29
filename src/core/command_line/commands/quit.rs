@@ -20,7 +20,7 @@ pub(crate) fn save_and_exit_command(
                 .iter()
                 .any(|s| matches!(s, PendingState::Saving(_)))
             {
-                app.pending_states.push(PendingState::Quitting); // Add Quit to the queue
+                app.pending_states.push_back(PendingState::Quitting); // Add Quit to the queue
                 return Ok(());
             }
             app.quit();

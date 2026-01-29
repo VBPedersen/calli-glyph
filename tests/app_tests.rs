@@ -34,7 +34,7 @@ mod integration_app_tests {
         app.editor.editor_content = vec![String::from("test")];
 
         app.pending_states
-            .push(PendingState::Saving(save_path.clone()));
+            .push_back(PendingState::Saving(save_path.clone()));
         app.popup_result = PopupResult::Bool(true);
 
         app.handle_confirmation_popup_response();
@@ -55,7 +55,7 @@ mod integration_app_tests {
         app.editor.editor_content = vec![String::from("test")];
 
         app.pending_states
-            .push(PendingState::Saving(save_path.clone()));
+            .push_back(PendingState::Saving(save_path.clone()));
         app.popup_result = PopupResult::Bool(false);
 
         app.handle_confirmation_popup_response();
@@ -68,7 +68,7 @@ mod integration_app_tests {
     #[test]
     fn test_quit_state_calls_quit() {
         let mut app = create_app();
-        app.pending_states.push(PendingState::Quitting);
+        app.pending_states.push_back(PendingState::Quitting);
 
         app.handle_confirmation_popup_response();
         assert!(app.pending_states.is_empty()); // Ensuring quit state was processed
@@ -80,8 +80,8 @@ mod integration_app_tests {
         let save_path = test_save_path("file3.txt");
         app.editor.editor_content = vec![String::from("test")];
         app.pending_states
-            .push(PendingState::Saving(save_path.clone()));
-        app.pending_states.push(PendingState::Quitting);
+            .push_back(PendingState::Saving(save_path.clone()));
+        app.pending_states.push_back(PendingState::Quitting);
         app.popup_result = PopupResult::Bool(true);
 
         app.handle_confirmation_popup_response();

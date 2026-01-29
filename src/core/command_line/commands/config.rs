@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::core::app::App;
+use crate::core::app::{App, OpCallback, PendingState};
 use crate::core::command_line::command::CommandFlag;
 use crate::errors::command_errors::CommandError;
 use crate::ui::popups::config_validation_result_popup::ValidationResultPopup;
@@ -7,6 +7,7 @@ use crate::ui::popups::scrollable_text_popup::ScrollableTextPopup;
 use ratatui::text::Line;
 use std::collections::HashSet;
 use std::path::Path;
+use crate::ui::popups::confirmation_popup::ConfirmationPopup;
 
 enum ConfigSubcommand {
     Reload,
@@ -112,6 +113,26 @@ pub fn reset_config_command(app: &mut App) -> Result<(), CommandError> {
 
 ///Open config file inside the editor
 pub fn edit_config_command(app: &mut App) -> Result<(), CommandError> {
+    // Check if buffer is modified then force popup confirmation
+    if app.content_modified {
+        let popup = Box::new(ConfirmationPopup::new(
+            "Open config file for editing?"
+        ));
+        app.open_popup(popup);
+
+        let on_confirm: OpCallback = Box::new(|app| {
+            execute_edit_config_command(app).unwrap()
+        });
+        app.pending_states.push_back(PendingState::ConfigEdit{on_confirm});
+        return Ok(());
+    }
+
+    // No changes, proceed immediately
+    execute_edit_config_command(app)
+}
+
+///Open config file inside the editor
+fn execute_edit_config_command(app: &mut App) -> Result<(), CommandError> {
     let config_path = Config::get_config_path()
         .map_err(|e| CommandError::ExecutionFailed(format!("Failed to get config path: {}", e)))?;
 
@@ -134,6 +155,7 @@ pub fn edit_config_command(app: &mut App) -> Result<(), CommandError> {
             }
             app.editor.cursor.x = 0;
             app.editor.cursor.y = 0;
+            app.content_modified = false; //since new buffer set to not modified
             Ok(())
         }
         Err(e) => Err(CommandError::ExecutionFailed(format!(
@@ -142,6 +164,7 @@ pub fn edit_config_command(app: &mut App) -> Result<(), CommandError> {
         ))),
     }
 }
+
 
 ///Show config.toml as scrollable popup window
 pub fn show_config_command(app: &mut App) -> Result<(), CommandError> {

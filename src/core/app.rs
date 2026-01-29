@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use super::command_line::{command, command_executor, CommandLine};
 use super::editor::Editor;
 use crate::app_config::AppLaunchConfig;
@@ -21,7 +22,6 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-#[derive(Debug)]
 pub struct App {
     /// Is the application running?
     running: bool,
@@ -34,17 +34,21 @@ pub struct App {
     pub file_path: Option<PathBuf>,
     pub popup: Option<Box<dyn Popup>>,
     pub popup_result: PopupResult,
-    pub pending_states: Vec<PendingState>,
+    pub pending_states: VecDeque<PendingState>,
     pub debug_state: DebugState,
     pub debug_view: DebugView,
     pub content_modified: bool,
 }
 
-#[derive(Debug, PartialEq)]
+pub type OpCallback = Box<dyn FnOnce(&mut App)>;
+
 pub enum PendingState {
     None,
     Saving(PathBuf),
     Quitting,
+    ConfigEdit {
+        on_confirm: OpCallback,
+    },
 }
 
 #[derive(PartialEq, Debug, Default, Copy, Clone)]
@@ -71,7 +75,7 @@ impl Default for App {
             file_path: None,
             popup: None,
             popup_result: PopupResult::None,
-            pending_states: vec![],
+            pending_states: VecDeque::new(),
             debug_state: DebugState::new(),
             debug_view: DebugView::new(),
             content_modified: false,
@@ -94,7 +98,7 @@ impl App {
             file_path: launch_config.file_path,
             popup: None,
             popup_result: PopupResult::None,
-            pending_states: vec![],
+            pending_states: VecDeque::new(),
             debug_state: DebugState::new(),
             debug_view: DebugView::new(),
             content_modified: false,
@@ -313,10 +317,28 @@ impl App {
     }
 
     ///handles creating popup to confirm if file should be overridden
-    pub fn handle_confirmation_popup_response(&mut self) {
-        if let Some(pending) = self.pending_states.first() {
-            match (pending, self.popup_result.clone()) {
-                (PendingState::Saving(path), PopupResult::Bool(true)) => {
+    pub fn handle_confirmation_popup_response(&mut self) { //TODO maybe change pending_states to be VecDeque and pop front
+        let Some(pending) = self.pending_states.front() else { return };
+
+        // check for absolutes, here quitting should quit regardless anything
+        if matches!(pending, PendingState::Quitting) {
+            self.pending_states.pop_front();
+            self.quit();
+            return;
+        }
+
+        // since method is for confirmation popup responses, only bool is relevant
+        let PopupResult::Bool(confirmed) = self.popup_result else {
+            return;
+        };
+
+        // Consume, and since we already checked if front is some, we can safely unwrap
+        let state = self.pending_states.pop_front().unwrap();
+        
+        // Only check state if confirmed, since these functionalities should only execute when confirmed
+        if confirmed {
+            match state {
+                PendingState::Saving(path) => if confirmed { //Should only execute if confirmed (clicked yes)
                     match self.save_to_path(&*path.clone()) {
                         Ok(()) => {
                             self.pending_states.remove(0);
@@ -328,28 +350,24 @@ impl App {
                                 AppError::InternalError(e.to_string()),
                             ));
                             self.open_popup(popup);
-                            // Keep the pending state so user can retry
                         }
                     }
                 }
-                (PendingState::Quitting, _) => {
-                    self.pending_states.clear();
-                    self.quit()
-                }
-                (_, PopupResult::Bool(false)) => {
-                    self.pending_states.remove(0);
-                    self.close_popup(); // user canceled
+                PendingState::ConfigEdit { on_confirm } => if confirmed { //Should only execute if confirmed (clicked yes)
+                    on_confirm(self);
+                    self.close_popup();
                 }
                 _ => {}
             }
-
-            self.popup_result = PopupResult::None;
-
-            // Check again if there's more to do (like Quitting after Saving)
-            if !self.pending_states.is_empty() {
-                self.handle_confirmation_popup_response();
-            }
         }
+        
+        self.popup_result = PopupResult::None;
+        self.close_popup();
+
+        // Check again if there's more to do (like Quitting after Saving)
+        if !self.pending_states.is_empty() {
+            self.handle_confirmation_popup_response();
+       }
     }
 
     ///handles response from error popup, should only close popup
