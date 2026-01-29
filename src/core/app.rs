@@ -1,4 +1,3 @@
-use std::collections::VecDeque;
 use super::command_line::{command, command_executor, CommandLine};
 use super::editor::Editor;
 use crate::app_config::AppLaunchConfig;
@@ -15,6 +14,7 @@ use crate::ui::ui::ui;
 use color_eyre::Result;
 use crossterm::event;
 use ratatui::DefaultTerminal;
+use std::collections::VecDeque;
 use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
@@ -46,9 +46,7 @@ pub enum PendingState {
     None,
     Saving(PathBuf),
     Quitting,
-    ConfigEdit {
-        on_confirm: OpCallback,
-    },
+    ConfigEdit { on_confirm: OpCallback },
 }
 
 #[derive(PartialEq, Debug, Default, Copy, Clone)]
@@ -317,8 +315,11 @@ impl App {
     }
 
     ///handles creating popup to confirm if file should be overridden
-    pub fn handle_confirmation_popup_response(&mut self) { //TODO maybe change pending_states to be VecDeque and pop front
-        let Some(pending) = self.pending_states.front() else { return };
+    pub fn handle_confirmation_popup_response(&mut self) {
+        //TODO maybe change pending_states to be VecDeque and pop front
+        let Some(pending) = self.pending_states.front() else {
+            return;
+        };
 
         // check for absolutes, here quitting should quit regardless anything
         if matches!(pending, PendingState::Quitting) {
@@ -334,40 +335,46 @@ impl App {
 
         // Consume, and since we already checked if front is some, we can safely unwrap
         let state = self.pending_states.pop_front().unwrap();
-        
+
         // Only check state if confirmed, since these functionalities should only execute when confirmed
         if confirmed {
             match state {
-                PendingState::Saving(path) => if confirmed { //Should only execute if confirmed (clicked yes)
-                    match self.save_to_path(&*path.clone()) {
-                        Ok(()) => {
-                            self.pending_states.remove(0);
-                            self.close_popup();
-                        }
-                        Err(e) => {
-                            let popup = Box::new(ErrorPopup::new(
-                                "Failed to save file",
-                                AppError::InternalError(e.to_string()),
-                            ));
-                            self.open_popup(popup);
+                PendingState::Saving(path) => {
+                    if confirmed {
+                        //Should only execute if confirmed (clicked yes)
+                        match self.save_to_path(&*path.clone()) {
+                            Ok(()) => {
+                                self.pending_states.remove(0);
+                                self.close_popup();
+                            }
+                            Err(e) => {
+                                let popup = Box::new(ErrorPopup::new(
+                                    "Failed to save file",
+                                    AppError::InternalError(e.to_string()),
+                                ));
+                                self.open_popup(popup);
+                            }
                         }
                     }
                 }
-                PendingState::ConfigEdit { on_confirm } => if confirmed { //Should only execute if confirmed (clicked yes)
-                    on_confirm(self);
-                    self.close_popup();
+                PendingState::ConfigEdit { on_confirm } => {
+                    if confirmed {
+                        //Should only execute if confirmed (clicked yes)
+                        on_confirm(self);
+                        self.close_popup();
+                    }
                 }
                 _ => {}
             }
         }
-        
+
         self.popup_result = PopupResult::None;
         self.close_popup();
 
         // Check again if there's more to do (like Quitting after Saving)
         if !self.pending_states.is_empty() {
             self.handle_confirmation_popup_response();
-       }
+        }
     }
 
     ///handles response from error popup, should only close popup
