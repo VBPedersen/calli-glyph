@@ -82,7 +82,7 @@ Planned improvements and future goals for **calli-glyph**:
 - 🖍️ **Syntax Highlighting** — Add syntax coloring for popular languages such as Rust, Markdown, and JSON.  
 - 🔄 **Undo / Redo Support** — Implement a simple history mechanism for editing operations.  
 - 🔍 **Search & Replace** — Allow users to find and replace text efficiently within the buffer.  
-- 🎹 **Customizable Key Bindings** — Enable user-defined shortcuts through a config file.  
+- [✅]🎹 **Customizable Key Bindings** — Enable user-defined shortcuts through a config file.  
 - 🪟 **Cross-Platform Support** — Improve compatibility across Linux, macOS, and Windows terminals.  
 - 🧩 **Plugin System** *(exploratory)* — Experiment with lightweight plugin or scripting capabilities for advanced users.  
 - 📦 **Crates.io Release** — Package and release the editor as a Rust crate with documentation on [docs.rs](https://docs.rs/).  
