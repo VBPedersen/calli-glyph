@@ -16,7 +16,6 @@
 //! * [`config`]:  Management of settings and persistent data.
 //! * [`errors`]:  Management of custom error structs.
 
-
 //expose modules
 #[macro_use]
 pub mod macros;
@@ -33,5 +32,5 @@ pub mod errors;
 pub mod app_config;
 pub mod args;
 
-/// This module is 
+/// This module is
 pub mod plugins;
