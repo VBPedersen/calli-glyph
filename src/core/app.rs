@@ -5,15 +5,18 @@ use crate::config::Config;
 use crate::core::debug::DebugState;
 use crate::errors::error::AppError;
 use crate::errors::error::AppError::EditorFailure;
+use crate::errors::plugin_error::PluginError;
 use crate::input::input::handle_input;
 use crate::input::input_action::InputAction;
+use crate::plugins::plugin_registry::{Plugin, PluginManager};
+use crate::plugins::test_plugin::TestPlugin;
 use crate::ui::debug::DebugView;
 use crate::ui::popups::error_popup::ErrorPopup;
 use crate::ui::popups::popup::{Popup, PopupResult, PopupType};
 use crate::ui::ui::ui;
 use color_eyre::Result;
 use crossterm::event;
-use ratatui::DefaultTerminal;
+use ratatui::{DefaultTerminal, Frame};
 use std::collections::VecDeque;
 use std::fs;
 use std::fs::{File, OpenOptions};
@@ -38,6 +41,7 @@ pub struct App {
     pub debug_state: DebugState,
     pub debug_view: DebugView,
     pub content_modified: bool,
+    pub plugins: PluginManager,
 }
 
 pub type OpCallback = Box<dyn FnOnce(&mut App)>;
@@ -63,7 +67,7 @@ impl Default for App {
     fn default() -> Self {
         let config = Config::default();
         let temp_config = Arc::new(config.editor.clone());
-        Self {
+        let app = App {
             running: Default::default(),
             config,
             active_area: Default::default(),
@@ -78,7 +82,13 @@ impl Default for App {
             debug_state: DebugState::new(),
             debug_view: DebugView::new(),
             content_modified: false,
-        }
+            plugins: PluginManager::new(),
+        };
+
+        // Load default plugins
+        //app.load_all_default_plugins();
+
+        app
     }
 }
 
@@ -86,7 +96,7 @@ impl App {
     /// Construct a new instance of [`App`].
     pub fn new(config: Config, launch_config: AppLaunchConfig) -> Self {
         let editor_config_arc = Arc::new(config.editor.clone());
-        Self {
+        let mut app = App {
             running: Default::default(),
             config,
             active_area: Default::default(),
@@ -101,7 +111,51 @@ impl App {
             debug_state: DebugState::new(),
             debug_view: DebugView::new(),
             content_modified: false,
+            plugins: Default::default(),
+        };
+
+        // Load default plugins
+        // app.load_all_default_plugins();
+        //TODO do probably this is just for testing
+        let plugin = Box::new(TestPlugin::new());
+        let (plugins, new_app, result) = std::mem::take(&mut app.plugins)
+            .load_plugin_consuming(plugin, std::mem::take(&mut app));
+        app = new_app;
+        app.plugins = plugins;
+        if let Err(e) = result {
+            log_error!("Failed to load test plugin: {}", e);
         }
+
+        app
+    }
+
+    /// Manually loads all default plugins, e.g. those made by [GOD]
+    /*fn load_all_default_plugins(&mut self) {
+        let plugins_to_load: Vec<Box<dyn Plugin>> = vec![
+            Box::new(TestPlugin::new()),
+        ];
+
+        for plugin in plugins_to_load {
+            if let Err(e) = self.plugins.load_plugin(plugin, self) {
+                log_error!("Failed to load plugin: {}", e);
+            }
+        }
+    }*/
+
+    /// Handle plugin commands from command line
+    pub fn execute_plugin_command(
+        &mut self,
+        name: &str,
+        args: Vec<String>,
+    ) -> Result<(), AppError> {
+        let handler = self
+            .plugins
+            .command_registry()
+            .get_handler(name)
+            .ok_or_else(|| PluginError::NotFound(name.to_string()))?;
+        log_info!("Running plugin {}", name);
+        handler(self, args).map_err(|e| PluginError::Internal(e.to_string()))?;
+        Ok(())
     }
 
     /// Run the application's main loop.
@@ -124,7 +178,7 @@ impl App {
         while self.running {
             // Only draw if needed (lazy redraw)
             if !self.config.performance.lazy_redraw || needs_redraw {
-                terminal.draw(|frame| ui(frame, &mut self))?;
+                terminal.draw(|frame| self.render_ui(frame))?;
                 needs_redraw = false;
             }
 
@@ -170,6 +224,16 @@ impl App {
             }
         }
         Ok(())
+    }
+
+    fn render_ui(&mut self, frame: &mut Frame) {
+        // Render normal UI (editor, command line, debug view, etc)
+        ui(frame, self);
+
+        // If plugin is active, render it on top
+        if self.plugins.active_plugin_name().is_some() {
+            self.plugins.render(frame, self);
+        }
     }
 
     /// Function to read a file to the editor if file path is some.

@@ -1,6 +1,7 @@
 use super::command_errors::CommandError;
 use super::config_errors::ConfigError;
 use super::editor_errors::EditorError;
+use crate::errors::plugin_error::PluginError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -19,4 +20,7 @@ pub enum AppError {
 
     #[error("Config related failure: {0}")]
     ConfigFailure(#[from] ConfigError),
+
+    #[error("Plugin related failure: {0}")]
+    PluginFailure(#[from] PluginError),
 }

@@ -28,6 +28,10 @@ pub enum Command {
         args: Vec<String>,
         flags: HashSet<CommandFlag>,
     },
+    Plugin {
+        name: String,
+        args: Vec<String>,
+    },
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -80,6 +84,10 @@ pub fn parse_command(bind: String, raw_args: Vec<String>) -> Command {
         COMMAND_HELP => Command::Help,
         COMMAND_DEBUG => Command::Debug { args, flags },
         COMMAND_CONFIG => Command::Config { args, flags },
-        _ => Command::Unknown { name: bind, args },
+        _ =>
+        // Unknown commands are tried as plugins first
+        {
+            Command::Unknown { name: bind, args }
+        }
     }
 }

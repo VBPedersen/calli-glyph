@@ -14,7 +14,26 @@ use crossterm::event::{
 pub(crate) fn handle_input(app: &mut App) -> Result<()> {
     match event::read()? {
         // it's important to check KeyEventKind::Press to avoid handling key release events
-        Event::Key(key) if key.kind == KeyEventKind::Press => on_key_event(app, key),
+        Event::Key(key) if key.kind == KeyEventKind::Press => {
+            // Check if active plugin wants to handle this
+            if app.plugins.active_plugin_name().is_some() {
+                if app.plugins.handle_key_event(key) {
+                    // Plugin consumed input
+                    if key.code == KeyCode::Esc {
+                        app.plugins.deactivate_plugin();
+                    }
+                    return Ok(());
+                }
+            }
+
+            // Try and see if keybind match plugin keybind
+            if try_activate_plugin_with_key(app, key) {
+                return Ok(());
+            }
+
+            // Otherwise, normal app input handling
+            on_key_event(app, key)
+        }
         Event::Resize(_, _) => {}
         Event::Mouse(mouse_event) => on_scroll_events(app, mouse_event),
         _ => {}
@@ -22,12 +41,67 @@ pub(crate) fn handle_input(app: &mut App) -> Result<()> {
     Ok(())
 }
 
+/// Check if any plugin keybinding matches this key
+fn try_activate_plugin_with_key(app: &mut App, key: KeyEvent) -> bool {
+    // Convert raw KeyEvent to keybinding string (e.g., "Ctrl+t")
+    let key_str = key_event_to_keybinding_string(key);
+    // Check each plugin's keybindings
+    if let Some(plugin_name) = app.plugins.find_plugin_by_keybinding(&key_str) {
+        log_info!(
+            "Activating plugin '{}' with keybinding '{}'",
+            plugin_name,
+            key_str
+        );
+        app.plugins.activate_plugin(&plugin_name);
+
+        // Execute the plugin's command
+        if let Some(command_name) = app.plugins.get_keybinding_command(&plugin_name, &key_str) {
+            let _ = app.execute_plugin_command(&command_name, vec![]);
+        }
+
+        return true;
+    }
+
+    false
+}
+
+/// Convert KeyEvent to keybinding string format
+fn key_event_to_keybinding_string(key: KeyEvent) -> String {
+    let mut result = String::new();
+
+    if key.modifiers.contains(KeyModifiers::CONTROL) {
+        result.push_str("Ctrl+");
+    }
+    if key.modifiers.contains(KeyModifiers::ALT) {
+        result.push_str("Alt+");
+    }
+    if key.modifiers.contains(KeyModifiers::SHIFT) {
+        result.push_str("Shift+");
+    }
+
+    let key_str = match key.code {
+        KeyCode::Char(c) => c.to_uppercase().to_string(),
+        KeyCode::F(n) => format!("F{}", n),
+        KeyCode::Up => "Up".to_string(),
+        KeyCode::Down => "Down".to_string(),
+        KeyCode::Left => "Left".to_string(),
+        KeyCode::Right => "Right".to_string(),
+        KeyCode::Enter => "Enter".to_string(),
+        KeyCode::Esc => "Esc".to_string(),
+        KeyCode::Backspace => "Backspace".to_string(),
+        KeyCode::Delete => "Delete".to_string(),
+        KeyCode::Tab => "Tab".to_string(),
+        _ => return result,
+    };
+
+    result.push_str(&key_str);
+    result
+}
 /// Handles the key events
 fn on_key_event(app: &mut App, key: KeyEvent) {
     let config = &app.config;
     let keymaps = config.runtime_keymaps();
-    /*app.debug_state
-    .log(LogLevel::Trace, format!("keyevent: {:?}", key));*/
+
     let action = match app.active_area {
         ActiveArea::Editor => {
             if key.modifiers == KeyModifiers::NONE || key.modifiers == KeyModifiers::SHIFT {

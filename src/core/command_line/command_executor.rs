@@ -26,6 +26,14 @@ pub fn execute_command(app: &mut App, command: Command) -> Result<(), CommandErr
             }
             Ok(())
         }
-        Command::Unknown { name, .. } => Err(CommandError::UnknownCommand(name)),
+        Command::Plugin { name, args } => app
+            .execute_plugin_command(&name, args)
+            .map_err(|e| CommandError::ExecutionFailed(e.to_string())),
+        Command::Unknown { name, args } => {
+            // Try plugin system first, then fail
+            log_info!("trying plugin exec: {}", name);
+            app.execute_plugin_command(&name, args)
+                .map_err(|_| CommandError::ExecutionFailed(name))
+        }
     }
 }

@@ -35,7 +35,7 @@ pub(crate) fn save_and_exit_command(
 
 pub(crate) fn exit_command(
     app: &mut App,
-    args: Vec<String>,
+    _args: Vec<String>,
     flags: HashSet<CommandFlag>,
 ) -> Result<(), CommandError> {
     // If flag force is not inputted
