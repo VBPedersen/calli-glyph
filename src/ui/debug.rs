@@ -99,15 +99,15 @@ impl DebugView {
     //------------------------------------
 
     pub fn select_next_log(&mut self, max: usize) {
-        self.selected_log = Some(self.selected_log.map(|i| (i + 1) % max).unwrap_or(0));
-    }
-
-    pub fn select_prev_log(&mut self, max: usize) {
         self.selected_log = Some(
             self.selected_log
                 .map(|i| (i + max - 1) % max)
                 .unwrap_or(max - 1),
         );
+    }
+
+    pub fn select_prev_log(&mut self, max: usize) {
+        self.selected_log = Some(self.selected_log.map(|i| (i + 1) % max).unwrap_or(0));
     }
 
     pub fn next_tab(&mut self) {
