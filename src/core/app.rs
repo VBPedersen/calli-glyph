@@ -9,7 +9,6 @@ use crate::errors::plugin_error::PluginError;
 use crate::input::input::handle_input;
 use crate::input::input_action::InputAction;
 use crate::plugins::plugin_registry::{Plugin, PluginManager};
-use crate::plugins::test_plugin::TestPlugin;
 use crate::ui::debug::DebugView;
 use crate::ui::popups::error_popup::ErrorPopup;
 use crate::ui::popups::popup::{Popup, PopupResult, PopupType};
@@ -115,32 +114,66 @@ impl App {
         };
 
         // Load default plugins
-        // app.load_all_default_plugins();
-        //TODO do probably this is just for testing
-        let plugin = Box::new(TestPlugin::new());
-        let (plugins, new_app, result) = std::mem::take(&mut app.plugins)
-            .load_plugin_consuming(plugin, std::mem::take(&mut app));
-        app = new_app;
-        app.plugins = plugins;
-        if let Err(e) = result {
-            log_error!("Failed to load test plugin: {}", e);
-        }
-
+        app.load_plugins_from_config();
         app
     }
 
-    /// Manually loads all default plugins, e.g. those made by [GOD]
-    /*fn load_all_default_plugins(&mut self) {
-        let plugins_to_load: Vec<Box<dyn Plugin>> = vec![
-            Box::new(TestPlugin::new()),
+    /// Manually loads all default plugins, e.g. those made by [GOD] 
+    fn load_plugins_from_config(&mut self) {
+        use crate::plugins::test_plugin::TestPlugin;
+
+        // Map of all plugins to load: plugin name and constructor
+        let plugins_to_load: Vec<(&str, Box<dyn Plugin>)> = vec![
+            ("test_plugin", Box::new(TestPlugin::new())),
         ];
 
-        for plugin in plugins_to_load {
-            if let Err(e) = self.plugins.load_plugin(plugin, self) {
-                log_error!("Failed to load plugin: {}", e);
+        // Only load enabled plugins
+        for (name, plugin) in plugins_to_load {
+            if self.config.plugins.is_enabled(name) {
+                log_info!("Loading plugin: {}", name);
+                
+                if let Err(e) = self.load_single_plugin(plugin) {
+                    log_error!("Failed to load plugin '{}': {}", name, e);
+                }
+            } else {
+                log_info!("Plugin '{}' is disabled in config", name);
             }
         }
-    }*/
+
+        // Apply keybinding overrides from config
+        self.plugins.apply_config(&self.config.plugins); 
+    }
+
+    /// Load a single plugin into the manager
+    fn load_single_plugin(&mut self, mut plugin: Box<dyn Plugin>) -> Result<(), PluginError> {
+        let name = plugin.name().to_string();
+        let metadata = plugin.metadata();
+
+        // Initialize plugin
+        plugin.init(self)?;
+
+        // Register all commands the plugin provides
+        for cmd in metadata.commands {
+            let handler = cmd.handler;
+            self.plugins
+                .command_registry_mut()
+                .register_command(cmd.name.clone(), move |app, args| {
+                    handler(app, args)
+                });
+
+            // Also register aliases
+            for alias in cmd.aliases {
+                self.plugins
+                    .command_registry_mut()
+                    .register_command(alias, move |app, args| {
+                        handler(app, args)
+                    });
+            }
+        }
+
+        self.plugins.insert_plugin(name, plugin);
+        Ok(())
+    }
 
     /// Handle plugin commands from command line
     pub fn execute_plugin_command(

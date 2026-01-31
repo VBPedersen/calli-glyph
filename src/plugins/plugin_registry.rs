@@ -2,12 +2,11 @@
 
 use crate::core::app::App;
 use crate::errors::plugin_error::PluginError;
-use crossterm::event::{KeyCode, KeyEvent};
-use ratatui::layout::Rect;
+use crossterm::event::{KeyEvent};
 use ratatui::Frame;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-
+use crate::config::plugins::PluginsConfig;
 //PLUGIN METADATA
 
 /// Metadata of the plugin
@@ -132,6 +131,9 @@ pub struct PluginManager {
     plugins: HashMap<String, Box<dyn Plugin>>,
     command_registry: CommandRegistry,
     active_plugin: Option<String>,
+    plugin_config: Option<PluginsConfig>,
+    // Runtime keybinding cache
+    keybinding_map: HashMap<String, String>,
 }
 
 impl PluginManager {
@@ -140,66 +142,51 @@ impl PluginManager {
             plugins: HashMap::new(),
             command_registry: CommandRegistry::new(),
             active_plugin: None,
+            plugin_config: None,
+            keybinding_map: HashMap::new(),
         }
     }
 
-    /// Load and register a plugin
-    pub fn load_plugin(
-        &mut self,
-        mut plugin: Box<dyn Plugin>,
-        app: &mut App,
-    ) -> Result<(), PluginError> {
-        let name = plugin.name().to_string();
-        let metadata = plugin.metadata();
+    /// Build keybinding map from plugins and config
+    pub fn rebuild_keybinding_map(&mut self) {
+        self.keybinding_map.clear();
 
-        // Initialize plugin
-        plugin.init(app)?;
+        // Collect which plugins have config overrides
+        let plugins_with_config: HashSet<String> =
+            if let Some(config) = &self.plugin_config {
+                config.keybindings
+                    .keys()
+                    .filter_map(|k| k.split('.').next())
+                    .map(|s| s.to_string())
+                    .collect()
+            } else {
+                HashSet::new()
+            };
 
-        // Register all commands the plugin provides
-        for cmd in metadata.commands {
-            let handler = cmd.handler;
-            self.command_registry
-                .register_command(cmd.name, move |app, args| handler(app, args));
-
-            // Also register aliases
-            for alias in cmd.aliases {
-                self.command_registry
-                    .register_command(alias, move |app, args| handler(app, args));
+        // Add config keybindings
+        if let Some(config) = &self.plugin_config {
+            for (key, binding) in &config.keybindings {
+                if let Some(plugin_name) = key.split('.').next() {
+                    self.keybinding_map.insert(binding.clone(), plugin_name.to_string());
+                }
             }
         }
 
-        self.plugins.insert(name, plugin);
-        Ok(())
-    }
+        // Add plugin defaults ONLY for plugins without config overrides
+        for (name, plugin) in &self.plugins {
+            if plugins_with_config.contains(name) {
+                continue; // Skip, user configured this plugin
+            }
 
-    pub fn load_plugin_consuming(
-        mut self,
-        mut plugin: Box<dyn Plugin>,
-        mut app: App,
-    ) -> (Self, App, Result<(), PluginError>) {
-        let name = plugin.name().to_string();
-        let metadata = plugin.metadata();
-
-        // Initialize plugin
-        if let Err(e) = plugin.init(&mut app) {
-            return (self, app, Err(e));
-        }
-
-        // Register all commands the plugin provides
-        for cmd in metadata.commands {
-            let handler = cmd.handler;
-            self.command_registry
-                .register_command(cmd.name.clone(), move |app, args| handler(app, args));
-
-            // Also register aliases
-            for alias in cmd.aliases {
-                self.command_registry
-                    .register_command(alias, move |app, args| handler(app, args));
+            let metadata = plugin.metadata();
+            for keybinding in &metadata.keybinds {
+                // Only add if not already in map 
+                self.keybinding_map.entry(keybinding.key.clone())
+                    .or_insert_with(|| name.clone());
             }
         }
 
-        self.plugins.insert(name, plugin);
-        (self, app, Ok(()))
+        log_info!("Rebuilt keybinding map: {:?}", self.keybinding_map);
     }
 
     /// Get name of active plugin
@@ -247,32 +234,49 @@ impl PluginManager {
         &mut self.command_registry
     }
 
-    /// Find which plugin has a keybinding for this key
-    pub fn find_plugin_by_keybinding(&self, key_str: &str) -> Option<String> {
-        // Iterate through all plugins and check their metadata
-        for (name, plugin) in &self.plugins {
-            let metadata = plugin.metadata();
-            for keybinding in metadata.keybinds {
-                if keybinding.key.to_lowercase() == key_str.to_lowercase() {
-                    //lowercase in case mismatch e.g. Ctrl+t == Ctrl+T
-                    return Some(name.clone());
-                }
-            }
-        }
-        None
+    /// Apply plugin configuration
+    /// This modifies keybindings based on config by building keybinding_map
+    pub fn apply_config(&mut self, config: &PluginsConfig) {
+        self.plugin_config = Some(config.clone());
+        self.rebuild_keybinding_map();
+        log_info!("Applied plugin config: {:?}", config);
     }
 
-    /// Get the command name for a plugin's keybinding
-    pub fn get_keybinding_command(&self, plugin_name: &str, key_str: &str) -> Option<String> {
+    /// Get configured keybinding for a plugin command
+    /// Returns custom keybinding if configured, else uses plugin default
+    pub fn get_keybinding_command(
+        &self,
+        plugin_name: &str,
+        command_name: &str,
+    ) -> Option<String> {
+        // Check config first
+        if let Some(config) = &self.plugin_config {
+            if let Some(custom_binding) = config.get_keybinding(plugin_name, command_name) {
+                return Some(custom_binding.clone());
+            }
+        }
+
+        // Fall back to plugin default
         if let Some(plugin) = self.plugins.get(plugin_name) {
             let metadata = plugin.metadata();
             for keybinding in metadata.keybinds {
-                if keybinding.key == key_str {
-                    return Some(keybinding.command);
+                if keybinding.command == command_name {
+                    return Some(keybinding.key);
                 }
             }
         }
+
         None
+    }
+
+    /// Find plugin by keybinding in keybinding map
+    pub fn find_plugin_by_keybinding(&self, key_str: &str) -> Option<String> {
+        self.keybinding_map.get(key_str).cloned()
+    }
+
+    /// Insert a plugin directly
+    pub fn insert_plugin(&mut self, name: String, plugin: Box<dyn Plugin>) {
+        self.plugins.insert(name, plugin);
     }
 }
 

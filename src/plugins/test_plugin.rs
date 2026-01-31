@@ -4,10 +4,8 @@ use crate::plugins::plugin_registry::{
     KeyContext, Plugin, PluginCommand, PluginKeybinding, PluginMetadata,
 };
 use crossterm::event::{KeyCode, KeyEvent};
-use ratatui::layout::{Alignment, Rect};
-use ratatui::style::{Color, Style};
+use ratatui::layout::{Rect};
 use ratatui::text::Line;
-use ratatui::widgets::{Block, Borders, Paragraph};
 use ratatui::Frame;
 
 pub struct TestPlugin {
