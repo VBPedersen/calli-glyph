@@ -1,12 +1,12 @@
 //! Central registry for plugins to register commands and keybindings
 
+use crate::config::plugins::PluginsConfig;
 use crate::core::app::App;
 use crate::errors::plugin_error::PluginError;
-use crossterm::event::{KeyEvent};
+use crossterm::event::KeyEvent;
 use ratatui::Frame;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use crate::config::plugins::PluginsConfig;
 //PLUGIN METADATA
 
 /// Metadata of the plugin
@@ -152,22 +152,23 @@ impl PluginManager {
         self.keybinding_map.clear();
 
         // Collect which plugins have config overrides
-        let plugins_with_config: HashSet<String> =
-            if let Some(config) = &self.plugin_config {
-                config.keybindings
-                    .keys()
-                    .filter_map(|k| k.split('.').next())
-                    .map(|s| s.to_string())
-                    .collect()
-            } else {
-                HashSet::new()
-            };
+        let plugins_with_config: HashSet<String> = if let Some(config) = &self.plugin_config {
+            config
+                .keybindings
+                .keys()
+                .filter_map(|k| k.split('.').next())
+                .map(|s| s.to_string())
+                .collect()
+        } else {
+            HashSet::new()
+        };
 
         // Add config keybindings
         if let Some(config) = &self.plugin_config {
             for (key, binding) in &config.keybindings {
                 if let Some(plugin_name) = key.split('.').next() {
-                    self.keybinding_map.insert(binding.clone(), plugin_name.to_string());
+                    self.keybinding_map
+                        .insert(binding.clone(), plugin_name.to_string());
                 }
             }
         }
@@ -180,8 +181,9 @@ impl PluginManager {
 
             let metadata = plugin.metadata();
             for keybinding in &metadata.keybinds {
-                // Only add if not already in map 
-                self.keybinding_map.entry(keybinding.key.clone())
+                // Only add if not already in map
+                self.keybinding_map
+                    .entry(keybinding.key.clone())
                     .or_insert_with(|| name.clone());
             }
         }
@@ -244,11 +246,7 @@ impl PluginManager {
 
     /// Get configured keybinding for a plugin command
     /// Returns custom keybinding if configured, else uses plugin default
-    pub fn get_keybinding_command(
-        &self,
-        plugin_name: &str,
-        command_name: &str,
-    ) -> Option<String> {
+    pub fn get_keybinding_command(&self, plugin_name: &str, command_name: &str) -> Option<String> {
         // Check config first
         if let Some(config) = &self.plugin_config {
             if let Some(custom_binding) = config.get_keybinding(plugin_name, command_name) {

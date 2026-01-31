@@ -118,20 +118,19 @@ impl App {
         app
     }
 
-    /// Manually loads all default plugins, e.g. those made by [GOD] 
+    /// Manually loads all default plugins, e.g. those made by [GOD]
     fn load_plugins_from_config(&mut self) {
         use crate::plugins::test_plugin::TestPlugin;
 
         // Map of all plugins to load: plugin name and constructor
-        let plugins_to_load: Vec<(&str, Box<dyn Plugin>)> = vec![
-            ("test_plugin", Box::new(TestPlugin::new())),
-        ];
+        let plugins_to_load: Vec<(&str, Box<dyn Plugin>)> =
+            vec![("test_plugin", Box::new(TestPlugin::new()))];
 
         // Only load enabled plugins
         for (name, plugin) in plugins_to_load {
             if self.config.plugins.is_enabled(name) {
                 log_info!("Loading plugin: {}", name);
-                
+
                 if let Err(e) = self.load_single_plugin(plugin) {
                     log_error!("Failed to load plugin '{}': {}", name, e);
                 }
@@ -141,7 +140,7 @@ impl App {
         }
 
         // Apply keybinding overrides from config
-        self.plugins.apply_config(&self.config.plugins); 
+        self.plugins.apply_config(&self.config.plugins);
     }
 
     /// Load a single plugin into the manager
@@ -157,17 +156,13 @@ impl App {
             let handler = cmd.handler;
             self.plugins
                 .command_registry_mut()
-                .register_command(cmd.name.clone(), move |app, args| {
-                    handler(app, args)
-                });
+                .register_command(cmd.name.clone(), move |app, args| handler(app, args));
 
             // Also register aliases
             for alias in cmd.aliases {
                 self.plugins
                     .command_registry_mut()
-                    .register_command(alias, move |app, args| {
-                        handler(app, args)
-                    });
+                    .register_command(alias, move |app, args| handler(app, args));
             }
         }
 

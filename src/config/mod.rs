@@ -6,17 +6,17 @@ mod defaults;
 mod editor; //Editor settings
 mod keymaps; //Keybinding config
 mod performance; //Performance settings
-mod ui;
 pub mod plugins;
+mod ui;
 //UI settings //Default configurations
 
 use crate::config::keymaps::RuntimeKeymaps;
+use crate::config::plugins::PluginsConfig;
 use crate::errors::config_errors::ConfigError;
 pub use editor::EditorConfig;
 pub use keymaps::KeymapConfig;
 pub use performance::PerformanceConfig;
 pub use ui::UIConfig;
-use crate::config::plugins::PluginsConfig;
 
 // Thread local storage for mocking the configuration path during tests.
 // This is used by the config_path() function below.
@@ -36,7 +36,7 @@ pub struct Config {
     pub ui: UIConfig,
     pub performance: PerformanceConfig,
     pub plugins: PluginsConfig,
-    
+
     // Runtime keymaps (not serialized)
     #[serde(skip)]
     pub runtime_keymaps: Option<RuntimeKeymaps>,
