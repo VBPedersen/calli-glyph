@@ -9,6 +9,7 @@ use crate::errors::plugin_error::PluginError;
 use crate::input::input::handle_input;
 use crate::input::input_action::InputAction;
 use crate::plugins::plugin_registry::{Plugin, PluginManager};
+use crate::plugins::search_replace_plugin::SearchReplacePlugin;
 use crate::ui::debug::DebugView;
 use crate::ui::popups::error_popup::ErrorPopup;
 use crate::ui::popups::popup::{Popup, PopupResult, PopupType};
@@ -123,8 +124,13 @@ impl App {
         use crate::plugins::test_plugin::TestPlugin;
 
         // Map of all plugins to load: plugin name and constructor
-        let plugins_to_load: Vec<(&str, Box<dyn Plugin>)> =
-            vec![("test_plugin", Box::new(TestPlugin::new()))];
+        let plugins_to_load: Vec<(&str, Box<dyn Plugin>)> = vec![
+            ("test_plugin", Box::new(TestPlugin::new())),
+            (
+                "search_replace_plugin",
+                Box::new(SearchReplacePlugin::new()),
+            ),
+        ];
 
         // Only load enabled plugins
         for (name, plugin) in plugins_to_load {

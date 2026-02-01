@@ -32,5 +32,4 @@ pub mod errors;
 pub mod app_config;
 pub mod args;
 
-/// This module is
 pub mod plugins;

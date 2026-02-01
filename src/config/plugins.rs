@@ -15,7 +15,8 @@ impl Default for PluginsConfig {
     fn default() -> Self {
         Self {
             enabled: vec![
-                "test_plugin".to_string(), //testplugin
+                "test_plugin".to_string(),           //testplugin
+                "search_replace_plugin".to_string(), // search and replace plugin
             ],
             keybindings: HashMap::new(),
         }
