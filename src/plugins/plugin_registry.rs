@@ -54,8 +54,9 @@ pub trait Plugin: Send {
     fn init(&mut self, app: &mut App) -> Result<(), PluginError>;
 
     /// Handle input when plugin is active
-    /// By standard: should consume input if plugin self is active
-    fn handle_key_event(&mut self, key: KeyEvent) -> bool;
+    /// By standard: should consume input if plugin self is active and input is relavant
+    /// Returns true when input consumed, returns false if not
+    fn handle_key_event(&mut self, app: &mut App, key: KeyEvent) -> bool;
 
     /// Render plugin UI
     fn render(&self, frame: &mut Frame, app: &App) -> bool;
@@ -128,7 +129,7 @@ impl Default for CommandRegistry {
 /// Manages plugins: registered plugins and commands + which plugin is currently active
 /// Functionality includes loading, registering,
 pub struct PluginManager {
-    plugins: HashMap<String, Box<dyn Plugin>>,
+    pub plugins: HashMap<String, Box<dyn Plugin>>,
     command_registry: CommandRegistry,
     active_plugin: Option<String>,
     plugin_config: Option<PluginsConfig>,
@@ -192,8 +193,8 @@ impl PluginManager {
     }
 
     /// Get name of active plugin
-    pub fn active_plugin_name(&self) -> Option<&str> {
-        self.active_plugin.as_deref()
+    pub fn active_plugin_name(&self) -> Option<String> {
+        self.active_plugin.clone()
     }
 
     /// Activate a plugin (it consumes input)
@@ -207,11 +208,11 @@ impl PluginManager {
     }
 
     /// Handle input, send to active plugin first
-    pub fn handle_key_event(&mut self, key: KeyEvent) -> bool {
+    pub fn handle_key_event(&mut self, app: &mut App, key: KeyEvent) -> bool {
         if let Some(active) = self.active_plugin.clone() {
             if let Some(plugin) = self.plugins.get_mut(&active) {
                 log_info!("Handling key event: {:?}", key);
-                return plugin.handle_key_event(key);
+                return plugin.handle_key_event(app, key);
             }
         }
         false

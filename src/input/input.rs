@@ -16,12 +16,21 @@ pub(crate) fn handle_input(app: &mut App) -> Result<()> {
         // it's important to check KeyEventKind::Press to avoid handling key release events
         Event::Key(key) if key.kind == KeyEventKind::Press => {
             // Check if active plugin wants to handle this
-            if app.plugins.active_plugin_name().is_some() {
-                if app.plugins.handle_key_event(key) {
-                    // Plugin consumed input
-                    if key.code == KeyCode::Esc {
-                        app.plugins.deactivate_plugin();
+            if let Some(plugin_name) = app.plugins.active_plugin_name() {
+                // To handle borrow for now i remove and add back plugin from list
+                // TODO find better solution if possible
+                if let Some(mut plugin) = app.plugins.plugins.remove(&plugin_name) {
+                    let consumed = plugin.handle_key_event(app, key);
+
+                    if consumed {
+                        // Plugin consumed input
+                        if key.code == KeyCode::Esc {
+                            app.plugins.deactivate_plugin();
+                        }
                     }
+
+                    // Put back plugin
+                    app.plugins.plugins.insert(plugin_name, plugin);
                     return Ok(());
                 }
             }
