@@ -50,7 +50,7 @@ impl Plugin for TestPlugin {
         Ok(())
     }
 
-    fn handle_key_event(&mut self, app: &mut App, key: KeyEvent) -> bool {
+    fn handle_key_event(&mut self, _app: &mut App, key: KeyEvent) -> bool {
         log_info!("testplugin handle_key_event");
         match key.code {
             KeyCode::Esc => true,

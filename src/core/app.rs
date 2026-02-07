@@ -24,6 +24,8 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use ratatui::layout::Rect;
+use crate::ui::layout::UILayout;
 
 pub struct App {
     /// Is the application running?
@@ -42,6 +44,7 @@ pub struct App {
     pub debug_view: DebugView,
     pub content_modified: bool,
     pub plugins: PluginManager,
+    pub layout: UILayout,
 }
 
 pub type OpCallback = Box<dyn FnOnce(&mut App)>;
@@ -83,6 +86,7 @@ impl Default for App {
             debug_view: DebugView::new(),
             content_modified: false,
             plugins: PluginManager::new(),
+            layout: UILayout::default(Rect::default()) // used to hold current UI areas of app, should be updated each render 
         };
 
         // Load default plugins
@@ -112,6 +116,7 @@ impl App {
             debug_view: DebugView::new(),
             content_modified: false,
             plugins: Default::default(),
+            layout: UILayout::default(Rect::default())
         };
 
         // Load default plugins
@@ -119,6 +124,25 @@ impl App {
         app
     }
 
+    /// Update layout from constraint-based calculation
+    /// Called once per render
+   pub fn update_layout(
+        &mut self,
+        status_bar_area: Option<Rect>,
+        editor_area: Rect,
+        line_number_area: Option<Rect>,
+        content_area: Rect,
+        command_line_area: Rect,
+    ) {
+        self.layout = UILayout {
+            status_bar_area,
+            editor_area,
+            line_number_area,
+            content_area,
+            command_line_area,
+        };
+    }
+    
     /// Manually loads all default plugins, e.g. those made by [GOD]
     fn load_plugins_from_config(&mut self) {
         use crate::plugins::test_plugin::TestPlugin;

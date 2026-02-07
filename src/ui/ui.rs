@@ -53,7 +53,7 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
         .constraints(constraints)
         .split(frame.area());
 
-    // --------------- Find areas from layout ------------------
+    // --------------- Calculate areas ------------------
     // Find status bar area if enabled
     let mut layout_idx = 0;
     let status_bar_area = if app.config.ui.show_status_bar {
@@ -67,7 +67,6 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
     let editor_area = layout[layout_idx];
     layout_idx += 1;
     let command_area = layout[layout_idx];
-    //----------------------------------------------------------
 
     app.editor.editor_height = editor_area.height;
 
@@ -85,6 +84,10 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
     } else {
         (None, editor_area)
     };
+    //----------------------------------------------------------
+
+    // Update app layout areas with new found areas
+    app.update_layout(status_bar_area, editor_area, line_number_area, content_area, command_area);
 
     app.editor.editor_width = content_area.width as i16;
 
@@ -464,6 +467,7 @@ fn handle_tab_rendering(s: String, tab_width: u16) -> String {
 
 //TEXT HIGHLIGTHING
 
+//TODO error when shift selecting up into å æ ø multi byte chars
 fn highlight_text<'a>(
     text: Vec<String>,
     start: Option<CursorPosition>,
