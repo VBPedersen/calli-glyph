@@ -1,9 +1,10 @@
 use crate::core::app::App;
+use crate::core::cursor::CursorPosition;
 use crate::errors::plugin_error::PluginError;
 use crate::plugins::plugin_registry::{
     KeyContext, Plugin, PluginCommand, PluginKeybinding, PluginMetadata,
 };
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::layout::Rect;
 use ratatui::style::Modifier;
 use ratatui::text::{Line, Span};
@@ -14,6 +15,7 @@ use std::cmp::{min, PartialEq};
 // select next and prev scroll to view the actually selected match
 // Enter should replace current, and maybe shift enter to replace all
 
+//TODO make possible to toggle to not match case sensitivity and exact words.
 #[derive(PartialEq)]
 enum FocusedField {
     Search,
@@ -39,14 +41,14 @@ impl SearchReplacePlugin {
         }
     }
 
-    /// find matches in editor by array of strings search
-    fn find_matches(&mut self, query: &[String]) {
+    /// Find matches in buffer provided, according to search query text
+    fn find_matches(&mut self, buffer: &[String]) {
         self.matches.clear();
         if self.search_query.is_empty() {
             return;
         }
         // iterate on query array then matches fo und on
-        for (line_idx, line) in query.iter().enumerate() {
+        for (line_idx, line) in buffer.iter().enumerate() {
             let mut start_idx = 0;
 
             while start_idx < line.len() {
@@ -72,25 +74,118 @@ impl SearchReplacePlugin {
     }
 
     /// selects next match possible
-    fn next_match(&mut self) {
+    fn next_match(&mut self, app: &mut App) {
         if !self.matches.is_empty() {
-            self.current_match_idx = (self.current_match_idx + 1) % self.matches.len();
             // increment current match, with modulo for safeguard
+            self.current_match_idx = (self.current_match_idx + 1) % self.matches.len();
+            self.scroll_to_match(app);
         }
     }
 
     /// selects previous match possible
-    fn prev_match(&mut self) {
+    fn prev_match(&mut self, app: &mut App) {
         if !self.matches.is_empty() {
             self.current_match_idx = if self.current_match_idx == 0 {
                 // prev from 0 is max
                 self.matches.len() - 1
             } else {
                 self.current_match_idx - 1
-            }
+            };
+            self.scroll_to_match(app);
         }
     }
 
+    /// Replace current selected match with replace content, and move to next
+    fn replace_current_selected(&mut self, app: &mut App) -> Result<(), PluginError> {
+        if self.matches.is_empty() || self.current_match_idx > self.matches.len() {
+            return Err(PluginError::Internal(
+                "Trying to replace when no matches or selected index longer than matches"
+                    .to_string(),
+            ));
+        }
+
+        //current match
+        let (line_idx, byte_col) = self.matches[self.current_match_idx];
+
+        let mut buffer = app.editor.editor_content.clone();
+
+        if line_idx > buffer.len() {
+            return Err(PluginError::Internal(
+                "Line index is larger than buffer length".to_string(),
+            ));
+        }
+
+        let line = &mut buffer[line_idx];
+
+        // Ensure byte position is at a char boundary
+        let actual_byte_col = self.find_char_boundary(line, byte_col);
+
+        // Calculate byte range to replace
+        let byte_end = (actual_byte_col + self.search_query.len()).min(line.len());
+
+        // Verify can slice safely
+        if !line.is_char_boundary(actual_byte_col) || !line.is_char_boundary(byte_end) {
+            return Err(PluginError::Internal(
+                "Replace not possible, match is inbetween char boundaries, slice not safe "
+                    .to_string(),
+            ));
+        }
+
+        // Replace
+        line.replace_range(actual_byte_col..byte_end, &self.replace_text);
+
+        // Replace editor content with new changes
+        app.editor.editor_content = buffer.clone();
+
+        // Find new matches and scroll to
+        self.find_matches(&app.editor.editor_content);
+        self.scroll_to_match(app);
+
+        Ok(())
+    }
+
+    /// Replace all matches with replace content
+    fn replace_all(&self, app: &mut App) {
+        todo!()
+    }
+
+    /// Find the char boundary at or before the given byte position
+    fn find_char_boundary(&self, line: &str, byte_pos: usize) -> usize {
+        if byte_pos > line.len() {
+            return line.len();
+        }
+
+        if line.is_char_boundary(byte_pos) {
+            return byte_pos;
+        }
+
+        // Go backwards to find the char boundary
+        let mut pos = byte_pos;
+        while pos > 0 && !line.is_char_boundary(pos) {
+            pos -= 1;
+        }
+        pos
+    }
+
+    /// Scroll editor to current match
+    fn scroll_to_match(&self, app: &mut App) {
+        if let Some((line, col)) = self.matches.get(self.current_match_idx) {
+            // Move cursor to match position
+            app.editor
+                .set_cursor_position(&CursorPosition { x: *col, y: *line });
+
+            // Ensure line is visible in viewport
+            let viewport_height = app.editor.editor_height as usize;
+            let target_scroll = if *line < viewport_height / 2 {
+                0
+            } else {
+                line - viewport_height / 2
+            };
+            app.editor.set_scroll_offset(target_scroll as i16);
+        }
+    }
+
+    /// Render dialog for search replace plugin
     fn render_search_replace_dialog(&self, frame: &mut Frame) -> bool {
         use ratatui::style::{Color, Style};
         use ratatui::widgets::{Block, Borders, Paragraph};
@@ -150,6 +245,84 @@ impl SearchReplacePlugin {
         };
         frame.render_widget(paragraph, plugin_area);
         true
+    }
+
+    /// Render the highlight overlay for matches found
+    fn render_highlights_overlay(&self, frame: &mut Frame, app: &App, content_area: Rect) {
+        use ratatui::style::{Color, Modifier, Style};
+        use ratatui::text::{Line, Span};
+
+        let scroll_offset = app.editor.scroll_offset as usize;
+        let tab_width = app.config.editor.tab_width as usize;
+
+        for (idx, &(line, byte_col)) in self.matches.iter().enumerate() {
+            // Calculate position relative to visible viewport
+            let line_in_viewport = line.saturating_sub(scroll_offset);
+
+            // Only render if visible in current viewport
+            if line_in_viewport >= content_area.height as usize {
+                continue;
+            }
+
+            // Check if line is before viewport, aka not visible
+            if line < scroll_offset {
+                continue;
+            }
+
+            // Get the actual line content
+            if line >= app.editor.editor_content.len() {
+                continue;
+            }
+
+            let line_content = &app.editor.editor_content[line];
+
+            // Convert byte position to visual column position
+            let visual_col = self.byte_pos_to_visual_col(line_content, byte_col, tab_width);
+            let visual_width = self.search_query_visual_width(line_content, byte_col, tab_width);
+
+            // Position within content area
+            let y = content_area.y + line_in_viewport as u16;
+            let x = content_area.x + visual_col as u16;
+
+            // Don't render if outside content area bounds
+            if x >= content_area.right() || y >= content_area.bottom() {
+                continue;
+            }
+
+            // Highlight style
+            let style = if idx == self.current_match_idx {
+                // Selected match
+                Style::default()
+                    .fg(Color::Black)
+                    .bg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                // Non selected match
+                Style::default().fg(Color::Black).bg(Color::Gray)
+            };
+
+            // Create highlight area with correct visual width
+            let highlight_width = visual_width.min((content_area.right() - x) as usize) as u16;
+
+            if highlight_width == 0 {
+                continue; // Skip if zero-width as: non existent
+            }
+
+            let highlight_area = Rect {
+                x,
+                y,
+                width: highlight_width,
+                height: 1,
+            };
+
+            // Get the search text to render
+            let byte_end = (byte_col + self.search_query.len()).min(line_content.len());
+            let search_slice = &line_content[byte_col..byte_end];
+
+            // Render
+            let highlight_text = Line::from(Span::styled(search_slice, style));
+            frame.render_widget(Paragraph::new(highlight_text), highlight_area);
+        }
     }
 
     /// Convert byte position to visual column position
@@ -227,77 +400,6 @@ impl SearchReplacePlugin {
 
         visual_width
     }
-
-    fn render_highlights_overlay(&self, frame: &mut Frame, app: &App, content_area: Rect) {
-        use ratatui::style::{Color, Modifier, Style};
-        use ratatui::text::{Line, Span};
-
-        let scroll_offset = app.editor.scroll_offset as usize;
-        let tab_width = app.config.editor.tab_width as usize;
-
-        for (idx, &(line, byte_col)) in self.matches.iter().enumerate() {
-            // Calculate position relative to visible viewport
-            let line_in_viewport = line.saturating_sub(scroll_offset);
-
-            // Only render if visible in current viewport
-            if line_in_viewport >= content_area.height as usize {
-                continue;
-            }
-
-            // Get the actual line content
-            if line >= app.editor.editor_content.len() {
-                continue;
-            }
-            let line_content = &app.editor.editor_content[line];
-
-            // Convert byte position to visual column position
-            let visual_col = self.byte_pos_to_visual_col(line_content, byte_col, tab_width);
-            let visual_width = self.search_query_visual_width(line_content, byte_col, tab_width);
-
-            // Position within content area
-            let y = content_area.y + line_in_viewport as u16;
-            let x = content_area.x + visual_col as u16;
-
-            // Don't render if outside content area bounds
-            if x >= content_area.right() || y >= content_area.bottom() {
-                continue;
-            }
-
-            // Highlight style
-            let style = if idx == self.current_match_idx {
-                // Selected match
-                Style::default()
-                    .fg(Color::Black)
-                    .bg(Color::Yellow)
-                    .add_modifier(Modifier::BOLD)
-            } else {
-                // Non selected match
-                Style::default().fg(Color::Black).bg(Color::Gray)
-            };
-
-            // Create highlight area with correct visual width
-            let highlight_width = visual_width.min((content_area.right() - x) as usize) as u16;
-
-            if highlight_width == 0 {
-                continue; // Skip if zero-width as: non existent
-            }
-
-            let highlight_area = Rect {
-                x,
-                y,
-                width: highlight_width,
-                height: 1,
-            };
-
-            // Get the search text to render
-            let byte_end = (byte_col + self.search_query.len()).min(line_content.len());
-            let search_slice = &line_content[byte_col..byte_end];
-
-            // Render
-            let highlight_text = Line::from(Span::styled(search_slice, style));
-            frame.render_widget(Paragraph::new(highlight_text), highlight_area);
-        }
-    }
 }
 
 impl Plugin for SearchReplacePlugin {
@@ -330,9 +432,9 @@ impl Plugin for SearchReplacePlugin {
     }
 
     fn handle_key_event(&mut self, app: &mut App, key: KeyEvent) -> bool {
-        match key.code {
-            KeyCode::Esc => true,
-            KeyCode::Char(c) => {
+        match (key.modifiers, key.code) {
+            (KeyModifiers::NONE, KeyCode::Esc) => true,
+            (_, KeyCode::Char(c)) => {
                 match self.focused_field {
                     FocusedField::Search => {
                         self.search_query.push(c);
@@ -341,12 +443,13 @@ impl Plugin for SearchReplacePlugin {
                         self.replace_text.push(c);
                     }
                 }
-                log_info!("finding matches {}", self.search_query);
                 self.find_matches(&app.editor.editor_content);
-                log_info!("found : {}", self.matches.len());
+                if !self.matches.is_empty() {
+                    self.scroll_to_match(app);
+                }
                 true
             }
-            KeyCode::Backspace => {
+            (KeyModifiers::NONE, KeyCode::Backspace) => {
                 match self.focused_field {
                     FocusedField::Search => self.search_query.pop(),
                     FocusedField::Replace => self.replace_text.pop(),
@@ -354,23 +457,27 @@ impl Plugin for SearchReplacePlugin {
                 self.find_matches(&app.editor.editor_content);
                 true
             }
-            KeyCode::Enter => {
-                // TODO replace
+            (KeyModifiers::NONE, KeyCode::Enter) => {
+                self.replace_current_selected(app);
                 true
             }
-            KeyCode::Tab => {
+            (KeyModifiers::SHIFT, KeyCode::Enter) => {
+                self.replace_all(app);
+                true
+            }
+            (KeyModifiers::NONE, KeyCode::Tab) => {
                 self.focused_field = match self.focused_field {
                     FocusedField::Search => FocusedField::Replace,
                     FocusedField::Replace => FocusedField::Search,
                 };
                 true
             }
-            KeyCode::Up => {
-                self.prev_match();
+            (KeyModifiers::NONE, KeyCode::Up) => {
+                self.prev_match(app);
                 true
             }
-            KeyCode::Down => {
-                self.next_match();
+            (KeyModifiers::NONE, KeyCode::Down) => {
+                self.next_match(app);
                 true
             }
             _ => false,

@@ -811,6 +811,7 @@ impl Editor {
         line.chars().take_while(|c| c.is_whitespace()).collect()
     }
 
+    //TODO ENTER SHOULD MOVE SCROLL OFFSET IF making new line at bottom defined by offset in config
     //editor enter
     ///handles enter new line, with possible move of text
     pub fn enter(&mut self) {
@@ -1241,6 +1242,11 @@ impl Editor {
 
         self.scroll_offset = self.scroll_offset.clamp(0, max_scroll);
         self.clamp_cursor_to_line();
+    }
+
+    /// Sets scroll offset to provided offset
+    pub fn set_scroll_offset(&mut self, offset: i16) {
+        self.scroll_offset = offset;
     }
 
     /// Adjusts view scroll offset to show cursor considering margin and scrolloff
