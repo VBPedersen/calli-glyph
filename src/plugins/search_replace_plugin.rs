@@ -25,7 +25,7 @@ pub struct SearchReplacePlugin {
     replace_text: String,
     focused_field: FocusedField,
     matches: Vec<(usize, usize)>, // matches seen as Vec of x,y position of matches
-    current_match_idx: usize,         // current match selected, as idx in matches Vec
+    current_match_idx: usize,     // current match selected, as idx in matches Vec
 }
 
 impl SearchReplacePlugin {
@@ -40,7 +40,7 @@ impl SearchReplacePlugin {
     }
 
     /// find matches in editor by array of strings search
-   fn find_matches(&mut self, query: &[String]) {
+    fn find_matches(&mut self, query: &[String]) {
         self.matches.clear();
         if self.search_query.is_empty() {
             return;
@@ -74,7 +74,8 @@ impl SearchReplacePlugin {
     /// selects next match possible
     fn next_match(&mut self) {
         if !self.matches.is_empty() {
-            self.current_match_idx = (self.current_match_idx + 1) % self.matches.len(); // increment current match, with modulo for safeguard
+            self.current_match_idx = (self.current_match_idx + 1) % self.matches.len();
+            // increment current match, with modulo for safeguard
         }
     }
 
@@ -151,7 +152,6 @@ impl SearchReplacePlugin {
         true
     }
 
-
     /// Convert byte position to visual column position
     /// Accounts for multibyte characters and tabs
     fn byte_pos_to_visual_col(&self, line: &str, byte_pos: usize, tab_width: usize) -> usize {
@@ -182,7 +182,12 @@ impl SearchReplacePlugin {
 
     /// Get visual width of search query in this line
     /// Also accounts for multibyte and tabs
-    fn search_query_visual_width(&self, line: &str, byte_start_idx: usize, tab_width: usize) -> usize {
+    fn search_query_visual_width(
+        &self,
+        line: &str,
+        byte_start_idx: usize,
+        tab_width: usize,
+    ) -> usize {
         // Ensure byte_start_idx is at a char boundary
         if byte_start_idx > line.len() {
             return 0;
@@ -228,7 +233,7 @@ impl SearchReplacePlugin {
         use ratatui::text::{Line, Span};
 
         let scroll_offset = app.editor.scroll_offset as usize;
-        let tab_width = app.config.editor.tab_width as usize; 
+        let tab_width = app.config.editor.tab_width as usize;
 
         for (idx, &(line, byte_col)) in self.matches.iter().enumerate() {
             // Calculate position relative to visible viewport
@@ -267,9 +272,7 @@ impl SearchReplacePlugin {
                     .add_modifier(Modifier::BOLD)
             } else {
                 // Non selected match
-                Style::default()
-                    .fg(Color::Black)
-                    .bg(Color::Gray)
+                Style::default().fg(Color::Black).bg(Color::Gray)
             };
 
             // Create highlight area with correct visual width
@@ -289,7 +292,7 @@ impl SearchReplacePlugin {
             // Get the search text to render
             let byte_end = (byte_col + self.search_query.len()).min(line_content.len());
             let search_slice = &line_content[byte_col..byte_end];
-            
+
             // Render
             let highlight_text = Line::from(Span::styled(search_slice, style));
             frame.render_widget(Paragraph::new(highlight_text), highlight_area);
@@ -375,7 +378,6 @@ impl Plugin for SearchReplacePlugin {
     }
 
     fn render(&self, frame: &mut Frame, app: &App) -> bool {
-
         // render plugin dialog
         self.render_search_replace_dialog(frame);
 
@@ -386,8 +388,6 @@ impl Plugin for SearchReplacePlugin {
 
         true
     }
-
-
 
     fn shutdown(&mut self, app: &mut App) {}
 }

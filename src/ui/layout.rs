@@ -4,9 +4,9 @@ use ratatui::layout::Rect;
 #[derive(Debug, Clone, Copy)]
 pub struct UILayout {
     pub status_bar_area: Option<Rect>,
-    pub editor_area: Rect,           // Full editor area (includes line numbers)
+    pub editor_area: Rect, // Full editor area (includes line numbers)
     pub line_number_area: Option<Rect>, // Optional line numbers on left
-    pub content_area: Rect,          // Actual text content area
+    pub content_area: Rect, // Actual text content area
     pub command_line_area: Rect,
 }
 

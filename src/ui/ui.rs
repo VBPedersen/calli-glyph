@@ -87,7 +87,13 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
     //----------------------------------------------------------
 
     // Update app layout areas with new found areas
-    app.update_layout(status_bar_area, editor_area, line_number_area, content_area, command_area);
+    app.update_layout(
+        status_bar_area,
+        editor_area,
+        line_number_area,
+        content_area,
+        command_area,
+    );
 
     app.editor.editor_width = content_area.width as i16;
 

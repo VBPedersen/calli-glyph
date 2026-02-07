@@ -11,11 +11,13 @@ use crate::input::input_action::InputAction;
 use crate::plugins::plugin_registry::{Plugin, PluginManager};
 use crate::plugins::search_replace_plugin::SearchReplacePlugin;
 use crate::ui::debug::DebugView;
+use crate::ui::layout::UILayout;
 use crate::ui::popups::error_popup::ErrorPopup;
 use crate::ui::popups::popup::{Popup, PopupResult, PopupType};
 use crate::ui::ui::ui;
 use color_eyre::Result;
 use crossterm::event;
+use ratatui::layout::Rect;
 use ratatui::{DefaultTerminal, Frame};
 use std::collections::VecDeque;
 use std::fs;
@@ -24,8 +26,6 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use ratatui::layout::Rect;
-use crate::ui::layout::UILayout;
 
 pub struct App {
     /// Is the application running?
@@ -86,7 +86,7 @@ impl Default for App {
             debug_view: DebugView::new(),
             content_modified: false,
             plugins: PluginManager::new(),
-            layout: UILayout::default(Rect::default()) // used to hold current UI areas of app, should be updated each render 
+            layout: UILayout::default(Rect::default()), // used to hold current UI areas of app, should be updated each render
         };
 
         // Load default plugins
@@ -116,7 +116,7 @@ impl App {
             debug_view: DebugView::new(),
             content_modified: false,
             plugins: Default::default(),
-            layout: UILayout::default(Rect::default())
+            layout: UILayout::default(Rect::default()),
         };
 
         // Load default plugins
@@ -126,7 +126,7 @@ impl App {
 
     /// Update layout from constraint-based calculation
     /// Called once per render
-   pub fn update_layout(
+    pub fn update_layout(
         &mut self,
         status_bar_area: Option<Rect>,
         editor_area: Rect,
@@ -142,7 +142,7 @@ impl App {
             command_line_area,
         };
     }
-    
+
     /// Manually loads all default plugins, e.g. those made by [GOD]
     fn load_plugins_from_config(&mut self) {
         use crate::plugins::test_plugin::TestPlugin;
