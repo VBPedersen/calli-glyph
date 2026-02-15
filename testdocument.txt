@@ -1,0 +1,16 @@
+--- Rust TUI Test Suite ---
+1. Standard ASCII: The quick brown fox jumps over the lazy dog.
+2. Tabs & Indent:
+	• Level 1
+		• Level 2
+3. Multi-byte UTF-8:
+   - Japanese: こんにちは (Konnichiwa)
+   - Cyrillic: Привет, мир
+   - Combined: ✋ Hello World 
+4. Complex Graphemes:
+   - Family: ‍‍‍ (Should occupy 2 cells, but is multiple codepoints)
+   - Accents: ñ, é, ö
+5. Edge Case Symbols:
+   - Math:  sum_i=1^n i = fracn(n+1)2 
+   - Box Drawing: ┌─┐ └─┘ │ ┤ ├
+6. EOF Test: No newline at end of this line -> EOF

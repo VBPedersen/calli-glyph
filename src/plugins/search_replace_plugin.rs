@@ -1,5 +1,6 @@
 use crate::core::app::App;
 use crate::core::cursor::CursorPosition;
+use crate::core::editor::editor::EditAction;
 use crate::errors::plugin_error::PluginError;
 use crate::plugins::plugin_registry::{
     KeyContext, Plugin, PluginCommand, PluginKeybinding, PluginMetadata,
@@ -8,14 +9,13 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::layout::Rect;
 use ratatui::style::Modifier;
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Paragraph, Wrap};
+use ratatui::widgets::{Clear, Paragraph, Wrap};
 use ratatui::Frame;
 use std::cmp::{min, PartialEq};
-//TODO make found matches highlighted in editor,
-// select next and prev scroll to view the actually selected match
-// Enter should replace current, and maybe shift enter to replace all
+// TODO
+//  Add multi line search and replace, toggle for case sensitivity and matching with only exact words
+//  Enter should replace current, and  shift enter to replace all
 
-//TODO make possible to toggle to not match case sensitivity and exact words.
 #[derive(PartialEq)]
 enum FocusedField {
     Search,
@@ -131,6 +131,7 @@ impl SearchReplacePlugin {
             ));
         }
 
+        let temptxt = line[actual_byte_col..byte_end].to_string();
         // Replace
         line.replace_range(actual_byte_col..byte_end, &self.replace_text);
 
@@ -141,12 +142,72 @@ impl SearchReplacePlugin {
         self.find_matches(&app.editor.editor_content);
         self.scroll_to_match(app);
 
+        app.editor
+            .undo_redo_manager
+            .record_undo(EditAction::ReplaceRange {
+                start: CursorPosition {
+                    x: actual_byte_col,
+                    y: line_idx,
+                },
+                end: CursorPosition {
+                    x: byte_end,
+                    y: line_idx,
+                },
+                old: vec![temptxt],
+                new: vec![self.replace_text.clone()],
+            });
+
         Ok(())
     }
 
     /// Replace all matches with replace content
-    fn replace_all(&self, app: &mut App) {
-        todo!()
+    fn replace_all(&mut self, app: &mut App) -> Result<(), PluginError> {
+        if self.matches.is_empty() {
+            return Err(PluginError::Internal(
+                "Trying to replace when no matches or selected index longer than matches"
+                    .to_string(),
+            ));
+        }
+
+        let mut count = 0;
+        let mut buffer = app.editor.editor_content.clone();
+
+        // Work backwards to avoid index shifting
+        let matches_copy: Vec<(usize, usize)> = self.matches.clone();
+
+        for &(line_idx, byte_col) in matches_copy.iter().rev() {
+            if line_idx >= buffer.len() {
+                continue;
+            }
+
+            let line = &mut buffer[line_idx];
+
+            // Ensure byte position is at a char boundary
+            let actual_byte_col = self.find_char_boundary(line, byte_col);
+            let byte_end = (actual_byte_col + self.search_query.len()).min(line.len());
+
+            // Verify we can slice safely
+            if !line.is_char_boundary(actual_byte_col) || !line.is_char_boundary(byte_end) {
+                continue;
+            }
+
+            line.replace_range(actual_byte_col..byte_end, &self.replace_text);
+            count += 1;
+        }
+
+        // Put modified buffer back once
+        app.editor.editor_content = buffer.clone();
+
+        // Re-find matches in updated buffer
+        self.find_matches(&buffer);
+
+        // Scroll to first match if available
+        if !self.matches.is_empty() {
+            self.current_match_idx = 0;
+            self.scroll_to_match(app);
+        }
+
+        Ok(())
     }
 
     /// Find the char boundary at or before the given byte position
@@ -243,6 +304,7 @@ impl SearchReplacePlugin {
             width,
             height,
         };
+        frame.render_widget(Clear, plugin_area); // so text isnt shown over widget
         frame.render_widget(paragraph, plugin_area);
         true
     }
@@ -485,13 +547,13 @@ impl Plugin for SearchReplacePlugin {
     }
 
     fn render(&self, frame: &mut Frame, app: &App) -> bool {
-        // render plugin dialog
-        self.render_search_replace_dialog(frame);
-
         // render highlight overlay if some
         if let Some(editor_area) = app.layout.get("content") {
             self.render_highlights_overlay(frame, app, editor_area);
         }
+
+        // render plugin dialog
+        self.render_search_replace_dialog(frame);
 
         true
     }
