@@ -20,7 +20,7 @@ pub fn render_logs(frame: &mut Frame, state: &mut DebugView, area: Rect) {
         .iter()
         .enumerate()
         .rev()
-        .map(|(i, entry)| {
+        .map(|(_i, entry)| {
             let level_style = get_log_level_style(entry.level);
             let elapsed = entry.timestamp.elapsed();
 

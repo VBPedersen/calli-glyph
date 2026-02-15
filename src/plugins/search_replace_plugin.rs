@@ -168,7 +168,6 @@ impl SearchReplacePlugin {
             ));
         }
 
-        let mut count = 0;
         // Collect all sub actions taken
         let mut bulk_actions: Vec<EditAction> = Vec::new();
 
@@ -208,7 +207,6 @@ impl SearchReplacePlugin {
                 old: vec![old_text],
                 new: vec![self.replace_text.clone()],
             });
-            count += 1;
         }
 
         // Put modified buffer back once
@@ -581,5 +579,5 @@ impl Plugin for SearchReplacePlugin {
         true
     }
 
-    fn shutdown(&mut self, app: &mut App) {}
+    fn shutdown(&mut self, _app: &mut App) {}
 }

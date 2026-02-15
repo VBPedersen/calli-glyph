@@ -1,7 +1,5 @@
 use crate::core::app::App;
 use crate::core::editor::editor::EditAction;
-use ratatui::style::Modifier;
-use ratatui::text::Span;
 use ratatui::widgets::{List, ListItem};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
@@ -85,7 +83,7 @@ fn render_redo_stack(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 /// Function to map editaction to ui element ListItem
-fn map_action_to_item(index: usize, action: &EditAction) -> ListItem {
+fn map_action_to_item(index: usize, action: &EditAction) -> ListItem<'_> {
     use ratatui::style::{Color, Modifier, Style};
     use ratatui::text::{Line, Span};
     use ratatui::widgets::ListItem;
