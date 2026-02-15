@@ -503,11 +503,13 @@ mod debug_snapshot_tests {
 
 #[cfg(test)]
 mod debug_state_tests {
+    use serial_test::serial;
     use super::*;
     use calliglyph::core::debug::{get_log_count, CaptureMode, DebugState};
     use calliglyph::log_info;
 
     #[test]
+    #[serial]
     fn test_debug_state_initialization() {
         let _guard = init_test_logger();
         let debug_state = DebugState::new();
@@ -518,6 +520,7 @@ mod debug_state_tests {
     }
 
     #[test]
+    #[serial]
     fn test_debug_state_log_when_enabled() {
         let _guard = init_test_logger();
         let mut debug_state = DebugState::new();
@@ -530,6 +533,7 @@ mod debug_state_tests {
     }
 
     #[test]
+    #[serial]
     fn test_debug_state_log_when_disabled_should_still_log() {
         let _guard = init_test_logger();
         let mut debug_state = DebugState::new();
@@ -559,6 +563,7 @@ mod debug_state_tests {
     }
 
     #[test]
+    #[serial]
     fn test_debug_state_set_capture_mode() {
         let _guard = init_test_logger();
         let mut debug_state = DebugState::new();
@@ -570,6 +575,7 @@ mod debug_state_tests {
     }
 
     #[test]
+    #[serial]
     fn test_debug_state_clear_logs() {
         let _guard = init_test_logger();
         let mut debug_state = DebugState::new();
@@ -756,8 +762,10 @@ mod debug_integration_tests {
     };
     use calliglyph::{log_debug, log_error, log_info};
     use std::collections::VecDeque;
+    use serial_test::serial;
 
     #[test]
+    #[serial] // run test in serial to ensure no mutex lock error
     fn test_full_debug_workflow() {
         let _guard = init_test_logger();
         let mut debug_state = DebugState::new();
@@ -812,6 +820,7 @@ mod debug_integration_tests {
     }
 
     #[test]
+    #[serial]
     fn test_debug_mode_switching() {
         let mut debug_state = DebugState::new();
         debug_state.enabled = true;
@@ -853,6 +862,7 @@ mod debug_integration_tests {
     }
 
     #[test]
+    #[serial]
     fn test_snapshot_history_ordering() {
         let mut debug_state = DebugState::new();
         debug_state.enabled = true;
