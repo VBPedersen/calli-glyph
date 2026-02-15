@@ -503,10 +503,10 @@ mod debug_snapshot_tests {
 
 #[cfg(test)]
 mod debug_state_tests {
-    use serial_test::serial;
     use super::*;
     use calliglyph::core::debug::{get_log_count, CaptureMode, DebugState};
     use calliglyph::log_info;
+    use serial_test::serial;
 
     #[test]
     #[serial]
@@ -761,8 +761,8 @@ mod debug_integration_tests {
         get_log_count, get_log_count_by_level, CaptureMode, DebugState, LogLevel, SnapshotTrigger,
     };
     use calliglyph::{log_debug, log_error, log_info};
-    use std::collections::VecDeque;
     use serial_test::serial;
+    use std::collections::VecDeque;
 
     #[test]
     #[serial] // run test in serial to ensure no mutex lock error
