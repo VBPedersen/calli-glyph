@@ -15,7 +15,7 @@ use std::cmp::{min, PartialEq};
 // TODO
 //  Add multi line search and replace, toggle for case sensitivity and matching with only exact words
 //  Enter should replace current, and  shift enter to replace all
-
+//  Fix undo and redo when using multi byte chars, both for replace all and replace
 #[derive(PartialEq)]
 enum FocusedField {
     Search,
@@ -131,7 +131,7 @@ impl SearchReplacePlugin {
             ));
         }
 
-        let temptxt = line[actual_byte_col..byte_end].to_string();
+        let old_text = line[actual_byte_col..byte_end].to_string();
         // Replace
         line.replace_range(actual_byte_col..byte_end, &self.replace_text);
 
@@ -153,7 +153,7 @@ impl SearchReplacePlugin {
                     x: byte_end,
                     y: line_idx,
                 },
-                old: vec![temptxt],
+                old: vec![old_text],
                 new: vec![self.replace_text.clone()],
             });
 
@@ -164,12 +164,14 @@ impl SearchReplacePlugin {
     fn replace_all(&mut self, app: &mut App) -> Result<(), PluginError> {
         if self.matches.is_empty() {
             return Err(PluginError::Internal(
-                "Trying to replace when no matches or selected index longer than matches"
-                    .to_string(),
+                "Trying to replace when no matches".to_string(),
             ));
         }
 
         let mut count = 0;
+        // Collect all sub actions taken
+        let mut bulk_actions: Vec<EditAction> = Vec::new();
+
         let mut buffer = app.editor.editor_content.clone();
 
         // Work backwards to avoid index shifting
@@ -191,12 +193,33 @@ impl SearchReplacePlugin {
                 continue;
             }
 
+            let old_text = line[actual_byte_col..byte_end].to_string();
             line.replace_range(actual_byte_col..byte_end, &self.replace_text);
+
+            bulk_actions.push(EditAction::ReplaceRange {
+                start: CursorPosition {
+                    x: actual_byte_col,
+                    y: line_idx,
+                },
+                end: CursorPosition {
+                    x: byte_end,
+                    y: line_idx,
+                },
+                old: vec![old_text],
+                new: vec![self.replace_text.clone()],
+            });
             count += 1;
         }
 
         // Put modified buffer back once
         app.editor.editor_content = buffer.clone();
+
+        // Record undo if not empty
+        if !bulk_actions.is_empty() {
+            app.editor
+                .undo_redo_manager
+                .record_undo(EditAction::Bulk(bulk_actions));
+        }
 
         // Re-find matches in updated buffer
         self.find_matches(&buffer);

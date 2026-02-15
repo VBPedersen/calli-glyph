@@ -67,6 +67,9 @@ pub enum EditAction {
         pos: CursorPosition, // position of the split
         merged: String,      // the full merged text
     },
+    // EditorAction for bulking together multiple editoractions into one,
+    // Which makes performing undo once, undoes all actions inside bulk
+    Bulk(Vec<EditAction>),
 }
 
 impl Display for EditAction {
@@ -157,6 +160,9 @@ impl Display for EditAction {
             }
             EditAction::JoinLine { pos, merged } => {
                 write!(f, "Join line at {:?}. Merged: '{}'", pos, merged)
+            }
+            EditAction::Bulk(actions) => {
+                write!(f, "Executing {:?} Bulk actions", actions.len())
             }
         }
     }
@@ -414,6 +420,11 @@ impl Editor {
                 self.editor_content.remove(pos.y + 1);
 
                 self.set_cursor_position(&pos);
+            }
+            EditAction::Bulk(actions) => {
+                for sub_action in actions {
+                    self.apply_action(sub_action); // Recursive call
+                }
             }
         }
     }

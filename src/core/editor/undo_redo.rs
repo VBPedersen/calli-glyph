@@ -140,6 +140,14 @@ impl UndoRedoManager {
                 left: merged[..pos.x].to_string(),
                 right: merged[pos.x..].to_string(),
             },
+            EditAction::Bulk(actions) => {
+                let reversed_actions = actions
+                    .iter()
+                    .rev() // Reverse order
+                    .map(|action| self.reverse_action(action)) // Reverse every action in vec
+                    .collect();
+                EditAction::Bulk(reversed_actions)
+            }
         }
     }
 }

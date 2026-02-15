@@ -41,77 +41,7 @@ fn render_undo_stack(frame: &mut Frame, app: &App, area: Rect) {
         .iter()
         .enumerate()
         .rev() // Show most recent first
-        .map(|(i, action)| {
-            let (action_type, detail, color) = match action {
-                EditAction::Insert { pos, c } => (
-                    "Insert",
-                    format!("'{}' at {}:{}", c, pos.y, pos.x),
-                    Color::Green,
-                ),
-                EditAction::Delete { pos, deleted_char } => (
-                    "Delete",
-                    format!("'{}' at {}:{}", deleted_char, pos.y, pos.x),
-                    Color::Red,
-                ),
-                EditAction::Replace {
-                    start, old, new, ..
-                } => (
-                    "Replace",
-                    format!("'{}' → '{}' at {}:{}", old, new, start.y, start.x),
-                    Color::Yellow,
-                ),
-                EditAction::InsertLines { start, lines } => (
-                    "Insert Lines",
-                    format!("{} lines at {}:{}", lines.len(), start.y, start.x),
-                    Color::Green,
-                ),
-                EditAction::DeleteLines { start, deleted } => (
-                    "Delete Lines",
-                    format!("{} lines at {}:{}", deleted.len(), start.y, start.x),
-                    Color::Red,
-                ),
-                EditAction::InsertRange { start, lines, .. } => (
-                    "Insert Range",
-                    format!("{} lines at {}:{}", lines.len(), start.y, start.x),
-                    Color::Green,
-                ),
-                EditAction::DeleteRange { start, deleted, .. } => (
-                    "Delete Range",
-                    format!("{} lines at {}:{}", deleted.len(), start.y, start.x),
-                    Color::Red,
-                ),
-                EditAction::ReplaceRange {
-                    start, old, new, ..
-                } => (
-                    "Replace Range",
-                    format!(
-                        "{} → {} lines at {}:{}",
-                        old.len(),
-                        new.len(),
-                        start.y,
-                        start.x
-                    ),
-                    Color::Yellow,
-                ),
-                EditAction::SplitLine { pos, .. } => {
-                    ("Split Line", format!("at {}:{}", pos.y, pos.x), Color::Cyan)
-                }
-                EditAction::JoinLine { pos, .. } => {
-                    ("Join Line", format!("at {}:{}", pos.y, pos.x), Color::Cyan)
-                }
-            };
-
-            let content = Line::from(vec![
-                Span::styled(format!("{:3}: ", i), Style::default().fg(Color::DarkGray)),
-                Span::styled(
-                    format!("{:13} ", action_type),
-                    Style::default().fg(color).add_modifier(Modifier::BOLD),
-                ),
-                Span::raw(detail),
-            ]);
-
-            ListItem::new(content)
-        })
+        .map(|(i, action)| map_action_to_item(i, action))
         .collect();
 
     let block = Block::default()
@@ -142,77 +72,7 @@ fn render_redo_stack(frame: &mut Frame, app: &App, area: Rect) {
     let items: Vec<ListItem> = redo_stack
         .iter()
         .enumerate()
-        .map(|(i, action)| {
-            let (action_type, detail, color) = match action {
-                EditAction::Insert { pos, c } => (
-                    "Insert",
-                    format!("'{}' at {}:{}", c, pos.y, pos.x),
-                    Color::Green,
-                ),
-                EditAction::Delete { pos, deleted_char } => (
-                    "Delete",
-                    format!("'{}' at {}:{}", deleted_char, pos.y, pos.x),
-                    Color::Red,
-                ),
-                EditAction::Replace {
-                    start, old, new, ..
-                } => (
-                    "Replace",
-                    format!("'{}' → '{}' at {}:{}", old, new, start.y, start.x),
-                    Color::Yellow,
-                ),
-                EditAction::InsertLines { start, lines } => (
-                    "Insert Lines",
-                    format!("{} lines at {}:{}", lines.len(), start.y, start.x),
-                    Color::Green,
-                ),
-                EditAction::DeleteLines { start, deleted } => (
-                    "Delete Lines",
-                    format!("{} lines at {}:{}", deleted.len(), start.y, start.x),
-                    Color::Red,
-                ),
-                EditAction::InsertRange { start, lines, .. } => (
-                    "Insert Range",
-                    format!("{} lines at {}:{}", lines.len(), start.y, start.x),
-                    Color::Green,
-                ),
-                EditAction::DeleteRange { start, deleted, .. } => (
-                    "Delete Range",
-                    format!("{} lines at {}:{}", deleted.len(), start.y, start.x),
-                    Color::Red,
-                ),
-                EditAction::ReplaceRange {
-                    start, old, new, ..
-                } => (
-                    "Replace Range",
-                    format!(
-                        "{} → {} lines at {}:{}",
-                        old.len(),
-                        new.len(),
-                        start.y,
-                        start.x
-                    ),
-                    Color::Yellow,
-                ),
-                EditAction::SplitLine { pos, .. } => {
-                    ("Split Line", format!("at {}:{}", pos.y, pos.x), Color::Cyan)
-                }
-                EditAction::JoinLine { pos, .. } => {
-                    ("Join Line", format!("at {}:{}", pos.y, pos.x), Color::Cyan)
-                }
-            };
-
-            let content = Line::from(vec![
-                Span::styled(format!("{:3}: ", i), Style::default().fg(Color::DarkGray)),
-                Span::styled(
-                    format!("{:13} ", action_type),
-                    Style::default().fg(color).add_modifier(Modifier::BOLD),
-                ),
-                Span::raw(detail),
-            ]);
-
-            ListItem::new(content)
-        })
+        .map(|(i, action)| map_action_to_item(i, action))
         .collect();
 
     let block = Block::default()
@@ -222,4 +82,89 @@ fn render_redo_stack(frame: &mut Frame, app: &App, area: Rect) {
 
     let list = List::new(items).block(block);
     frame.render_widget(list, area);
+}
+
+/// Function to map editaction to ui element ListItem
+fn map_action_to_item(index: usize, action: &EditAction) -> ListItem {
+    use ratatui::style::{Color, Modifier, Style};
+    use ratatui::text::{Line, Span};
+    use ratatui::widgets::ListItem;
+
+    let (action_type, detail, color) = match action {
+        EditAction::Insert { pos, c } => (
+            "Insert",
+            format!("'{}' at {}:{}", c, pos.y, pos.x),
+            Color::Green,
+        ),
+        EditAction::Delete { pos, deleted_char } => (
+            "Delete",
+            format!("'{}' at {}:{}", deleted_char, pos.y, pos.x),
+            Color::Red,
+        ),
+        EditAction::Replace {
+            start, old, new, ..
+        } => (
+            "Replace",
+            format!("'{}' → '{}' at {}:{}", old, new, start.y, start.x),
+            Color::Yellow,
+        ),
+        EditAction::InsertLines { start, lines } => (
+            "Insert Lines",
+            format!("{} lines at {}:{}", lines.len(), start.y, start.x),
+            Color::Green,
+        ),
+        EditAction::DeleteLines { start, deleted } => (
+            "Delete Lines",
+            format!("{} lines at {}:{}", deleted.len(), start.y, start.x),
+            Color::Red,
+        ),
+        EditAction::InsertRange { start, lines, .. } => (
+            "Insert Range",
+            format!("{} lines at {}:{}", lines.len(), start.y, start.x),
+            Color::Green,
+        ),
+        EditAction::DeleteRange { start, deleted, .. } => (
+            "Delete Range",
+            format!("{} lines at {}:{}", deleted.len(), start.y, start.x),
+            Color::Red,
+        ),
+        EditAction::ReplaceRange {
+            start, old, new, ..
+        } => (
+            "Replace Range",
+            format!(
+                "{} → {} lines at {}:{}",
+                old.len(),
+                new.len(),
+                start.y,
+                start.x
+            ),
+            Color::Yellow,
+        ),
+        EditAction::SplitLine { pos, .. } => {
+            ("Split Line", format!("at {}:{}", pos.y, pos.x), Color::Cyan)
+        }
+        EditAction::JoinLine { pos, .. } => {
+            ("Join Line", format!("at {}:{}", pos.y, pos.x), Color::Cyan)
+        }
+        EditAction::Bulk(actions) => (
+            "Bulk EditAction",
+            format!("containing {} actions", actions.len()),
+            Color::Magenta,
+        ),
+    };
+
+    let content = Line::from(vec![
+        Span::styled(
+            format!("{:3}: ", index),
+            Style::default().fg(Color::DarkGray),
+        ),
+        Span::styled(
+            format!("{:13} ", action_type),
+            Style::default().fg(color).add_modifier(Modifier::BOLD),
+        ),
+        Span::raw(detail),
+    ]);
+
+    ListItem::new(content)
 }
