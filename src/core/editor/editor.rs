@@ -225,6 +225,7 @@ impl Editor {
             }
             InputAction::ENTER => {
                 self.enter();
+                self.adjust_view_to_cursor();
                 self.reset_text_selection_cursor(); //reset selection, to avoid errors
                 Ok(())
             }
