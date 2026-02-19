@@ -1,4 +1,4 @@
-use crate::input::input_action::InputAction;
+use crate::input::actions::InputAction;
 use ratatui::layout::Rect;
 use ratatui::Frame;
 use std::fmt::{Debug, Formatter};

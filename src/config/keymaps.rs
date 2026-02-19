@@ -1,5 +1,5 @@
 use crate::errors::config_errors::ConfigError;
-use crate::input::input_action::{DebugAction, InputAction};
+use crate::input::actions::{CommandLineAction, DebugAction, EditorAction, InputAction};
 use crossterm::event::{KeyCode, KeyModifiers};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -18,21 +18,21 @@ impl KeymapConfig {
         let mut editor = HashMap::new();
         for (key_str, action_str) in &self.editor {
             let key = Self::parse_key(key_str)?;
-            let action = Self::parse_action(action_str)?;
+            let action = Self::parse_editor_action(action_str)?;
             editor.insert(key, action);
         }
 
         let mut command_line = HashMap::new();
         for (key_str, action_str) in &self.command_line {
             let key = Self::parse_key(key_str)?;
-            let action = Self::parse_action(action_str)?;
+            let action = Self::parse_command_line_action(action_str)?;
             command_line.insert(key, action);
         }
 
         let mut debug = HashMap::new();
         for (key_str, action_str) in &self.debug {
             let key = Self::parse_key(key_str)?;
-            let action = Self::parse_action(action_str)?;
+            let action = Self::parse_debug_action(action_str)?;
             debug.insert(key, action);
         }
 
@@ -111,35 +111,95 @@ impl KeymapConfig {
         Ok((modifiers, keycode))
     }
 
-    /// Parse action string like "copy" into InputAction
-    pub fn parse_action(action_str: &str) -> Result<InputAction, ConfigError> {
-        use crate::input::input_action::Direction;
+    /// Parses action names to input actions in editor context
+    pub fn parse_editor_action(action_str: &str) -> Result<InputAction, ConfigError> {
+        use crate::input::actions::Direction;
 
         match action_str.to_lowercase().as_str() {
             // Editor actions
-            "save" => Ok(InputAction::SAVE),
-            "copy" => Ok(InputAction::COPY),
-            "paste" => Ok(InputAction::PASTE),
-            "cut" => Ok(InputAction::CUT),
-            "undo" => Ok(InputAction::UNDO),
-            "redo" => Ok(InputAction::REDO),
-            "backspace" => Ok(InputAction::BACKSPACE),
-            "delete" => Ok(InputAction::DELETE),
+            "save" => Ok(InputAction::Editor(EditorAction::SAVE)),
+            "copy" => Ok(InputAction::Editor(EditorAction::COPY)),
+            "paste" => Ok(InputAction::Editor(EditorAction::PASTE)),
+            "cut" => Ok(InputAction::Editor(EditorAction::CUT)),
+            "undo" => Ok(InputAction::Editor(EditorAction::UNDO)),
+            "redo" => Ok(InputAction::Editor(EditorAction::REDO)),
+            "backspace" => Ok(InputAction::Editor(EditorAction::BACKSPACE)),
+            "delete" => Ok(InputAction::Editor(EditorAction::DELETE)),
             "enter" => Ok(InputAction::ENTER),
             "tab" => Ok(InputAction::TAB),
             "toggle_area" => Ok(InputAction::ToggleActiveArea),
 
             // Movement
-            "move_up" => Ok(InputAction::MoveCursor(Direction::Up)),
-            "move_down" => Ok(InputAction::MoveCursor(Direction::Down)),
-            "move_left" => Ok(InputAction::MoveCursor(Direction::Left)),
-            "move_right" => Ok(InputAction::MoveCursor(Direction::Right)),
+            "move_up" => Ok(InputAction::Editor(EditorAction::MoveCursor(Direction::Up))),
+            "move_down" => Ok(InputAction::Editor(EditorAction::MoveCursor(
+                Direction::Down,
+            ))),
+            "move_left" => Ok(InputAction::Editor(EditorAction::MoveCursor(
+                Direction::Left,
+            ))),
+            "move_right" => Ok(InputAction::Editor(EditorAction::MoveCursor(
+                Direction::Right,
+            ))),
 
             // Selection
-            "select_up" => Ok(InputAction::MoveSelectionCursor(Direction::Up)),
-            "select_down" => Ok(InputAction::MoveSelectionCursor(Direction::Down)),
-            "select_left" => Ok(InputAction::MoveSelectionCursor(Direction::Left)),
-            "select_right" => Ok(InputAction::MoveSelectionCursor(Direction::Right)),
+            "select_up" => Ok(InputAction::Editor(EditorAction::MoveSelectionCursor(
+                Direction::Up,
+            ))),
+            "select_down" => Ok(InputAction::Editor(EditorAction::MoveSelectionCursor(
+                Direction::Down,
+            ))),
+            "select_left" => Ok(InputAction::Editor(EditorAction::MoveSelectionCursor(
+                Direction::Left,
+            ))),
+            "select_right" => Ok(InputAction::Editor(EditorAction::MoveSelectionCursor(
+                Direction::Right,
+            ))),
+
+            _ => Err(ConfigError::InvalidKeymap(format!(
+                "Unknown action: {}",
+                action_str
+            ))),
+        }
+    }
+
+    pub fn parse_command_line_action(action_str: &str) -> Result<InputAction, ConfigError> {
+        use crate::input::actions::Direction;
+
+        match action_str.to_lowercase().as_str() {
+            // actions
+            "backspace" => Ok(InputAction::CommandLine(CommandLineAction::BACKSPACE)),
+            "delete" => Ok(InputAction::CommandLine(CommandLineAction::DELETE)),
+            "enter" => Ok(InputAction::ENTER),
+            "tab" => Ok(InputAction::TAB),
+            "toggle_area" => Ok(InputAction::ToggleActiveArea),
+
+            // Movement
+            "move_up" => Ok(InputAction::CommandLine(CommandLineAction::MoveCursor(
+                Direction::Up,
+            ))),
+            "move_down" => Ok(InputAction::CommandLine(CommandLineAction::MoveCursor(
+                Direction::Down,
+            ))),
+            "move_left" => Ok(InputAction::CommandLine(CommandLineAction::MoveCursor(
+                Direction::Left,
+            ))),
+            "move_right" => Ok(InputAction::CommandLine(CommandLineAction::MoveCursor(
+                Direction::Right,
+            ))),
+
+            _ => Err(ConfigError::InvalidKeymap(format!(
+                "Unknown action: {}",
+                action_str
+            ))),
+        }
+    }
+
+    pub fn parse_debug_action(action_str: &str) -> Result<InputAction, ConfigError> {
+        match action_str.to_lowercase().as_str() {
+            // actions
+            "enter" => Ok(InputAction::ENTER),
+            "tab" => Ok(InputAction::TAB),
+            "toggle_area" => Ok(InputAction::ToggleActiveArea),
 
             // Debug actions
             "exit_debug" => Ok(InputAction::Debug(DebugAction::ExitDebug)),

@@ -4,7 +4,7 @@ mod integration_app_tests {
     use calliglyph::config::Config;
     use calliglyph::core::app::*;
     use calliglyph::core::command_line::command_binds::command_binds::*;
-    use calliglyph::input::input_action::InputAction;
+    use calliglyph::input::actions::InputAction;
     use calliglyph::ui::popups::popup::PopupResult;
     use std::fs;
     use std::path::{Path, PathBuf};

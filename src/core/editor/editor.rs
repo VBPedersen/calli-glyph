@@ -7,7 +7,7 @@ use crate::errors::editor_errors::EditorError::{
     ClipboardFailure, RedoFailure, TextSelectionFailure, UndoFailure,
 };
 use crate::errors::editor_errors::{ClipboardError, EditorError, TextSelectionError};
-use crate::input::input_action::InputAction;
+use crate::input::actions::{EditorAction, InputAction};
 use std::fmt::Display;
 use std::sync::Arc;
 
@@ -207,18 +207,6 @@ impl Editor {
     /// responsible for dispatching action to correct internal method.
     pub fn handle_input_action(&mut self, action: InputAction) -> Result<(), EditorError> {
         match action {
-            InputAction::MoveCursor(direction) => {
-                let (x, y) = direction.to_vector();
-                self.move_cursor(x, y);
-                self.adjust_view_to_cursor();
-                self.reset_text_selection_cursor(); //reset selection, to avoid errors
-                Ok(())
-            }
-            InputAction::MoveSelectionCursor(direction) => {
-                let (x, y) = direction.to_vector();
-                self.move_selection_cursor(x, y);
-                Ok(())
-            }
             InputAction::TAB => {
                 self.tab();
                 Ok(())
@@ -229,50 +217,66 @@ impl Editor {
                 self.reset_text_selection_cursor(); //reset selection, to avoid errors
                 Ok(())
             }
-            InputAction::BACKSPACE => {
-                if self.is_text_selected() {
-                    self.backspace_text_is_selected();
-                } else {
-                    self.backspace();
+            InputAction::Editor(editor_action) => match editor_action {
+                EditorAction::MoveCursor(direction) => {
+                    let (x, y) = direction.to_vector();
+                    self.move_cursor(x, y);
+                    self.adjust_view_to_cursor();
+                    self.reset_text_selection_cursor(); //reset selection, to avoid errors
+                    Ok(())
                 }
-                Ok(())
-            }
-            InputAction::DELETE => {
-                if self.is_text_selected() {
-                    self.delete_text_is_selected();
-                } else {
-                    self.delete();
+                EditorAction::MoveSelectionCursor(direction) => {
+                    let (x, y) = direction.to_vector();
+                    self.move_selection_cursor(x, y);
+                    Ok(())
                 }
-                Ok(())
-            }
-            InputAction::COPY => match self.copy() {
-                Ok(()) => Ok(()),
-                Err(e) => Err(e),
-            },
-            InputAction::CUT => match self.cut() {
-                Ok(()) => Ok(()),
-                Err(e) => Err(e),
-            },
-            InputAction::PASTE => match self.paste() {
-                Ok(()) => Ok(()),
-                Err(e) => Err(e),
-            },
-            InputAction::UNDO => match self.undo() {
-                Ok(()) => Ok(()),
-                Err(e) => Err(e),
-            },
-            InputAction::REDO => match self.redo() {
-                Ok(()) => Ok(()),
-                Err(e) => Err(e),
-            },
-            InputAction::WriteChar(c) => {
-                if self.is_text_selected() {
-                    self.write_char_text_is_selected(c)
-                } else {
-                    self.write_char(c)
+
+                EditorAction::BACKSPACE => {
+                    if self.is_text_selected() {
+                        self.backspace_text_is_selected();
+                    } else {
+                        self.backspace();
+                    }
+                    Ok(())
                 }
-                Ok(())
-            }
+                EditorAction::DELETE => {
+                    if self.is_text_selected() {
+                        self.delete_text_is_selected();
+                    } else {
+                        self.delete();
+                    }
+                    Ok(())
+                }
+                EditorAction::COPY => match self.copy() {
+                    Ok(()) => Ok(()),
+                    Err(e) => Err(e),
+                },
+                EditorAction::CUT => match self.cut() {
+                    Ok(()) => Ok(()),
+                    Err(e) => Err(e),
+                },
+                EditorAction::PASTE => match self.paste() {
+                    Ok(()) => Ok(()),
+                    Err(e) => Err(e),
+                },
+                EditorAction::UNDO => match self.undo() {
+                    Ok(()) => Ok(()),
+                    Err(e) => Err(e),
+                },
+                EditorAction::REDO => match self.redo() {
+                    Ok(()) => Ok(()),
+                    Err(e) => Err(e),
+                },
+                EditorAction::WriteChar(c) => {
+                    if self.is_text_selected() {
+                        self.write_char_text_is_selected(c)
+                    } else {
+                        self.write_char(c)
+                    }
+                    Ok(())
+                }
+                _ => Ok(()),
+            },
             _ => Ok(()),
         }
     }

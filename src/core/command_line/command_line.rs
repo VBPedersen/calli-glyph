@@ -1,5 +1,5 @@
 use super::super::cursor::Cursor;
-use crate::input::input_action::InputAction;
+use crate::input::actions::{CommandLineAction, InputAction};
 
 #[derive(Debug, Default)]
 pub struct CommandLine {
@@ -19,16 +19,17 @@ impl CommandLine {
     /// responsible for dispatching action to corret internal method.
     pub fn handle_input_action(&mut self, action: InputAction) {
         match action {
-            InputAction::MoveCursor(direction) => {
-                let (x, _y) = direction.to_vector();
-                self.move_cursor(x);
-            }
-            InputAction::BACKSPACE => self.backspace(),
-            InputAction::DELETE => self.delete(),
-            InputAction::WriteChar(c) => {
-                self.write_char(c);
-            }
-            InputAction::NoOp => {}
+            InputAction::CommandLine(command_line_action) => match command_line_action {
+                CommandLineAction::MoveCursor(direction) => {
+                    let (x, _y) = direction.to_vector();
+                    self.move_cursor(x);
+                }
+                CommandLineAction::BACKSPACE => self.backspace(),
+                CommandLineAction::DELETE => self.delete(),
+                CommandLineAction::WriteChar(c) => {
+                    self.write_char(c);
+                }
+            },
             _ => {}
         }
     }

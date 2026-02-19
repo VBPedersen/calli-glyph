@@ -1,27 +1,56 @@
 /// A high-level representation of user intent in the TUI.
-#[derive(Debug, Clone, PartialEq)]
+/// Context agnostic base actions, extended by contextual actions depending on structure
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InputAction {
-    MoveCursor(Direction),
-    MoveSelectionCursor(Direction),
+    // Universal actions
     TAB,
+    ToggleActiveArea,
     ENTER,
-    BACKSPACE,
-    DELETE,
+    QUIT,
+    NoOp,
+    // Specific actions
+    Editor(EditorAction),
+    CommandLine(CommandLineAction),
+    Popup(PopupAction),
+    Debug(DebugAction),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EditorAction {
+    // Movement
+    MoveCursor(Direction),
+
+    // Selection
+    MoveSelectionCursor(Direction),
+
+    // Editing
     COPY,
     CUT,
     PASTE,
     UNDO,
     REDO,
-    SAVE,
-    ToggleActiveArea,
     WriteChar(char),
-    QUIT,
-    NoOp,
-    // Debug actions
-    Debug(DebugAction),
+    BACKSPACE,
+    DELETE,
+
+    // Misc
+    SAVE,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CommandLineAction {
+    WriteChar(char),
+    BACKSPACE,
+    DELETE,
+    MoveCursor(Direction),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PopupAction {
+    MoveCursor(Direction),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DebugAction {
     //Debug related
     DebugNextTab,
@@ -38,7 +67,7 @@ pub enum DebugAction {
 }
 
 ///direction enum to use in action enum values
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Direction {
     Up,
     Down,

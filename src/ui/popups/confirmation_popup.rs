@@ -1,6 +1,6 @@
 use super::popup::{Popup, PopupResult, PopupType};
-use crate::input::input_action::Direction;
-use crate::input::input_action::InputAction;
+use crate::input::actions::InputAction;
+use crate::input::actions::{Direction, PopupAction};
 use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::{Color, Style};
 use ratatui::text::{Line, Span, Text};
@@ -63,7 +63,7 @@ impl Popup for ConfirmationPopup {
 
     fn handle_input_action(&mut self, action: InputAction) -> PopupResult {
         match action {
-            InputAction::MoveCursor(direction) => {
+            InputAction::Popup(PopupAction::MoveCursor(direction)) => {
                 if direction == Direction::Left || direction == Direction::Right {
                     self.selected_option = !self.selected_option; // Toggle between Yes/No
                 }

@@ -1,5 +1,5 @@
 use crate::config::ValidationResult;
-use crate::input::input_action::{Direction, InputAction};
+use crate::input::actions::{Direction, InputAction, PopupAction};
 use crate::ui::popups::popup::{Popup, PopupResult, PopupType};
 use ratatui::layout::{Constraint, Layout};
 use ratatui::widgets::Wrap;
@@ -134,7 +134,7 @@ impl Popup for ValidationResultPopup {
         match action {
             InputAction::ENTER => PopupResult::Affirmed,
             InputAction::ToggleActiveArea => PopupResult::Affirmed,
-            InputAction::MoveCursor(dir) => match dir {
+            InputAction::Popup(PopupAction::MoveCursor(dir)) => match dir {
                 Direction::Up => {
                     self.scroll_up();
                     PopupResult::None

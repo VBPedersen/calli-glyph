@@ -1,6 +1,6 @@
 use calliglyph::config::{Config, KeymapConfig};
 use calliglyph::errors::config_errors::ConfigError;
-use calliglyph::input::input_action::{DebugAction, Direction, InputAction};
+use calliglyph::input::actions::{DebugAction, Direction, EditorAction, InputAction};
 use crossterm::event::{KeyCode, KeyModifiers};
 use std::{fs, path::PathBuf};
 
@@ -29,7 +29,7 @@ fn test_runtime_maps_integrity() {
     let ctrl_s = (ctrl_mods, KeyCode::Char('s'));
     assert_eq!(
         runtime_maps.editor.get(&ctrl_s),
-        Some(&InputAction::SAVE),
+        Some(&InputAction::Editor(EditorAction::SAVE)),
         "Ctrl+s binding failed."
     );
 
@@ -37,7 +37,9 @@ fn test_runtime_maps_integrity() {
     let up = (KeyModifiers::empty(), KeyCode::Up);
     assert_eq!(
         runtime_maps.editor.get(&up),
-        Some(&InputAction::MoveCursor(Direction::Up)),
+        Some(&InputAction::Editor(EditorAction::MoveCursor(
+            Direction::Up
+        ))),
         "Up key binding failed."
     );
 

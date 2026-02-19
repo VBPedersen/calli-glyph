@@ -250,7 +250,7 @@ pub fn set_config_command(app: &mut App, key: String, value: String) -> Result<(
 mod tests {
     use crate::config::{Config, KeymapConfig};
     use crate::errors::config_errors::ConfigError;
-    use crate::input::input_action::{DebugAction, Direction, InputAction};
+    use crate::input::actions::{DebugAction, Direction, EditorAction, InputAction};
     use crossterm::event::{KeyCode, KeyModifiers};
 
     // Helper to easily create KeyModifiers with Control, Alt, and Shift bits set
@@ -314,25 +314,28 @@ mod tests {
 
     #[test]
     fn test_parse_simple_action() {
-        let result = KeymapConfig::parse_action("save").unwrap();
-        assert_eq!(result, InputAction::SAVE);
+        let result = KeymapConfig::parse_editor_action("save").unwrap();
+        assert_eq!(result, InputAction::Editor(EditorAction::SAVE));
     }
 
     #[test]
     fn test_parse_directional_action() {
-        let result = KeymapConfig::parse_action("move_up").unwrap();
-        assert_eq!(result, InputAction::MoveCursor(Direction::Up));
+        let result = KeymapConfig::parse_editor_action("move_up").unwrap();
+        assert_eq!(
+            result,
+            InputAction::Editor(EditorAction::MoveCursor(Direction::Up))
+        );
     }
 
     #[test]
     fn test_parse_debug_action() {
-        let result = KeymapConfig::parse_action("cycle_mode").unwrap();
+        let result = KeymapConfig::parse_debug_action("cycle_mode").unwrap();
         assert_eq!(result, InputAction::Debug(DebugAction::DebugCycleMode));
     }
 
     #[test]
     fn test_parse_unknown_action_fails() {
-        let result = KeymapConfig::parse_action("teleport");
+        let result = KeymapConfig::parse_editor_action("teleport");
         assert!(result.is_err());
         match result.unwrap_err() {
             ConfigError::InvalidKeymap(s) => assert!(s.contains("Unknown action")),
@@ -361,13 +364,18 @@ mod tests {
         let mut ctrl_mods = KeyModifiers::empty();
         ctrl_mods |= KeyModifiers::CONTROL;
         let ctrl_s = (ctrl_mods, KeyCode::Char('s'));
-        assert_eq!(runtime_maps.editor.get(&ctrl_s), Some(&InputAction::SAVE));
+        assert_eq!(
+            runtime_maps.editor.get(&ctrl_s),
+            Some(&InputAction::Editor(EditorAction::SAVE))
+        );
 
         // Check Up -> move_up in editor map
         let up = (KeyModifiers::empty(), KeyCode::Up);
         assert_eq!(
             runtime_maps.editor.get(&up),
-            Some(&InputAction::MoveCursor(Direction::Up))
+            Some(&InputAction::Editor(EditorAction::MoveCursor(
+                Direction::Up
+            )))
         );
 
         // Check q -> exit_debug in debug map

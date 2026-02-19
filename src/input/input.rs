@@ -1,6 +1,7 @@
-use super::input_action::*;
+use super::actions::*;
 use crate::core::app::ActiveArea;
 use crate::core::app::App;
+use crate::input::actions::EditorAction;
 use color_eyre::eyre::Result;
 use crossterm::event;
 use crossterm::event::{
@@ -115,7 +116,7 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
         ActiveArea::Editor => {
             if key.modifiers == KeyModifiers::NONE || key.modifiers == KeyModifiers::SHIFT {
                 if let KeyCode::Char(c) = key.code {
-                    Some(InputAction::WriteChar(c))
+                    Some(InputAction::Editor(EditorAction::WriteChar(c)))
                 } else {
                     keymaps.get_editor_action(key.modifiers, key.code).cloned()
                 }
@@ -126,7 +127,7 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
         ActiveArea::CommandLine => {
             if key.modifiers == KeyModifiers::NONE || key.modifiers == KeyModifiers::SHIFT {
                 if let KeyCode::Char(c) = key.code {
-                    Some(InputAction::WriteChar(c))
+                    Some(InputAction::CommandLine(CommandLineAction::WriteChar(c)))
                 } else {
                     keymaps
                         .get_command_line_action(key.modifiers, key.code)
@@ -140,10 +141,18 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
         }
         ActiveArea::DebugConsole => keymaps.get_debug_action(key.modifiers, key.code).cloned(),
         ActiveArea::Popup => match (key.modifiers, key.code) {
-            (KeyModifiers::NONE, KeyCode::Up) => Some(InputAction::MoveCursor(Direction::Up)),
-            (KeyModifiers::NONE, KeyCode::Down) => Some(InputAction::MoveCursor(Direction::Down)),
-            (KeyModifiers::NONE, KeyCode::Left) => Some(InputAction::MoveCursor(Direction::Left)),
-            (KeyModifiers::NONE, KeyCode::Right) => Some(InputAction::MoveCursor(Direction::Right)),
+            (KeyModifiers::NONE, KeyCode::Up) => {
+                Some(InputAction::Popup(PopupAction::MoveCursor(Direction::Up)))
+            }
+            (KeyModifiers::NONE, KeyCode::Down) => {
+                Some(InputAction::Popup(PopupAction::MoveCursor(Direction::Down)))
+            }
+            (KeyModifiers::NONE, KeyCode::Left) => {
+                Some(InputAction::Popup(PopupAction::MoveCursor(Direction::Left)))
+            }
+            (KeyModifiers::NONE, KeyCode::Right) => Some(InputAction::Popup(
+                PopupAction::MoveCursor(Direction::Right),
+            )),
             (KeyModifiers::NONE, KeyCode::Enter) => Some(InputAction::ENTER),
             (KeyModifiers::NONE, KeyCode::Esc) => Some(InputAction::ToggleActiveArea),
 

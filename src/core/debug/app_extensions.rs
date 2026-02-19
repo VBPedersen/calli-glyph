@@ -2,7 +2,7 @@ use crate::core::app::ActiveArea;
 use crate::core::app::App;
 use crate::core::cursor::CursorPosition;
 use crate::core::debug::Selection;
-use crate::input::input_action::{DebugAction, InputAction};
+use crate::input::actions::{DebugAction, InputAction};
 use crate::ui::debug::DebugTab;
 
 impl App {
