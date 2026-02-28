@@ -484,28 +484,24 @@ fn highlight_text<'a>(
 
     // Safety check for None options, and to safely unwrap beneath
     if start.is_none() || end.is_none() {
-        return Text::from(text.iter().map(|s| Line::from(s.clone())).collect::<Vec<_>>());
+        return Text::from(
+            text.iter()
+                .map(|s| Line::from(s.clone()))
+                .collect::<Vec<_>>(),
+        );
     }
 
     let start = start.unwrap();
     let end = end.unwrap();
-    
+
     for (i, line) in text.iter().enumerate() {
         let mut spans = Vec::new();
 
         if i < start.y || i > end.y {
             spans.push(Span::raw(line.clone())); // No selection on this line
         } else {
-            let start_col = if i == start.y {
-                start.x
-            } else {
-                0
-            };
-            let end_col = if i == end.y {
-                end.x
-            } else {
-                line.len()
-            };
+            let start_col = if i == start.y { start.x } else { 0 };
+            let end_col = if i == end.y { end.x } else { line.len() };
 
             // Ensure selection is within valid bounds
             let start_col = start_col.min(line.len());
@@ -520,7 +516,7 @@ fn highlight_text<'a>(
 
             if line.is_empty() && i > start.y && i <= end.y {
                 // add highlights for empty lines with added visual placeholder " "
-                spans.push(Span::styled(" ",selected_style));
+                spans.push(Span::styled(" ", selected_style));
             } else {
                 spans.push(Span::styled(
                     line[start_col..end_col].to_string(), // Highlighted text

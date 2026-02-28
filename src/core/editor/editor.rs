@@ -1204,10 +1204,11 @@ impl Editor {
         }
 
         // Check if we are on selection end y and line is empty, if so, move visual x
-        if self.cursor.y == self.text_selection_end.unwrap().y as i16 
+        if self.cursor.y == self.text_selection_end.unwrap().y as i16
             && !self.editor_content.is_empty()
-            && self.editor_content[self.text_selection_end.unwrap().y ].is_empty() 
-            && self.text_selection_start.unwrap().y != self.text_selection_end.unwrap().y {
+            && self.editor_content[self.text_selection_end.unwrap().y].is_empty()
+            && self.text_selection_start.unwrap().y != self.text_selection_end.unwrap().y
+        {
             // Move visual cursor one right to end of highlight
             self.visual_cursor_x = 1;
         }
