@@ -474,6 +474,7 @@ fn handle_tab_rendering(s: String, tab_width: u16) -> String {
 //TEXT HIGHLIGTHING
 
 //TODO error when shift selecting up into å æ ø multi byte chars
+/// Function to highlight selected text by processing whole content, and returning styled
 fn highlight_text<'a>(
     text: Vec<String>,
     start: Option<CursorPosition>,
@@ -481,19 +482,27 @@ fn highlight_text<'a>(
 ) -> Text<'a> {
     let mut highlighted_lines = Vec::new();
 
+    // Safety check for None options, and to safely unwrap beneath
+    if start.is_none() || end.is_none() {
+        return Text::from(text.iter().map(|s| Line::from(s.clone())).collect::<Vec<_>>());
+    }
+
+    let start = start.unwrap();
+    let end = end.unwrap();
+    
     for (i, line) in text.iter().enumerate() {
         let mut spans = Vec::new();
 
-        if i < start.unwrap().y || i > end.unwrap().y {
+        if i < start.y || i > end.y {
             spans.push(Span::raw(line.clone())); // No selection on this line
         } else {
-            let start_col = if i == start.unwrap().y {
-                start.unwrap().x
+            let start_col = if i == start.y {
+                start.x
             } else {
                 0
             };
-            let end_col = if i == end.unwrap().y {
-                end.unwrap().x
+            let end_col = if i == end.y {
+                end.x
             } else {
                 line.len()
             };
@@ -502,14 +511,23 @@ fn highlight_text<'a>(
             let start_col = start_col.min(line.len());
             let end_col = end_col.min(line.len());
 
-            spans.push(Span::raw(line[..start_col].to_string())); // Before selection
-            spans.push(Span::styled(
-                line[start_col..end_col].to_string(), // Highlighted text
-                Style::default()
-                    .bg(Color::White)
-                    .fg(Color::Black)
-                    .add_modifier(Modifier::BOLD),
-            ));
+            spans.push(Span::raw(line[..start_col].to_string())); // Before selectiona
+
+            let selected_style = Style::default()
+                .bg(Color::White)
+                .fg(Color::Black)
+                .add_modifier(Modifier::BOLD);
+
+            if line.is_empty() && i > start.y && i <= end.y {
+                // add highlights for empty lines with added visual placeholder " "
+                spans.push(Span::styled(" ",selected_style));
+            } else {
+                spans.push(Span::styled(
+                    line[start_col..end_col].to_string(), // Highlighted text
+                    selected_style,
+                ));
+            }
+
             spans.push(Span::raw(line[end_col..].to_string())); // After selection
         }
 
