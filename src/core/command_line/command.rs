@@ -14,7 +14,10 @@ pub enum Command {
         args: Vec<String>,
         flags: HashSet<CommandFlag>,
     },
-    Help,
+    Help {
+        args: Vec<String>,
+        flags: HashSet<CommandFlag>,
+    },
     Unknown {
         name: String,
         args: Vec<String>,
@@ -69,25 +72,44 @@ pub fn parse_command(bind: String, raw_args: Vec<String>) -> Command {
     let (args, mut flags) = parse_flags_and_args(raw_args);
 
     match bind.as_str() {
-        COMMAND_SAVE_DONT_EXIT => Command::Save { args, flags },
-        COMMAND_SAVE_DONT_EXIT_FORCE => {
+        _ if COMMAND_SAVE_DONT_EXIT.contains(&bind.as_str()) => Command::Save { args, flags },
+        _ if COMMAND_SAVE_DONT_EXIT_FORCE.contains(&bind.as_str()) => {
             // TODO considering if shorthand flags should just be registered like this
             flags.insert(CommandFlag::Force);
             Command::Save { args, flags }
         }
-        COMMAND_SAVE_AND_EXIT => Command::SaveAndExit { args, flags },
-        COMMAND_EXIT_DONT_SAVE => Command::Quit { args, flags },
-        COMMAND_EXIT_DONT_SAVE_FORCE => {
+        _ if COMMAND_SAVE_AND_EXIT.contains(&bind.as_str()) => Command::SaveAndExit { args, flags },
+        _ if COMMAND_EXIT_DONT_SAVE.contains(&bind.as_str()) => Command::Quit { args, flags },
+        _ if COMMAND_EXIT_DONT_SAVE_FORCE.contains(&bind.as_str()) => {
             flags.insert(CommandFlag::Force);
             Command::Quit { args, flags }
         }
-        COMMAND_HELP => Command::Help,
-        COMMAND_DEBUG => Command::Debug { args, flags },
-        COMMAND_CONFIG => Command::Config { args, flags },
+        _ if COMMAND_HELP.contains(&bind.as_str()) => Command::Help { args, flags },
+        _ if COMMAND_DEBUG.contains(&bind.as_str()) => Command::Debug { args, flags },
+        _ if COMMAND_CONFIG.contains(&bind.as_str()) => Command::Config { args, flags },
         _ =>
         // Unknown commands are tried as plugins first
         {
             Command::Unknown { name: bind, args }
-        }
+        } /* COMMAND_SAVE_DONT_EXIT => Command::Save { args, flags },
+          COMMAND_SAVE_DONT_EXIT_FORCE => {
+              // TODO considering if shorthand flags should just be registered like this
+              flags.insert(CommandFlag::Force);
+              Command::Save { args, flags }
+          }
+          COMMAND_SAVE_AND_EXIT => Command::SaveAndExit { args, flags },
+          COMMAND_EXIT_DONT_SAVE => Command::Quit { args, flags },
+          COMMAND_EXIT_DONT_SAVE_FORCE => {
+              flags.insert(CommandFlag::Force);
+              Command::Quit { args, flags }
+          }
+          COMMAND_HELP => Command::Help {args, flags},
+          COMMAND_DEBUG => Command::Debug { args, flags },
+          COMMAND_CONFIG => Command::Config { args, flags },
+          _ =>
+          // Unknown commands are tried as plugins first
+          {
+              Command::Unknown { name: bind, args }
+          }*/
     }
 }

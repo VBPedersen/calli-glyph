@@ -108,7 +108,7 @@ mod integration_app_tests {
         app.file_path = None;
         app.active_area = ActiveArea::CommandLine;
         app.command_line.input = ":".to_owned()
-            + COMMAND_SAVE_DONT_EXIT
+            + COMMAND_SAVE_DONT_EXIT.first().unwrap()
             + " "
             + temp_file.path().to_str().unwrap()
             + " --force";
@@ -126,7 +126,8 @@ mod integration_app_tests {
         let mut app = create_app_with_editor_content(vec!["New content".to_string()]);
         app.file_path = Some(file_path.clone());
         app.active_area = ActiveArea::CommandLine;
-        app.command_line.input = ":".to_owned() + COMMAND_SAVE_DONT_EXIT + " --force";
+        app.command_line.input =
+            ":".to_owned() + COMMAND_SAVE_DONT_EXIT.first().unwrap() + " --force";
         app.process_input_action(InputAction::ENTER);
 
         let saved_content = fs::read_to_string(file_path).unwrap();
@@ -138,7 +139,8 @@ mod integration_app_tests {
         let mut app = create_app_with_editor_content(vec!["Default content".to_string()]);
 
         app.active_area = ActiveArea::CommandLine;
-        app.command_line.input = ":".to_owned() + COMMAND_SAVE_DONT_EXIT + " --force";
+        app.command_line.input =
+            ":".to_owned() + COMMAND_SAVE_DONT_EXIT.first().unwrap() + " --force";
         app.process_input_action(InputAction::ENTER);
 
         let saved_content = fs::read_to_string("untitled").unwrap();
@@ -156,7 +158,7 @@ mod integration_app_tests {
         app.file_path = Some(file_path.clone());
         app.active_area = ActiveArea::CommandLine;
         app.command_line.input = ":".to_owned()
-            + COMMAND_SAVE_DONT_EXIT
+            + COMMAND_SAVE_DONT_EXIT.first().unwrap()
             + " "
             + temp_file.path().to_str().unwrap()
             + " --force";
@@ -172,8 +174,11 @@ mod integration_app_tests {
         let mut app = create_app_with_editor_content(vec!["Hello World!".to_string()]);
         app.file_path = None;
         app.active_area = ActiveArea::CommandLine;
-        app.command_line.input =
-            ":".to_owned() + COMMAND_SAVE_DONT_EXIT + " " + temp_file_path.as_str() + " --force";
+        app.command_line.input = ":".to_owned()
+            + COMMAND_SAVE_DONT_EXIT.first().unwrap()
+            + " "
+            + temp_file_path.as_str()
+            + " --force";
         app.process_input_action(InputAction::ENTER);
 
         let saved_content = fs::read_to_string(&temp_file_path).unwrap();

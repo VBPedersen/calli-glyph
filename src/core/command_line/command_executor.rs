@@ -10,8 +10,11 @@ pub fn execute_command(app: &mut App, command: Command) -> Result<(), CommandErr
             commands::quit::save_and_exit_command(app, args, flags)
         }
         Command::Quit { args, flags } => commands::quit::exit_command(app, args, flags),
-        Command::Help => {
+        Command::Help { args, flags } => {
             // TODO: Show help popup or render help screen
+            if let Err(e) = commands::help::help_command(app, args, flags) {
+                return Err(e);
+            }
             Ok(())
         }
         Command::Debug { args, flags } => {
