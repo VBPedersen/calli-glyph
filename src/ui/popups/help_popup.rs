@@ -2,7 +2,9 @@ use crate::core::help_registry::HelpRegistry;
 use crate::input::actions::{Direction, InputAction, PopupAction};
 use crate::ui::popups::popup::{Popup, PopupResult, PopupType};
 use ratatui::layout::Rect;
-use ratatui::widgets::ListState;
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{Block, BorderType, Borders, Clear, ListState};
 use ratatui::Frame;
 use std::sync::Arc;
 
@@ -44,12 +46,33 @@ impl HelpPopup {
 
         popup
     }
+
+    /// Renders the list of help pages in g
+    fn render_list_view(&self) {}
 }
 
-//TODO
 impl Popup for HelpPopup {
     fn render(&self, frame: &mut Frame, area: Rect) {
-        todo!()
+        frame.render_widget(Clear, area);
+        let outer_block = Block::default()
+            .title(Span::styled(
+                " 󰋗 Help ",
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            ))
+            .title_bottom(
+                Line::styled(
+                    " ↑↓ navigate   / search   esc close ",
+                    Style::default().fg(Color::DarkGray),
+                )
+                .right_aligned(),
+            )
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(Style::new().fg(Color::Blue));
+
+        frame.render_widget(outer_block, area);
     }
 
     fn get_popup_type(&self) -> PopupType {
@@ -58,9 +81,14 @@ impl Popup for HelpPopup {
 
     fn handle_input_action(&mut self, action: InputAction) -> PopupResult {
         match action {
+            InputAction::ToggleActiveArea => PopupResult::Affirmed,
             /*InputAction::ENTER => {},
             InputAction::Popup(PopupAction::MoveCursor(Direction::Up)) => {}*/
             _ => PopupResult::None,
         }
+    }
+
+    fn size(&self) -> (u16, u16) {
+        (80, 80)
     }
 }

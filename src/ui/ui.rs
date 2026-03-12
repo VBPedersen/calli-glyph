@@ -163,7 +163,8 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
 
     // Render popup if active
     if let Some(popup) = &app.popup {
-        let popup_area = centered_rect(60, 20, frame.area());
+        let (w, h) = popup.size();
+        let popup_area = centered_rect(w, h, frame.area());
         popup.render(frame, popup_area);
     }
 
@@ -199,7 +200,9 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
 }
 
 ///returns centered rect based on height,width and current screen Rect to use in layout
-fn centered_rect(width: u16, height: u16, area: Rect) -> Rect {
+fn centered_rect(percent_width: u16, percent_height: u16, area: Rect) -> Rect {
+    let width = area.width * percent_width / 100;
+    let height = area.height * percent_height / 100;
     let x = (area.width - width) / 2;
     let y = (area.height - height) / 2;
     Rect {

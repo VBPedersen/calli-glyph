@@ -9,6 +9,12 @@ pub trait Popup {
     ///function to handle input action on popup,
     /// responsible for dispatching action to correct internal method.
     fn handle_input_action(&mut self, action: InputAction) -> PopupResult;
+
+    /// Override to control popup size. Returns (width%, height%).
+    /// Defaults to 50%x50%
+    fn size(&self) -> (u16, u16) {
+        (50, 50)
+    }
 }
 
 impl Debug for dyn Popup {
