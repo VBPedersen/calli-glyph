@@ -1,16 +1,16 @@
 use crate::core::help_registry::HelpRegistry;
-use crate::input::actions::{Direction, InputAction, PopupAction};
+use crate::input::actions::{InputAction, PopupAction};
 use crate::ui::popups::popup::{Popup, PopupResult, PopupType};
-use ratatui::layout::Rect;
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, BorderType, Borders, Clear, ListState};
+use ratatui::widgets::{Block, BorderType, Borders, Clear, List, ListItem, ListState};
 use ratatui::Frame;
 use std::sync::Arc;
 
 pub struct HelpPopup {
     registry: Arc<HelpRegistry>,
-    scroll_offset: usize,
+    list_cursor: usize,
     search_query: String,
     search_active: bool,
     filtered_pages: Vec<usize>,   // indices into registry
@@ -23,7 +23,7 @@ impl HelpPopup {
         let filtered: Vec<usize> = (0..registry.len()).collect();
         Self {
             registry,
-            scroll_offset: 0,
+            list_cursor: 0,
             search_query: String::new(),
             search_active: false,
             filtered_pages: filtered,
@@ -47,8 +47,70 @@ impl HelpPopup {
         popup
     }
 
-    /// Renders the list of help pages in g
-    fn render_list_view(&self) {}
+    /// Renders the list panel of help pages
+    fn render_list_panel(&self, area: Rect, frame: &mut Frame) {
+        let list_items: Vec<ListItem> = self
+            .filtered_pages
+            .iter()
+            .enumerate()
+            .filter_map(|(pos, &reg_idx)| {
+                let page = self.registry.get(reg_idx)?;
+                let is_selected = pos == self.list_cursor;
+
+                let line = if is_selected {
+                    Line::from(vec![
+                        Span::styled("░ ", Style::default().fg(Color::Cyan)),
+                        Span::styled(
+                            page.title.clone(),
+                            Style::default()
+                                .fg(Color::Cyan)
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                    ])
+                } else {
+                    Line::from(vec![
+                        Span::styled("▎ ", Style::default().fg(Color::DarkGray)),
+                        Span::styled(page.title.clone(), Style::default().fg(Color::Gray)),
+                    ])
+                };
+                Some(ListItem::new(line))
+            }).collect();
+
+        // Show "no results" placeholder when search yields nothing.
+        let list_items = if list_items.is_empty() {
+            vec![ListItem::new(Line::from(Span::styled(
+                "  no results",
+                Style::default()
+                    .fg(Color::DarkGray)
+                    .add_modifier(Modifier::ITALIC),
+            )))]
+        } else {
+            list_items
+        };
+
+        let mut list_state = ListState::default();
+
+        if !self.filtered_pages.is_empty() {
+            list_state.select(Some(self.list_cursor));
+        }
+
+        let list_block = Block::default()
+            .title(Line::from(Span::styled(
+                " Topics ",
+                Style::default().fg(Color::DarkGray),
+            )))
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(Style::default().fg(Color::DarkGray))
+            .style(Style::default().bg(Color::Black));
+
+        let list_widget = List::new(list_items)
+            .block(list_block)
+            .highlight_style(Style::default()) // We handle highlight styling ourselves above.
+            .highlight_symbol("");
+
+        frame.render_stateful_widget(list_widget, area, &mut list_state);
+    }
 }
 
 impl Popup for HelpPopup {
@@ -72,7 +134,28 @@ impl Popup for HelpPopup {
             .border_type(BorderType::Rounded)
             .border_style(Style::new().fg(Color::Blue));
 
+        let inner_block = outer_block.inner(area);
         frame.render_widget(outer_block, area);
+
+        // --------------- VERTICAL LAYOUT ----------------
+        let vertical = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Min(0), Constraint::Length(3)])
+            .split(inner_block);
+
+        let body_area = vertical[0];
+        let search_area = vertical[1];
+
+        // --------------- HORIZONTAL LAYOUT ----------------
+        let horizontal = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
+            .split(body_area);
+
+        let list_area = horizontal[0];
+        let content_area = horizontal[1];
+
+        self.render_list_panel(list_area, frame);
     }
 
     fn get_popup_type(&self) -> PopupType {
