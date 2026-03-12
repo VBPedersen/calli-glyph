@@ -4,7 +4,7 @@ use ratatui::Frame;
 use std::fmt::{Debug, Formatter};
 
 pub trait Popup {
-    fn render(&self, frame: &mut Frame, area: Rect);
+    fn render(&mut self, frame: &mut Frame, area: Rect);
     fn get_popup_type(&self) -> PopupType;
     ///function to handle input action on popup,
     /// responsible for dispatching action to correct internal method.

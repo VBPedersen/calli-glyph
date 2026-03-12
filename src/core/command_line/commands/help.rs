@@ -2,7 +2,6 @@
 
 use crate::core::app::App;
 use crate::core::command_line::command::CommandFlag;
-use crate::core::help_registry::HelpRegistry;
 use crate::errors::command_errors::CommandError;
 use crate::ui::popups::help_popup::HelpPopup;
 use std::collections::HashSet;
@@ -16,7 +15,7 @@ pub fn help_command(
 ) -> Result<(), CommandError> {
     let registry = Arc::clone(&app.help_registry);
     let popup = match args.first() {
-        Some(arg) => HelpPopup::focused(registry, args.first().unwrap()),
+        Some(arg) => HelpPopup::focused(registry, arg),
         None => HelpPopup::browse(registry),
     };
     app.open_popup(Box::new(popup));

@@ -21,7 +21,7 @@ impl ErrorPopup {
 }
 
 impl Popup for ErrorPopup {
-    fn render(&self, frame: &mut Frame, area: Rect) {
+    fn render(&mut self, frame: &mut Frame, area: Rect) {
         let button_style = Style::default().bg(Color::White).fg(Color::Black);
 
         let popup_block = Block::default()

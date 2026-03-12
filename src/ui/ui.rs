@@ -162,7 +162,7 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
     frame.render_widget(command_line(command_input), command_area);
 
     // Render popup if active
-    if let Some(popup) = &app.popup {
+    if let Some(popup) = &mut app.popup {
         let (w, h) = popup.size();
         let popup_area = centered_rect(w, h, frame.area());
         popup.render(frame, popup_area);

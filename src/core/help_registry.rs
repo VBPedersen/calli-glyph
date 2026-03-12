@@ -1,5 +1,4 @@
 use crate::errors::error::AppError;
-use crate::ui::popups::help_popup::HelpPopup;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -211,13 +210,20 @@ impl HelpRegistry {
     }
 
     /// Function to find single help page by id
-    pub fn find_by_id(&self, query: &str) -> Option<&HelpPage> {
-        todo!()
+    pub fn find_by_id(&self, id: &str) -> Option<&HelpPage> {
+        let lower_id = id.to_lowercase();
+        self.pages.iter().find(|p| p.id == lower_id)
     }
 
     /// Function to find all matching help pages
-    pub fn search(&self, query: &str) -> Vec<&HelpPage> {
-        todo!()
+    /// Returns indices of pages matching the query. Empty query returns all.
+    pub fn search(&self, query: &str) -> Vec<usize> {
+        self.pages
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| p.matches(query))
+            .map(|(i, _)| i)
+            .collect()
     }
 
     /// Function to get all help pages in registry as array

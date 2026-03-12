@@ -154,8 +154,19 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
                 PopupAction::MoveCursor(Direction::Right),
             )),
             (KeyModifiers::NONE, KeyCode::Enter) => Some(InputAction::ENTER),
-            (KeyModifiers::NONE, KeyCode::Esc) => Some(InputAction::ToggleActiveArea),
-
+            (KeyModifiers::SHIFT, KeyCode::Char('/')) => {
+                Some(InputAction::Popup(PopupAction::ToggleSearch))
+            }
+            (KeyModifiers::NONE, KeyCode::Char(c)) => {
+                Some(InputAction::Popup(PopupAction::WriteChar(c)))
+            }
+            (KeyModifiers::NONE, KeyCode::Backspace) => {
+                Some(InputAction::Popup(PopupAction::Backspace))
+            }
+            (KeyModifiers::NONE, KeyCode::Esc) => Some(InputAction::Popup(PopupAction::Close)),
+            (KeyModifiers::NONE, KeyCode::Tab) => {
+                Some(InputAction::Popup(PopupAction::ToggleFocus))
+            }
             _ => Some(InputAction::NoOp),
         },
     };

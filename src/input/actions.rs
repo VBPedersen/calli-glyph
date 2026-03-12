@@ -47,7 +47,12 @@ pub enum CommandLineAction {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PopupAction {
+    WriteChar(char),
     MoveCursor(Direction),
+    ToggleSearch,
+    Backspace,
+    ToggleFocus,
+    Close,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
