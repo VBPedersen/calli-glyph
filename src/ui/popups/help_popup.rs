@@ -356,7 +356,7 @@ impl Popup for HelpPopup {
             ))
             .title_bottom(
                 Line::styled(
-                    " ↑↓ navigate   / search   esc close ",
+                    " Tab swap focus ↑↓ navigate   / search   esc close ",
                     Style::default().fg(Color::DarkGray),
                 )
                 .right_aligned(),

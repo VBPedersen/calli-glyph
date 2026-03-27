@@ -38,10 +38,11 @@ Press `Esc` once to clear the search, and again to close the popup.
 
 ## Topics
 
-| Topic     | Description                                      |
-|-----------|--------------------------------------------------|
-| `editor`  | Core editing, movement, and file operations      |
-| `debug`   | Developer console and debug overlay              |
-| `config`  | Configuration file and available options         |
-| `plugins` | Plugin system and management                     |
-| `help`    | This page                                        |
+| Topic         | Description                                        |
+|---------------|----------------------------------------------------|
+| `editor`      | Core editing, movement, and file operations        |
+| `debug`       | Developer console and debug overlay                |
+| `config`      | Configuration file and available options           |
+| `plugins`     | Plugin system and management                       |
+| `help`        | This page                                          |
+| `keybindings` | Default keybindings for various systems of the app |
