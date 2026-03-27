@@ -4,11 +4,17 @@ use ratatui::Frame;
 use std::fmt::{Debug, Formatter};
 
 pub trait Popup {
-    fn render(&self, frame: &mut Frame, area: Rect);
+    fn render(&mut self, frame: &mut Frame, area: Rect);
     fn get_popup_type(&self) -> PopupType;
     ///function to handle input action on popup,
     /// responsible for dispatching action to correct internal method.
     fn handle_input_action(&mut self, action: InputAction) -> PopupResult;
+
+    /// Override to control popup size. Returns (width%, height%).
+    /// Defaults to 50%x50%
+    fn size(&self) -> (u16, u16) {
+        (50, 50)
+    }
 }
 
 impl Debug for dyn Popup {

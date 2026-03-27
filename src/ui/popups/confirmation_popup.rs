@@ -22,7 +22,7 @@ impl ConfirmationPopup {
     }
 }
 impl Popup for ConfirmationPopup {
-    fn render(&self, frame: &mut Frame, area: Rect) {
+    fn render(&mut self, frame: &mut Frame, area: Rect) {
         let selected_style = Style::default().bg(Color::White).fg(Color::Black);
         let non_selected_style = Style::default().bg(Color::Black).fg(Color::White);
 

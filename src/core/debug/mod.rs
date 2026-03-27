@@ -1,3 +1,4 @@
+// TODO consider redoing debugger like a plugin e.g. the search and replace plugin
 mod app_extensions;
 mod logger;
 mod metrics;

@@ -35,7 +35,7 @@ impl ValidationResultPopup {
 }
 
 impl Popup for ValidationResultPopup {
-    fn render(&self, frame: &mut Frame, area: Rect) {
+    fn render(&mut self, frame: &mut Frame, area: Rect) {
         let border_color = if self.result.is_valid() {
             Color::Green
         } else {

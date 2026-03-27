@@ -3,6 +3,7 @@ use super::editor::Editor;
 use crate::app_config::AppLaunchConfig;
 use crate::config::Config;
 use crate::core::debug::DebugState;
+use crate::core::help_registry::HelpRegistry;
 use crate::errors::error::AppError;
 use crate::errors::error::AppError::EditorFailure;
 use crate::errors::plugin_error::PluginError;
@@ -45,6 +46,7 @@ pub struct App {
     pub content_modified: bool,
     pub plugins: PluginManager,
     pub layout: UILayout,
+    pub help_registry: Arc<HelpRegistry>,
 }
 
 pub type OpCallback = Box<dyn FnOnce(&mut App)>;
@@ -87,6 +89,12 @@ impl Default for App {
             content_modified: false,
             plugins: PluginManager::new(),
             layout: UILayout::default(Rect::default()), // used to hold current UI areas of app, should be updated each render
+            help_registry: Arc::new(
+                HelpRegistry::load_from(HelpRegistry::default_docs_path()).unwrap_or_else(|e| {
+                    log_warn!("Warning: {e}");
+                    HelpRegistry::empty()
+                }),
+            ),
         };
 
         // Load default plugins
@@ -117,6 +125,12 @@ impl App {
             content_modified: false,
             plugins: Default::default(),
             layout: UILayout::default(Rect::default()),
+            help_registry: Arc::new(
+                HelpRegistry::load_from(HelpRegistry::default_docs_path()).unwrap_or_else(|e| {
+                    log_warn!("Warning: {e}");
+                    HelpRegistry::empty()
+                }),
+            ),
         };
 
         // Load default plugins

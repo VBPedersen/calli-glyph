@@ -32,7 +32,7 @@ impl<'a> ScrollableTextPopup<'a> {
 }
 
 impl Popup for ScrollableTextPopup<'_> {
-    fn render(&self, frame: &mut Frame, area: Rect) {
+    fn render(&mut self, frame: &mut Frame, area: Rect) {
         let border_color = Color::White;
 
         // popup border and title
