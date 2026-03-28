@@ -123,7 +123,8 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
                         && !key.modifiers.intersects(KeyModifiers::ALT)
                     {
                         keymaps.get_editor_action(key.modifiers, key.code).cloned()
-                    } else { // write char
+                    } else {
+                        // write char
                         Some(InputAction::Editor(EditorAction::WriteChar(c)))
                     }
                 }
