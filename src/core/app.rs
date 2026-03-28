@@ -9,6 +9,8 @@ use crate::errors::error::AppError::EditorFailure;
 use crate::errors::plugin_error::PluginError;
 use crate::input::actions::InputAction;
 use crate::input::input::handle_input;
+use crate::language::manager::LanguageManager;
+use crate::language::theme::Theme;
 use crate::plugins::plugin_registry::{Plugin, PluginManager};
 use crate::plugins::search_replace_plugin::SearchReplacePlugin;
 use crate::ui::debug::DebugView;
@@ -47,6 +49,7 @@ pub struct App {
     pub plugins: PluginManager,
     pub layout: UILayout,
     pub help_registry: Arc<HelpRegistry>,
+    pub language: LanguageManager,
 }
 
 pub type OpCallback = Box<dyn FnOnce(&mut App)>;
@@ -95,6 +98,7 @@ impl Default for App {
                     HelpRegistry::empty()
                 }),
             ),
+            language: LanguageManager::new(),
         };
 
         // Load default plugins
@@ -131,6 +135,7 @@ impl App {
                     HelpRegistry::empty()
                 }),
             ),
+            language: LanguageManager::new(),
         };
 
         // Load default plugins
@@ -342,6 +347,19 @@ impl App {
         } else {
             vec![String::new()] // Start with an empty editor if no file is provided
         };
+
+        // activate language manager for file if path is some
+
+        if let Some(ref path) = self.file_path {
+            if path.extension().is_some() {
+                // Load the theme from the root themes directory,
+                // TODO for now uses dark theme, later should load from current theme from thememanager
+                let theme = Theme::load_from_file("themes/dark.toml").ok();
+
+                // Activate the language manager
+                self.language.activate_for_file(path, theme);
+            }
+        }
     }
 
     ///function to process input action, responsible for calling the related active area,

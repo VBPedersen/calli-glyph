@@ -1,0 +1,24 @@
+name = "dark"
+
+[defaults]
+fg = "#c9d1d9"
+
+[tokens.keyword]
+fg = "#ff7b72"
+bold = true
+
+[tokens.string]
+fg = "#a5d6ff"
+
+[tokens.comment]
+fg = "#8b949e"
+italic = true
+
+[tokens.number]
+fg = "#79c0ff"
+
+[tokens.function]
+fg = "#d2a8ff"
+
+[tokens.type]
+fg = "#ffa657"
