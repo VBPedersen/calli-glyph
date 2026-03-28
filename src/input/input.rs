@@ -114,14 +114,21 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
 
     let action = match app.active_area {
         ActiveArea::Editor => {
-            if key.modifiers == KeyModifiers::NONE || key.modifiers == KeyModifiers::SHIFT {
-                if let KeyCode::Char(c) = key.code {
-                    Some(InputAction::Editor(EditorAction::WriteChar(c)))
-                } else {
-                    keymaps.get_editor_action(key.modifiers, key.code).cloned()
+            match key.code {
+                // If it's a character, check whether to write it
+                KeyCode::Char(c) => {
+                    // Ignore if only CONTROL is pressed (e.g., Ctrl+S),
+                    // but ALLOW if AltGr (Ctrl+Alt) is pressed.
+                    if key.modifiers.intersects(KeyModifiers::CONTROL)
+                        && !key.modifiers.intersects(KeyModifiers::ALT)
+                    {
+                        keymaps.get_editor_action(key.modifiers, key.code).cloned()
+                    } else { // write char
+                        Some(InputAction::Editor(EditorAction::WriteChar(c)))
+                    }
                 }
-            } else {
-                keymaps.get_editor_action(key.modifiers, key.code).cloned()
+                // is not a character (like Enter, Backspace, Esc)
+                _ => keymaps.get_editor_action(key.modifiers, key.code).cloned(),
             }
         }
         ActiveArea::CommandLine => {
