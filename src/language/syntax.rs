@@ -27,10 +27,17 @@ impl SyntaxTree {
     /// incremental re-parsing (faster). Pass `None` to do a full re-parse
     /// TODO for now fine as simple, optimise later.
     pub fn update(&mut self, new_source: &str, edit: Option<tree_sitter::InputEdit>) {
-        if let (Some(old_tree), Some(edit)) = (&mut self.tree, edit) {
-            old_tree.edit(&edit);
+        // take old tree out first
+        let mut old_tree = self.tree.take(); // self.tree becomes none here
+
+        if let (Some(tree), Some(edit)) = (&mut old_tree, edit) {
+            tree.edit(&edit);
         }
-        self.tree = self.parser.parse(new_source, self.tree.as_ref());
+        // Whether to use the old tree if edit was made, or pass None when no edit was made
+        // Passing old tree means incremental change, Passing None means full re-parse of file needed
+        let tree_to_reuse = if edit.is_some() { old_tree.as_ref() } else { None };
+
+        self.tree = self.parser.parse(new_source, tree_to_reuse);
         self.source = new_source.to_string();
     }
 
@@ -95,6 +102,7 @@ impl SyntaxTree {
             // These are the actual keyword tokens tree-sitter-rust produces.
             // visibility_modifier contains "pub" as a child. matched here
             // when it is reached during recursion.
+            // TODO needs better way to handle while keeping language agnostic
             "fn" | "let" | "const" | "static" | "mut" | "pub" | "use" | "mod" | "struct"
             | "enum" | "impl" | "trait" | "type" | "where" | "return" | "if" | "else" | "match"
             | "for" | "while" | "loop" | "break" | "continue" | "in" | "as" | "ref" | "move"
