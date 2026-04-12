@@ -10,6 +10,8 @@ pub struct SyntaxTree {
     /// Stored so highlight_tokens can resolve byte ranges back to text.
     pub source: String,
     config: Option<LangConfig>, // None = no highlighting rules loaded
+    // Cache: last walk result + the content_version it was built for
+    token_cache: Option<(u64, Vec<(std::ops::Range<usize>, &'static str)>)>,
 }
 
 impl SyntaxTree {
@@ -22,6 +24,7 @@ impl SyntaxTree {
             tree: None,
             source: String::new(),
             config,
+            token_cache: None,
         }
     }
 
@@ -50,17 +53,28 @@ impl SyntaxTree {
 
     /// Walk the tree and produce (byte_range, token_type) pairs for highlighting.
     /// Should bed called once per render frame, not per line
-    pub fn highlight_tokens(&self) -> Vec<(std::ops::Range<usize>, &'static str)> {
+    pub fn highlight_tokens(&mut self, version: u64) -> &[(std::ops::Range<usize>, &'static str)] {
+        // Return cached result if version hasn't changed
+        if let Some((cached_version, _)) = &self.token_cache {
+            if *cached_version == version {
+                return &self.token_cache.as_ref().unwrap().1;
+            }
+        }
+
         let Some(tree) = &self.tree else {
-            return vec![];
+            self.token_cache = Some((version, vec![]));
+            return &self.token_cache.as_ref().unwrap().1;
         };
         let Some(config) = &self.config else {
-            return vec![]; // no config = no highlights, same as no theme
+            self.token_cache = Some((version, vec![]));
+            return &self.token_cache.as_ref().unwrap().1; // no config = no highlights, same as no theme
         };
         let mut tokens = Vec::new();
         Self::walk_node(tree.root_node(), config, &mut tokens);
         log_trace!("Tokens Highlighted: {:?}", tokens);
-        tokens
+
+        self.token_cache = Some((version, tokens));
+        &self.token_cache.as_ref().unwrap().1
     }
 
     /// Recursively walks a node, getting the token type and byte range for each node,
@@ -103,16 +117,17 @@ impl SyntaxTree {
     /// Return tokens that overlap a specific byte range.
     /// Used in tests and optionally by the renderer for per-line filtering.
     pub fn tokens_in_range(
-        &self,
+        &mut self,
         byte_start: usize,
         byte_end: usize,
     ) -> Vec<(std::ops::Range<usize>, &'static str)> {
         if byte_start >= byte_end {
             return vec![]; // zero or negative range, nothing can overlap
         }
-        self.highlight_tokens()
+        self.highlight_tokens(0)
             .into_iter()
             .filter(|(r, _)| r.start < byte_end && r.end > byte_start)
+            .map(|(r, t)| (r.clone(), *t))
             .collect()
     }
 }
@@ -197,8 +212,8 @@ mod tests {
 
     #[test]
     fn detects_keyword_fn() {
-        let st = make_tree("fn main() {}");
-        let tokens = st.highlight_tokens();
+        let mut st = make_tree("fn main() {}");
+        let tokens = st.highlight_tokens(0);
         assert!(
             tokens.iter().any(|(_, t)| *t == "keyword"),
             "expected 'keyword' token for 'fn', got: {:?}",
@@ -208,8 +223,8 @@ mod tests {
 
     #[test]
     fn detects_string_literal() {
-        let st = make_tree(r#"let s = "hello";"#);
-        let tokens = st.highlight_tokens();
+        let mut st = make_tree(r#"let s = "hello";"#);
+        let tokens = st.highlight_tokens(0);
         assert!(
             tokens.iter().any(|(_, t)| *t == "string"),
             "expected 'string' token, got: {:?}",
@@ -219,8 +234,8 @@ mod tests {
 
     #[test]
     fn detects_integer_literal() {
-        let st = make_tree("let x = 42;");
-        let tokens = st.highlight_tokens();
+        let mut st = make_tree("let x = 42;");
+        let tokens = st.highlight_tokens(0);
         assert!(
             tokens.iter().any(|(_, t)| *t == "number"),
             "expected 'number' token, got: {:?}",
@@ -230,8 +245,8 @@ mod tests {
 
     #[test]
     fn detects_line_comment() {
-        let st = make_tree("// this is a comment\nlet x = 1;");
-        let tokens = st.highlight_tokens();
+        let mut st = make_tree("// this is a comment\nlet x = 1;");
+        let tokens = st.highlight_tokens(0);
         assert!(
             tokens.iter().any(|(_, t)| *t == "comment"),
             "expected 'comment' token, got: {:?}",
@@ -241,8 +256,8 @@ mod tests {
 
     #[test]
     fn detects_block_comment() {
-        let st = make_tree("/* block */\nlet x = 1;");
-        let tokens = st.highlight_tokens();
+        let mut st = make_tree("/* block */\nlet x = 1;");
+        let tokens = st.highlight_tokens(0);
         assert!(
             tokens.iter().any(|(_, t)| *t == "comment"),
             "expected 'comment' token for block comment, got: {:?}",
@@ -252,8 +267,8 @@ mod tests {
 
     #[test]
     fn detects_type_identifier() {
-        let st = make_tree("let x: String = String::new();");
-        let tokens = st.highlight_tokens();
+        let mut st = make_tree("let x: String = String::new();");
+        let tokens = st.highlight_tokens(0);
         assert!(
             tokens.iter().any(|(_, t)| *t == "type"),
             "expected 'type' token, got: {:?}",
@@ -263,8 +278,8 @@ mod tests {
 
     #[test]
     fn detects_function_name() {
-        let st = make_tree("fn my_function() {}");
-        let tokens = st.highlight_tokens();
+        let mut st = make_tree("fn my_function() {}");
+        let tokens = st.highlight_tokens(0).to_vec();
         // The identifier 'my_function' inside a function_item should be "function"
         let src = &st.source;
         let fn_token = tokens
@@ -282,8 +297,8 @@ mod tests {
     #[test]
     fn byte_range_for_string_is_correct() {
         let source = r#"let s = "hello";"#;
-        let st = make_tree(source);
-        let tokens = st.highlight_tokens();
+        let mut st = make_tree(source);
+        let tokens = st.highlight_tokens(0);
         let string_tok = tokens
             .iter()
             .find(|(_, t)| *t == "string")
@@ -300,8 +315,8 @@ mod tests {
     #[test]
     fn byte_range_for_comment_covers_full_comment() {
         let source = "// hello world\nlet x = 1;";
-        let st = make_tree(source);
-        let tokens = st.highlight_tokens();
+        let mut st = make_tree(source);
+        let tokens = st.highlight_tokens(0);
         let comment_tok = tokens
             .iter()
             .find(|(_, t)| *t == "comment")
@@ -318,31 +333,31 @@ mod tests {
 
     #[test]
     fn empty_source_returns_no_tokens() {
-        let st = make_tree("");
-        assert!(st.highlight_tokens().is_empty());
+        let mut st = make_tree("");
+        assert!(st.highlight_tokens(0).is_empty());
     }
 
     #[test]
     fn no_update_returns_no_tokens() {
         let lang: Language = tree_sitter_rust::LANGUAGE.into();
-        let st = SyntaxTree::new(lang, Some(rust_config())); // never call update()
+        let mut st = SyntaxTree::new(lang, Some(rust_config())); // never call update()
         assert!(
-            st.highlight_tokens().is_empty(),
+            st.highlight_tokens(0).is_empty(),
             "tree is None, should return empty"
         );
     }
 
     #[test]
     fn whitespace_only_returns_no_tokens() {
-        let st = make_tree("   \n\n   ");
-        assert!(st.highlight_tokens().is_empty());
+        let mut st = make_tree("   \n\n   ");
+        assert!(st.highlight_tokens(0).is_empty());
     }
 
     #[test]
     fn multiple_keywords_all_detected() {
         let source = "pub fn foo() { let x = 1; return x; }";
-        let st = make_tree(source);
-        let tokens = st.highlight_tokens();
+        let mut st = make_tree(source);
+        let tokens = st.highlight_tokens(0);
         let keyword_texts: Vec<&str> = tokens
             .iter()
             .filter(|(_, t)| *t == "keyword")
@@ -360,7 +375,7 @@ mod tests {
     fn tokens_in_range_filters_correctly() {
         // "fn main() {}" — 'fn' is at bytes 0..2
         let source = "fn main() {}";
-        let st = make_tree(source);
+        let mut st = make_tree(source);
         // Ask only for the first 2 bytes
         let in_range = st.tokens_in_range(0, 2);
         assert!(
@@ -371,7 +386,7 @@ mod tests {
 
     #[test]
     fn tokens_in_range_empty_range_returns_nothing() {
-        let st = make_tree("fn main() {}");
+        let mut st = make_tree("fn main() {}");
         // A zero-length range should match nothing
         let result = st.tokens_in_range(5, 5);
         assert!(
@@ -385,12 +400,12 @@ mod tests {
     #[test]
     fn update_replaces_old_tree() {
         let mut st = make_tree("let x = 1;");
-        let tokens_before = st.highlight_tokens();
+        let tokens_before = st.highlight_tokens(0);
         assert!(tokens_before.iter().any(|(_, t)| *t == "number"));
 
         // Replace with source that has a string instead
         st.update(r#"let s = "hello";"#, None);
-        let tokens_after = st.highlight_tokens();
+        let tokens_after = st.highlight_tokens(1);
         assert!(
             tokens_after.iter().any(|(_, t)| *t == "string"),
             "after update should see string"
@@ -399,6 +414,27 @@ mod tests {
         assert!(
             !tokens_after.iter().any(|(_, t)| *t == "number"),
             "number token should be gone after update"
+        );
+    }
+
+
+    #[test]
+    fn update_doesnt_replace_old_tree_but_gets_from_last_cached() {
+        let mut st = make_tree("let x = 1;");
+        let tokens_before = st.highlight_tokens(0);
+        assert!(tokens_before.iter().any(|(_, t)| *t == "number"));
+
+        // Replace with source that has a string instead
+        st.update(r#"let s = "hello";"#, None);
+        let tokens_after = st.highlight_tokens(0);
+        assert!(
+            tokens_after.iter().any(|(_, t)| *t == "number"),
+            "after update should still see number"
+        );
+        // The later added string should not be there
+        assert!(
+            !tokens_after.iter().any(|(_, t)| *t == "string"),
+            "string token should not have been added after update"
         );
     }
 
@@ -414,8 +450,8 @@ mod tests {
     #[test]
     fn multiline_tokens_have_correct_byte_offsets() {
         let source = "fn foo() {}\nlet x = 42;";
-        let st = make_tree(source);
-        let tokens = st.highlight_tokens();
+        let mut st = make_tree(source);
+        let tokens = st.highlight_tokens(0);
 
         // 'let' starts at byte 12 (after "fn foo() {}\n")
         let let_tok = tokens
@@ -432,8 +468,8 @@ mod tests {
     #[test]
     fn comment_on_second_line_has_correct_offset() {
         let source = "let x = 1;\n// comment here";
-        let st = make_tree(source);
-        let tokens = st.highlight_tokens();
+        let mut st = make_tree(source);
+        let tokens = st.highlight_tokens(0);
         let comment = tokens
             .iter()
             .find(|(_, t)| *t == "comment")

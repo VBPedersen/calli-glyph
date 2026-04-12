@@ -172,6 +172,7 @@ impl Display for EditAction {
 #[derive(Debug)]
 pub struct Editor {
     pub editor_content: Vec<String>,
+    pub content_version: u64,   // bumped on every content-changing action
     pub visual_cursor_x: i16,
     pub cursor: Cursor, //to save position in editor, when toggling area
     pub text_selection_start: Option<CursorPosition>,
@@ -190,6 +191,7 @@ impl Editor {
     pub fn new(config: Arc<EditorConfig>) -> Self {
         Self {
             editor_content: vec![],
+            content_version: 0,
             visual_cursor_x: 0,
             text_selection_start: None,
             text_selection_end: None,
@@ -203,18 +205,25 @@ impl Editor {
         }
     }
 
+    /// Bumps the content version
+    fn bump_version(&mut self) {
+        self.content_version = self.content_version.wrapping_add(1);
+    }
+
     ///function to handle input action on editor,
     /// responsible for dispatching action to correct internal method.
     pub fn handle_input_action(&mut self, action: InputAction) -> Result<(), EditorError> {
         match action {
             InputAction::TAB => {
                 self.tab();
+                self.bump_version();
                 Ok(())
             }
             InputAction::ENTER => {
                 self.enter();
                 self.adjust_view_to_cursor();
                 self.reset_text_selection_cursor(); //reset selection, to avoid errors
+                self.bump_version();
                 Ok(())
             }
             InputAction::Editor(editor_action) => match editor_action {
@@ -238,6 +247,7 @@ impl Editor {
                     } else {
                         self.backspace();
                     }
+                    self.bump_version();
                     Ok(())
                 }
                 EditorAction::DELETE => {
@@ -246,6 +256,7 @@ impl Editor {
                     } else {
                         self.delete();
                     }
+                    self.bump_version();
                     Ok(())
                 }
                 EditorAction::COPY => match self.copy() {
@@ -253,19 +264,31 @@ impl Editor {
                     Err(e) => Err(e),
                 },
                 EditorAction::CUT => match self.cut() {
-                    Ok(()) => Ok(()),
+                    Ok(()) => {
+                        self.bump_version();
+                        Ok(())
+                    },
                     Err(e) => Err(e),
                 },
                 EditorAction::PASTE => match self.paste() {
-                    Ok(()) => Ok(()),
+                    Ok(()) => {
+                        self.bump_version();
+                        Ok(())
+                    },
                     Err(e) => Err(e),
                 },
                 EditorAction::UNDO => match self.undo() {
-                    Ok(()) => Ok(()),
+                    Ok(()) => {
+                        self.bump_version();
+                        Ok(())
+                    },
                     Err(e) => Err(e),
                 },
                 EditorAction::REDO => match self.redo() {
-                    Ok(()) => Ok(()),
+                    Ok(()) => {
+                        self.bump_version();
+                        Ok(())
+                    },
                     Err(e) => Err(e),
                 },
                 EditorAction::WriteChar(c) => {
@@ -274,6 +297,7 @@ impl Editor {
                     } else {
                         self.write_char(c)
                     }
+                    self.bump_version();
                     Ok(())
                 }
                 _ => Ok(()),
