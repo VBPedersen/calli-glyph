@@ -72,7 +72,11 @@ impl LanguageManager {
     /// (local_byte_range, Style) pairs that cover that line.
     ///
     /// Called once per render frame, not per line
-    pub fn highlighted_lines(&mut self, lines: &[String],content_version: u64) -> Vec<Vec<(std::ops::Range<usize>, Style)>> {
+    pub fn highlighted_lines(
+        &mut self,
+        lines: &[String],
+        content_version: u64,
+    ) -> Vec<Vec<(std::ops::Range<usize>, Style)>> {
         // If no syntax or theme, return empty vecs so callers get no spans
         let Some(syntax) = &mut self.syntax else {
             return vec![vec![]; lines.len()];
@@ -238,7 +242,7 @@ mod tests {
     fn no_theme_returns_empty_spans_per_line() {
         let mut mgr = make_manager("fn main() {}");
         let lines = vec!["fn main() {}".to_string()];
-        let result = mgr.highlighted_lines(&lines,0);
+        let result = mgr.highlighted_lines(&lines, 0);
         assert_eq!(result.len(), 1);
         assert!(result[0].is_empty(), "no theme means no spans");
     }
@@ -249,7 +253,7 @@ mod tests {
     fn single_line_keyword_produces_span() {
         let mut mgr = make_manager_with_theme("fn main() {}");
         let lines = vec!["fn main() {}".to_string()];
-        let result = mgr.highlighted_lines(&lines,0);
+        let result = mgr.highlighted_lines(&lines, 0);
         assert_eq!(result.len(), 1);
         assert!(
             !result[0].is_empty(),
@@ -269,7 +273,7 @@ mod tests {
         let source = "fn main() {\n    let s = \"hello\";\n}";
         let lines: Vec<String> = source.lines().map(String::from).collect();
         let mut mgr = make_manager_with_theme(source);
-        let result = mgr.highlighted_lines(&lines,0);
+        let result = mgr.highlighted_lines(&lines, 0);
 
         // String is on line index 1
         assert!(
@@ -290,7 +294,7 @@ mod tests {
         let source = "// top comment\nlet x = 1;";
         let lines: Vec<String> = source.lines().map(String::from).collect();
         let mut mgr = make_manager_with_theme(source);
-        let result = mgr.highlighted_lines(&lines,0);
+        let result = mgr.highlighted_lines(&lines, 0);
 
         assert_eq!(result.len(), 2);
         assert!(
@@ -305,7 +309,7 @@ mod tests {
         let source = "fn foo() {}\nlet x = 1;";
         let lines: Vec<String> = source.lines().map(String::from).collect();
         let mut mgr = make_manager_with_theme(source);
-        let result = mgr.highlighted_lines(&lines,0);
+        let result = mgr.highlighted_lines(&lines, 0);
 
         // All spans on line 0 must have local byte offsets within line 0's length
         let line0_len = lines[0].len();
@@ -333,7 +337,7 @@ mod tests {
     fn empty_source_returns_one_empty_line_bucket() {
         let mut mgr = make_manager_with_theme("");
         let lines = vec!["".to_string()];
-        let result = mgr.highlighted_lines(&lines,0);
+        let result = mgr.highlighted_lines(&lines, 0);
         assert_eq!(result.len(), 1);
         assert!(result[0].is_empty());
     }
@@ -343,7 +347,7 @@ mod tests {
         let source = "fn a() {}\nfn b() {}\nfn c() {}";
         let lines: Vec<String> = source.lines().map(String::from).collect();
         let mut mgr = make_manager_with_theme(source);
-        let result = mgr.highlighted_lines(&lines,0);
+        let result = mgr.highlighted_lines(&lines, 0);
         assert_eq!(result.len(), lines.len());
     }
 
@@ -352,7 +356,7 @@ mod tests {
         let source = "pub fn main() {\n    let x = 42;\n    // done\n}";
         let lines: Vec<String> = source.lines().map(String::from).collect();
         let mut mgr = make_manager_with_theme(source);
-        let result = mgr.highlighted_lines(&lines,0);
+        let result = mgr.highlighted_lines(&lines, 0);
 
         for (line_idx, spans) in result.iter().enumerate() {
             let line_len = lines[line_idx].len();
@@ -379,7 +383,7 @@ mod tests {
         let source = "let a = 0;\nlet b = 99;";
         let lines: Vec<String> = source.lines().map(String::from).collect();
         let mut mgr = make_manager_with_theme(source);
-        let result = mgr.highlighted_lines(&lines,0);
+        let result = mgr.highlighted_lines(&lines, 0);
 
         // '99' is only on line 1
         let has_number_line1 = result[1].iter().any(|(_, _)| true);

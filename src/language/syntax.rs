@@ -417,7 +417,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn update_doesnt_replace_old_tree_but_gets_from_last_cached() {
         let mut st = make_tree("let x = 1;");

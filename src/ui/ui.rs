@@ -111,8 +111,9 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
         app.language.update_source(&full_source);
     }
 
-    let syntax_highlights: Vec<Vec<(std::ops::Range<usize>, Style)>> =
-        app.language.highlighted_lines(&app.editor.editor_content, app.editor.content_version);
+    let syntax_highlights: Vec<Vec<(std::ops::Range<usize>, Style)>> = app
+        .language
+        .highlighted_lines(&app.editor.editor_content, app.editor.content_version);
 
     let editor_content: Text = handle_editor_content(
         app.editor.editor_content.clone(),

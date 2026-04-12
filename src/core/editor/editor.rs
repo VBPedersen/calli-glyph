@@ -172,7 +172,7 @@ impl Display for EditAction {
 #[derive(Debug)]
 pub struct Editor {
     pub editor_content: Vec<String>,
-    pub content_version: u64,   // bumped on every content-changing action
+    pub content_version: u64, // bumped on every content-changing action
     pub visual_cursor_x: i16,
     pub cursor: Cursor, //to save position in editor, when toggling area
     pub text_selection_start: Option<CursorPosition>,
@@ -267,28 +267,28 @@ impl Editor {
                     Ok(()) => {
                         self.bump_version();
                         Ok(())
-                    },
+                    }
                     Err(e) => Err(e),
                 },
                 EditorAction::PASTE => match self.paste() {
                     Ok(()) => {
                         self.bump_version();
                         Ok(())
-                    },
+                    }
                     Err(e) => Err(e),
                 },
                 EditorAction::UNDO => match self.undo() {
                     Ok(()) => {
                         self.bump_version();
                         Ok(())
-                    },
+                    }
                     Err(e) => Err(e),
                 },
                 EditorAction::REDO => match self.redo() {
                     Ok(()) => {
                         self.bump_version();
                         Ok(())
-                    },
+                    }
                     Err(e) => Err(e),
                 },
                 EditorAction::WriteChar(c) => {
