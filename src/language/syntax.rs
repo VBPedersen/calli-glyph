@@ -1,5 +1,6 @@
 //! the tree-sitter wrapper
 
+use std::collections::{HashMap, HashSet};
 use tree_sitter::{Language, Node, Parser, Tree};
 
 pub struct SyntaxTree {
@@ -8,17 +9,19 @@ pub struct SyntaxTree {
     /// The last source string fed to the parser.
     /// Stored so highlight_tokens can resolve byte ranges back to text.
     pub source: String,
+    config: Option<LangConfig>, // None = no highlighting rules loaded
 }
 
 impl SyntaxTree {
     /// Creates a new syntax tree based on selected language
-    pub fn new(language: Language) -> SyntaxTree {
+    pub fn new(language: Language, config: Option<LangConfig>) -> SyntaxTree {
         let mut parser = Parser::new();
         parser.set_language(&language).unwrap();
         Self {
             parser,
             tree: None,
             source: String::new(),
+            config,
         }
     }
 
@@ -35,7 +38,11 @@ impl SyntaxTree {
         }
         // Whether to use the old tree if edit was made, or pass None when no edit was made
         // Passing old tree means incremental change, Passing None means full re-parse of file needed
-        let tree_to_reuse = if edit.is_some() { old_tree.as_ref() } else { None };
+        let tree_to_reuse = if edit.is_some() {
+            old_tree.as_ref()
+        } else {
+            None
+        };
 
         self.tree = self.parser.parse(new_source, tree_to_reuse);
         self.source = new_source.to_string();
@@ -47,8 +54,11 @@ impl SyntaxTree {
         let Some(tree) = &self.tree else {
             return vec![];
         };
+        let Some(config) = &self.config else {
+            return vec![]; // no config = no highlights, same as no theme
+        };
         let mut tokens = Vec::new();
-        Self::walk_node(tree.root_node(), &self.source, &mut tokens);
+        Self::walk_node(tree.root_node(), config, &mut tokens);
         log_trace!("Tokens Highlighted: {:?}", tokens);
         tokens
     }
@@ -57,66 +67,36 @@ impl SyntaxTree {
     /// by recursively calling itself with child as new base node
     fn walk_node<'a>(
         node: Node,
-        source: &str,
+        config: &LangConfig,
         out: &mut Vec<(std::ops::Range<usize>, &'static str)>,
     ) {
-        // Map tree-sitter node kinds to semantic token types
-        match node.kind() {
-            // Strings
-            "string_literal" | "raw_string_literal" => {
-                out.push((node.byte_range(), "string"));
-                return; // do NOT recurse, avoids double-highlighting the content
-            }
-            // Numbers
-            "integer_literal" | "float_literal" => {
-                out.push((node.byte_range(), "number"));
-                // These are leaves (child_count == 0), fall through to no recursion
-            }
-            // Comments
-            // line_comment has a "//" child — treat the whole node as one token.
-            "line_comment" | "block_comment" => {
-                out.push((node.byte_range(), "comment"));
-                return;
-            }
-            // Booleans
-            // boolean_literal wraps "true"/"false" child — highlight the whole node
-            "boolean_literal" => {
-                out.push((node.byte_range(), "keyword"));
-                return;
-            }
-            // Function names
-            // The identifier directly inside a function_item is the function name.
-            "identifier"
+        let kind = node.kind();
+
+        // Check parent rules first (e.g. identifier inside function_item)
+        for rule in &config.parent_rules {
+            if kind == rule.node_kind {
                 if node
                     .parent()
-                    .map(|p| p.kind() == "function_item")
-                    .unwrap_or(false) =>
-            {
-                out.push((node.byte_range(), "function"));
+                    .map(|p| p.kind() == rule.parent_kind)
+                    .unwrap_or(false)
+                {
+                    out.push((node.byte_range(), rule.token_type));
+                    // fall through to still recurse unless it's in stop_at
+                }
             }
-            // types
-            "type_identifier" | "primitive_type" => {
-                out.push((node.byte_range(), "type"));
+        }
+
+        if let Some(&token_type) = config.node_kind_map.get(kind) {
+            out.push((node.byte_range(), token_type));
+            if config.stop_at.contains(kind) {
+                return; // don't recurse
             }
-            // keywords, these are anonumours leafs in tree-sitter-rust
-            // These are the actual keyword tokens tree-sitter-rust produces.
-            // visibility_modifier contains "pub" as a child. matched here
-            // when it is reached during recursion.
-            // TODO needs better way to handle while keeping language agnostic
-            "fn" | "let" | "const" | "static" | "mut" | "pub" | "use" | "mod" | "struct"
-            | "enum" | "impl" | "trait" | "type" | "where" | "return" | "if" | "else" | "match"
-            | "for" | "while" | "loop" | "break" | "continue" | "in" | "as" | "ref" | "move"
-            | "self" | "super" | "crate" | "extern" | "unsafe" | "async" | "await" | "dyn" => {
-                out.push((node.byte_range(), "keyword"));
-                // These are leaves, no children to recurse into
-            }
-            _ => {}
-        };
+        }
 
         // Recurse into children for all other nodes
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            Self::walk_node(child, source, out);
+            Self::walk_node(child, config, out);
         }
     }
 
@@ -137,6 +117,26 @@ impl SyntaxTree {
     }
 }
 
+pub struct LangConfig {
+    /// node kinds that map directly to a semantic token type
+    /// e.g. ("string_literal", "string"), ("integer_literal", "number")
+    pub node_kind_map: HashMap<&'static str, &'static str>,
+
+    /// node kinds that should be highlighted but whose children should NOT be walked
+    /// (avoids double-highlighting). Subset of node_kind_map.
+    pub stop_at: HashSet<&'static str>,
+
+    /// If the node kind equals this, the parent kind is checked to decide the token type.
+    /// e.g. in Rust, an "identifier" whose parent is "function_item" -> "function"
+    pub parent_rules: Vec<ParentRule>,
+}
+
+pub struct ParentRule {
+    pub node_kind: &'static str,
+    pub parent_kind: &'static str,
+    pub token_type: &'static str,
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // Tests
 // ────────────────────────────────────────────────────────────────────────────
@@ -144,10 +144,11 @@ impl SyntaxTree {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::language::lang_configs::rust::rust_config;
 
     fn make_tree(source: &str) -> SyntaxTree {
         let lang: Language = tree_sitter_rust::LANGUAGE.into();
-        let mut st = SyntaxTree::new(lang);
+        let mut st = SyntaxTree::new(lang, Some(rust_config()));
         st.update(source, None);
         st
     }
@@ -324,7 +325,7 @@ mod tests {
     #[test]
     fn no_update_returns_no_tokens() {
         let lang: Language = tree_sitter_rust::LANGUAGE.into();
-        let st = SyntaxTree::new(lang); // never call update()
+        let st = SyntaxTree::new(lang, Some(rust_config())); // never call update()
         assert!(
             st.highlight_tokens().is_empty(),
             "tree is None, should return empty"

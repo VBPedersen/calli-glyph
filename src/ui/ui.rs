@@ -97,12 +97,30 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
 
     app.editor.editor_width = content_area.width as i16;
 
+    // Feed the current buffer to the language manager so the syntax tree is
+    // up-to-date, then compute all highlight tokens in a single tree walk.
+    if app.content_modified
+        || app
+            .language
+            .syntax
+            .as_ref()
+            .map(|s| s.source.is_empty())
+            .unwrap_or(false)
+    {
+        let full_source = app.editor.editor_content.join("\n");
+        app.language.update_source(&full_source);
+    }
+
+    let syntax_highlights: Vec<Vec<(std::ops::Range<usize>, Style)>> =
+        app.language.highlighted_lines(&app.editor.editor_content);
+
     let editor_content: Text = handle_editor_content(
         app.editor.editor_content.clone(),
         app.editor.text_selection_start,
         app.editor.text_selection_end,
         content_area.width as usize,
         app,
+        &syntax_highlights,
     );
 
     let command_input: String = app.command_line.input.to_string();
@@ -401,6 +419,7 @@ fn handle_editor_content<'a>(
     selection_end: Option<CursorPosition>,
     editor_width: usize,
     app: &mut App,
+    syntax_highlights: &[Vec<(std::ops::Range<usize>, Style)>],
 ) -> Text<'a> {
     let editor_vec: Vec<String> = vec
         .into_iter()
@@ -418,6 +437,7 @@ fn handle_editor_content<'a>(
     let mut editor_text: Text = Text::default();
 
     if selection_start.is_some() {
+        // Selection active, skip syntax higlight, selection takes priority
         editor_text = highlight_text(editor_vec.clone(), selection_start, selection_end);
     } else {
         for (i, s) in editor_vec.into_iter().enumerate() {
@@ -426,15 +446,28 @@ fn handle_editor_content<'a>(
             // Line wrapping and horizontal scroll
             let line: Line = if app.config.editor.wrap_lines {
                 // Simple wrap TODO make actual wrapping solution that is intelligent
-                Line::from(s)
+                let spans = syntax_highlights.get(i);
+                match spans {
+                    Some(token_spans) if !token_spans.is_empty() => {
+                        Line::from(build_highlighted_spans(&s, token_spans))
+                    }
+                    _ => Line::from(s),
+                }
             } else if i == app.editor.cursor.y as usize && visual_x > editor_width as i16 {
-                // Horizontal scroll for current line
+                // Horizontal scroll for current line, no syntax highlight on scrolled line (TODO maybe)
                 let start_idx = (visual_x - editor_width as i16).max(0) as usize;
                 Line::from(
                     get_copy_of_editor_content_at_line_between_cursor_editor_width(s, start_idx),
                 )
             } else {
-                Line::from(s)
+                // Normal line, apply syntax highlighting if available
+                let spans = syntax_highlights.get(i);
+                match spans {
+                    Some(token_spans) if !token_spans.is_empty() => {
+                        Line::from(build_highlighted_spans(&s, token_spans))
+                    }
+                    _ => Line::from(s),
+                }
             };
 
             editor_text.push_line(line);
@@ -534,4 +567,51 @@ fn highlight_text<'a>(
     }
 
     Text::from(highlighted_lines)
+}
+
+/// Given a display line and its pre-computed (local_byte_range, Style) pairs,
+/// build a Vec of Spans that covers the entire line — unstyled text fills the
+/// gaps between tokens.
+///
+/// Preconditions (guaranteed by LanguageManager::highlighted_lines):
+///   - ranges are within 0..line.len()
+///   - start < end for every range
+///   - ranges are sorted by start (tree-sitter walk is left-to-right)
+fn build_highlighted_spans<'a>(
+    line: &str,
+    token_spans: &[(std::ops::Range<usize>, Style)],
+) -> Vec<Span<'a>> {
+    let mut spans: Vec<Span<'a>> = Vec::new();
+    let mut cursor = 0usize;
+
+    for (range, style) in token_spans {
+        let start = range.start.min(line.len());
+        let end = range.end.min(line.len());
+
+        if start > cursor {
+            // Gap before this token = plain unstyled text
+            spans.push(Span::raw(line[cursor..start].to_string()));
+        }
+
+        if start < end {
+            spans.push(Span::styled(line[start..end].to_string(), *style));
+        }
+
+        if end > cursor {
+            cursor = end;
+        }
+    }
+
+    // Trailing unstyled text after the last token
+    if cursor < line.len() {
+        spans.push(Span::raw(line[cursor..].to_string()));
+    }
+
+    // If nothing was produced,
+    // fall back to a single raw span so the line is never blank.
+    if spans.is_empty() {
+        spans.push(Span::raw(line.to_string()));
+    }
+
+    spans
 }

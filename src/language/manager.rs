@@ -1,3 +1,6 @@
+use crate::language::lang_configs::javascript_config::javascript_config;
+use crate::language::lang_configs::python::python_config;
+use crate::language::lang_configs::rust::rust_config;
 use crate::language::syntax::SyntaxTree;
 use crate::language::theme::Theme;
 use ratatui::style::Style;
@@ -25,27 +28,31 @@ impl LanguageManager {
     /// TODO use FALLBACK THEME if none provided
     pub fn activate_for_file(&mut self, path: &Path, theme: Option<Theme>) {
         let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-        let (lang, lang_id) = match ext {
+        let (lang, lang_config, lang_id) = match ext {
             "rs" => (
                 Some(tree_sitter::Language::from(tree_sitter_rust::LANGUAGE)),
+                Some(rust_config()),
                 Some("rust"),
             ),
             "py" => (
                 Some(tree_sitter::Language::from(tree_sitter_python::LANGUAGE)),
+                Some(python_config()),
                 Some("python"),
             ),
             "js" | "ts" => (
                 Some(tree_sitter::Language::from(
                     tree_sitter_javascript::LANGUAGE,
                 )),
+                Some(javascript_config()),
                 Some("javascript"),
             ),
-            _ => (None, None),
+            _ => (None, None, None),
         };
 
         self.language_id = lang_id.map(String::from);
-        self.syntax = lang.map(SyntaxTree::new);
+        self.syntax = lang.map(|l| SyntaxTree::new(l, lang_config));
         self.theme = theme;
+        log_info!("Language manager activated, with language : {:?}", lang_id);
     }
 
     /// Feed the current buffer contents to the parser.

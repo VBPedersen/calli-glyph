@@ -26,3 +26,5 @@ pub mod syntax;
 pub mod theme;
 // pub mod lsp;
 pub mod manager;
+
+pub mod lang_configs;
