@@ -9,6 +9,7 @@ use crate::errors::error::AppError::EditorFailure;
 use crate::errors::plugin_error::PluginError;
 use crate::input::actions::InputAction;
 use crate::input::input::handle_input;
+use crate::language::lsp::LspMessage;
 use crate::language::manager::LanguageManager;
 use crate::language::theme::Theme;
 use crate::plugins::plugin_registry::{Plugin, PluginManager};
@@ -29,7 +30,6 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use crate::language::lsp::LspMessage;
 
 pub struct App {
     /// Is the application running?
@@ -300,7 +300,9 @@ impl App {
                 if let LspMessage::Initialized = event {
                     // Since server is ready, send the initial buffer
                     let full_text = self.editor.editor_content.join("\n");
-                    if let (Some(uri), Some(lang_id)) = (&self.language.current_uri, &self.language.language_id) {
+                    if let (Some(uri), Some(lang_id)) =
+                        (&self.language.current_uri, &self.language.language_id)
+                    {
                         if let Some(lsp) = &mut self.language.lsp {
                             let _ = lsp.notify_did_open(uri, lang_id, &full_text);
                         }

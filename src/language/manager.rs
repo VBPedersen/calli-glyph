@@ -39,12 +39,7 @@ impl LanguageManager {
     /// Actives the tree-sitter according to file type.
     /// Called when a file is opened or language config changes.
     /// TODO use FALLBACK THEME if none provided
-    pub fn activate_for_file(
-        &mut self,
-        path: &Path,
-        theme: Option<Theme>,
-        lsp_config: &LspConfig,
-    ) {
+    pub fn activate_for_file(&mut self, path: &Path, theme: Option<Theme>, lsp_config: &LspConfig) {
         let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
         let (lang, lang_config, lang_id) = match ext {
             "rs" => (
@@ -86,11 +81,7 @@ impl LanguageManager {
             if let Some((server_name, server_cfg)) = lsp_config.server_for_extension(ext) {
                 let workspace_root = Self::find_project_root(path);
 
-                match LspClient::start(
-                    server_name.to_string(),
-                    server_cfg,
-                    workspace_root,
-                ) {
+                match LspClient::start(server_name.to_string(), server_cfg, workspace_root) {
                     Ok(client) => {
                         self.lsp = Some(client);
                         log_info!(
@@ -304,7 +295,8 @@ impl LanguageManager {
             // Look for common root markers
             if current.join(".git").exists()
                 || current.join(".hg").exists()
-                || current.join(".svn").exists() {
+                || current.join(".svn").exists()
+            {
                 return Some(current);
             }
         }
@@ -321,8 +313,8 @@ impl LanguageManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
     use std::fs;
+    use tempfile::tempdir;
 
     fn make_manager(source: &str) -> LanguageManager {
         let mut mgr = LanguageManager::new();
@@ -600,12 +592,15 @@ mod tests {
         let root = LanguageManager::find_project_root(&file_path).expect("Should find a root");
 
         // Canonicalize both to ensure identical formatting (fixes Windows prefix issues)
-        let expected = project.canonicalize().expect("Failed to canonicalize project path");
-        let actual = root.canonicalize().expect("Failed to canonicalize found root");
+        let expected = project
+            .canonicalize()
+            .expect("Failed to canonicalize project path");
+        let actual = root
+            .canonicalize()
+            .expect("Failed to canonicalize found root");
 
         assert_eq!(actual, expected);
     }
-
 
     #[test]
     fn test_find_project_root_fallback() {

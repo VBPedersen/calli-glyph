@@ -3,6 +3,7 @@
 // ------------------------------
 
 use crate::config::lsp::LspServerConfig;
+use crate::language::lsp::path_to_uri;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
@@ -10,7 +11,6 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
-use crate::language::lsp::path_to_uri;
 
 /// A diagnostic reported by the server for a specific position in a file.
 /// Based on https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#diagnostic
@@ -723,7 +723,6 @@ impl LspClient {
             }
         }
     }
-
 }
 
 #[cfg(test)]
@@ -781,10 +780,22 @@ mod tests {
 
     #[test]
     fn test_parse_diagnostic_severity() {
-        assert_eq!(DiagnosticSeverity::from_lsp_int(1), DiagnosticSeverity::Error);
-        assert_eq!(DiagnosticSeverity::from_lsp_int(2), DiagnosticSeverity::Warning);
-        assert_eq!(DiagnosticSeverity::from_lsp_int(4), DiagnosticSeverity::Hint);
-        assert_eq!(DiagnosticSeverity::from_lsp_int(99), DiagnosticSeverity::Hint); // Default case
+        assert_eq!(
+            DiagnosticSeverity::from_lsp_int(1),
+            DiagnosticSeverity::Error
+        );
+        assert_eq!(
+            DiagnosticSeverity::from_lsp_int(2),
+            DiagnosticSeverity::Warning
+        );
+        assert_eq!(
+            DiagnosticSeverity::from_lsp_int(4),
+            DiagnosticSeverity::Hint
+        );
+        assert_eq!(
+            DiagnosticSeverity::from_lsp_int(99),
+            DiagnosticSeverity::Hint
+        ); // Default case
     }
 
     #[test]
@@ -820,7 +831,7 @@ mod tests {
         assert_eq!(items[0].label, "test_func");
         // Check if our enum conversion works (3 -> Function)
         match items[0].kind {
-            CompletionKind::Function => {},
+            CompletionKind::Function => {}
             _ => panic!("Expected Function kind"),
         }
     }
