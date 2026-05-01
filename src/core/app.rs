@@ -29,6 +29,7 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use crate::language::lsp::LspMessage;
 
 pub struct App {
     /// Is the application running?
@@ -292,14 +293,25 @@ impl App {
                 needs_redraw = true; // Redraw on blink
             }
 
+            // Poll LSP every loop iteration for responsiveness
+            let lsp_events = self.language.poll_lsp();
+            for event in lsp_events {
+                log_info!("LSP event: {:?}", event);
+                if let LspMessage::Initialized = event {
+                    // Since server is ready, send the initial buffer
+                    let full_text = self.editor.editor_content.join("\n");
+                    if let (Some(uri), Some(lang_id)) = (&self.language.current_uri, &self.language.language_id) {
+                        if let Some(lsp) = &mut self.language.lsp {
+                            let _ = lsp.notify_did_open(uri, lang_id, &full_text);
+                        }
+                    }
+                }
+            }
+
             // Handle periodic tick (for debug metrics, & lsp)
             if last_tick.elapsed() >= tick_rate {
                 if self.debug_state.enabled {
                     self.debug_state.tick_frame();
-                }
-                if self.language.lsp_ready() {
-                    log_info!("polling lsp");
-                    let _lsp_events = self.language.poll_lsp();
                 }
 
                 last_tick = Instant::now();
@@ -360,11 +372,10 @@ impl App {
                 // Load the theme from the root themes directory,
                 // TODO for now uses dark theme, later should load from current theme from thememanager
                 let theme = Theme::load_from_file("themes/dark.toml").ok();
-                let initial_content = self.editor.editor_content.join("\n");
 
                 // Activate the language manager
                 self.language
-                    .activate_for_file(path, theme, &self.config.lsp, &initial_content);
+                    .activate_for_file(path, theme, &self.config.lsp);
             }
         }
     }

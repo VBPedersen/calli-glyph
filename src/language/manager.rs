@@ -9,7 +9,7 @@ use crate::language::lsp::{
 use crate::language::syntax::SyntaxTree;
 use crate::language::theme::Theme;
 use ratatui::style::Style;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub struct LanguageManager {
     pub syntax: Option<SyntaxTree>,
@@ -44,7 +44,6 @@ impl LanguageManager {
         path: &Path,
         theme: Option<Theme>,
         lsp_config: &LspConfig,
-        initial_content: &str,
     ) {
         let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
         let (lang, lang_config, lang_id) = match ext {
@@ -85,16 +84,14 @@ impl LanguageManager {
         // Start LSP server if configured for this extension
         if lsp_config.enabled {
             if let Some((server_name, server_cfg)) = lsp_config.server_for_extension(ext) {
-                let workspace_root = path.parent().and_then(|p| p.to_str()).map(String::from);
+                let workspace_root = Self::find_project_root(path);
 
                 match LspClient::start(
                     server_name.to_string(),
                     server_cfg,
-                    workspace_root.as_deref(),
+                    workspace_root,
                 ) {
-                    Ok(mut client) => {
-                        let language_id_str = lsp::extension_to_language_id(ext).to_string();
-                        let _ = client.notify_did_open(&uri, &language_id_str, initial_content);
+                    Ok(client) => {
                         self.lsp = Some(client);
                         log_info!(
                             "[LSP] Started '{}' for .{}, with command name to run: {}",
@@ -268,7 +265,7 @@ impl LanguageManager {
                 }
             }
         }
-        log_trace!("LSP events: {:?}", events);
+        // log_trace!("LSP events: {:?}", events);
         events
     }
 
@@ -295,6 +292,26 @@ impl LanguageManager {
             },
         }
     }
+
+    // -------------------
+    // Helpers
+    // -------------------
+    fn find_project_root(start_path: &Path) -> Option<PathBuf> {
+        let mut current = start_path.to_path_buf();
+
+        // Iterate through parent directories
+        while current.pop() {
+            // Look for common root markers
+            if current.join(".git").exists()
+                || current.join(".hg").exists()
+                || current.join(".svn").exists() {
+                return Some(current);
+            }
+        }
+
+        // Fallback: use the folder the file is in if no VCS is found
+        start_path.parent().map(|p| p.to_path_buf())
+    }
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -304,11 +321,13 @@ impl LanguageManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::tempdir;
+    use std::fs;
 
     fn make_manager(source: &str) -> LanguageManager {
         let mut mgr = LanguageManager::new();
         // Activate for a .rs file with no theme (we test styling separately)
-        mgr.activate_for_file(Path::new("test.rs"), None);
+        mgr.activate_for_file(Path::new("test.rs"), None, &LspConfig::default());
         mgr.update_source(source);
         mgr
     }
@@ -359,7 +378,7 @@ mod tests {
             },
         };
         let mut mgr = LanguageManager::new();
-        mgr.activate_for_file(Path::new("test.rs"), Some(theme));
+        mgr.activate_for_file(Path::new("test.rs"), Some(theme), &LspConfig::default());
         mgr.update_source(source);
         mgr
     }
@@ -369,21 +388,21 @@ mod tests {
     #[test]
     fn activate_sets_language_id_for_rust() {
         let mut mgr = LanguageManager::new();
-        mgr.activate_for_file(Path::new("main.rs"), None);
+        mgr.activate_for_file(Path::new("main.rs"), None, &LspConfig::default());
         assert_eq!(mgr.language_id.as_deref(), Some("rust"));
     }
 
     #[test]
     fn activate_sets_language_id_for_python() {
         let mut mgr = LanguageManager::new();
-        mgr.activate_for_file(Path::new("script.py"), None);
+        mgr.activate_for_file(Path::new("script.py"), None, &LspConfig::default());
         assert_eq!(mgr.language_id.as_deref(), Some("python"));
     }
 
     #[test]
     fn activate_unknown_extension_clears_syntax() {
         let mut mgr = LanguageManager::new();
-        mgr.activate_for_file(Path::new("file.xyz"), None);
+        mgr.activate_for_file(Path::new("file.xyz"), None, &LspConfig::default());
         assert!(mgr.syntax.is_none());
         assert!(mgr.language_id.is_none());
     }
@@ -399,7 +418,7 @@ mod tests {
     #[test]
     fn update_source_stores_source_in_syntax() {
         let mut mgr = LanguageManager::new();
-        mgr.activate_for_file(Path::new("a.rs"), None);
+        mgr.activate_for_file(Path::new("a.rs"), None, &LspConfig::default());
         mgr.update_source("let x = 1;");
         assert_eq!(mgr.syntax.as_ref().unwrap().source, "let x = 1;");
     }
@@ -564,6 +583,59 @@ mod tests {
         assert!(
             number_span.is_some(),
             "should find span exactly covering '99' on line 1"
+        );
+    }
+
+    #[test]
+    fn test_find_project_root_with_git() {
+        let dir = tempdir().unwrap();
+        let project = dir.path().join("my_project");
+        let src = project.join("src");
+        fs::create_dir_all(&src).unwrap();
+
+        // Create a dummy .git folder
+        fs::create_dir(project.join(".git")).unwrap();
+
+        let file_path = src.join("main.rs");
+        let root = LanguageManager::find_project_root(&file_path).expect("Should find a root");
+
+        // Canonicalize both to ensure identical formatting (fixes Windows prefix issues)
+        let expected = project.canonicalize().expect("Failed to canonicalize project path");
+        let actual = root.canonicalize().expect("Failed to canonicalize found root");
+
+        assert_eq!(actual, expected);
+    }
+
+
+    #[test]
+    fn test_find_project_root_fallback() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("standalone.rs");
+
+        // No .git folder exists
+        let root = LanguageManager::find_project_root(&file_path);
+
+        // Should fallback to the parent directory
+        assert_eq!(root.unwrap(), dir.path());
+    }
+
+    #[test]
+    fn test_find_project_root_logic() {
+        let tmp = tempdir().unwrap();
+        let root = tmp.path().join("project");
+        let src = root.join("src");
+        fs::create_dir_all(&src).unwrap();
+
+        // Create agnostic marker (.git)
+        fs::create_dir(root.join(".git")).unwrap();
+
+        let file = src.join("main.rs");
+        let discovered = LanguageManager::find_project_root(&file).unwrap();
+
+        // Canonicalize to handle Windows path prefix variations (\\?\ vs C:\)
+        assert_eq!(
+            discovered.canonicalize().unwrap(),
+            root.canonicalize().unwrap()
         );
     }
 }

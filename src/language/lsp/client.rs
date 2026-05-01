@@ -6,9 +6,11 @@ use crate::config::lsp::LspServerConfig;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
+use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
+use crate::language::lsp::path_to_uri;
 
 /// A diagnostic reported by the server for a specific position in a file.
 /// Based on https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#diagnostic
@@ -214,7 +216,7 @@ impl LspClient {
     pub fn start(
         server_name: String,
         config: &LspServerConfig,
-        workspace_root: Option<&str>,
+        workspace_root: Option<PathBuf>,
     ) -> Result<Self, String> {
         let mut child = Command::new(&config.command)
             .args(&config.args)
@@ -289,7 +291,7 @@ impl LspClient {
         };
 
         let root_uri = workspace_root
-            .map(|r| format!("file://{}", r))
+            .map(|p| path_to_uri(&p))
             .unwrap_or_else(|| "file:///".to_string());
 
         let mut client = Self {
@@ -696,5 +698,159 @@ impl LspClient {
         });
 
         Some(HoverResult { contents, range })
+    }
+
+    /// Converts a [Path] to uri string
+    fn path_to_uri(path: &Path) -> String {
+        let path_str = path.to_string_lossy();
+
+        // Convert Windows backslashes to forward slashes
+        let normalized = path_str.replace('\\', "/");
+
+        if cfg!(windows) {
+            // Windows needs: file:///C:/path/to/repo
+            if normalized.starts_with('/') {
+                format!("file://{}", normalized)
+            } else {
+                format!("file:///{}", normalized)
+            }
+        } else {
+            // Unix needs: file:///home/user/path/to/repo
+            if normalized.starts_with('/') {
+                format!("file://{}", normalized)
+            } else {
+                format!("file:///{}", normalized)
+            }
+        }
+    }
+
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    // A helper to create a "skeleton" client for testing parsing logic
+    fn mock_client() -> LspClient {
+        let (tx, rx) = channel();
+        let (_child_tx, child_rx): (Sender<()>, Receiver<()>) = channel();
+
+        // We use a dummy command that does nothing to satisfy the type system
+        let mut child = Command::new("echo")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap();
+
+        LspClient {
+            server_name: "mock".to_string(),
+            state: ConnectionState::Ready,
+            stdin: child.stdin.take().unwrap(),
+            incoming: rx,
+            _child: child,
+            next_id: 1,
+            pending: HashMap::new(),
+            diagnostics: HashMap::new(),
+            completions: Vec::new(),
+            hover: None,
+            completion_request_id: None,
+            hover_request_id: None,
+            doc_version: 0,
+        }
+    }
+
+    #[test]
+    fn test_path_to_uri_cross_platform() {
+        // Test Unix-style
+        let unix_path = Path::new("/home/user/project/main.rs");
+        let uri = LspClient::path_to_uri(unix_path);
+        assert!(uri.starts_with("file:///"));
+        assert!(uri.contains("home/user/project/main.rs"));
+
+        // Test Windows-style (even if running on Linux, replace check simulates it)
+        let win_path = "C:\\Users\\Admin\\project\\main.rs";
+        let normalized = win_path.replace('\\', "/");
+        let uri = if normalized.starts_with('/') {
+            format!("file://{}", normalized)
+        } else {
+            format!("file:///{}", normalized)
+        };
+        assert!(uri.contains("file:///C:/Users/Admin/project/main.rs"));
+    }
+
+    #[test]
+    fn test_parse_diagnostic_severity() {
+        assert_eq!(DiagnosticSeverity::from_lsp_int(1), DiagnosticSeverity::Error);
+        assert_eq!(DiagnosticSeverity::from_lsp_int(2), DiagnosticSeverity::Warning);
+        assert_eq!(DiagnosticSeverity::from_lsp_int(4), DiagnosticSeverity::Hint);
+        assert_eq!(DiagnosticSeverity::from_lsp_int(99), DiagnosticSeverity::Hint); // Default case
+    }
+
+    #[test]
+    fn test_parse_hover_response_variations() {
+        let client = mock_client();
+
+        // Test string content
+        let val = json!({ "contents": "hello hover" });
+        let res = client.parse_hover_response(&val).unwrap();
+        assert_eq!(res.contents, "hello hover");
+
+        // Test MarkupContent (object with value)
+        let val = json!({ "contents": { "kind": "markdown", "value": "## Header" } });
+        let res = client.parse_hover_response(&val).unwrap();
+        assert_eq!(res.contents, "## Header");
+
+        // Test Null
+        let res = client.parse_hover_response(&json!(null));
+        assert!(res.is_none());
+    }
+
+    #[test]
+    fn test_parse_completion_response() {
+        let client = mock_client();
+        let result = json!({
+            "items": [
+                { "label": "test_func", "kind": 3, "detail": "fn()" }
+            ]
+        });
+
+        let items = client.parse_completion_response(&result);
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].label, "test_func");
+        // Check if our enum conversion works (3 -> Function)
+        match items[0].kind {
+            CompletionKind::Function => {},
+            _ => panic!("Expected Function kind"),
+        }
+    }
+
+    #[test]
+    fn test_handle_diagnostics_parsing() {
+        let mut client = mock_client();
+        let msg = json!({
+            "params": {
+                "uri": "file:///test.rs",
+                "diagnostics": [
+                    {
+                        "range": {
+                            "start": { "line": 10, "character": 5 },
+                            "end": { "line": 10, "character": 10 }
+                        },
+                        "severity": 1,
+                        "message": "Syntax Error"
+                    }
+                ]
+            }
+        });
+
+        let event = client.handle_diagnostics(&msg).unwrap();
+        if let LspMessage::Diagnostics { uri, diagnostics } = event {
+            assert_eq!(uri, "file:///test.rs");
+            assert_eq!(diagnostics[0].line, 10);
+            assert_eq!(diagnostics[0].severity, DiagnosticSeverity::Error);
+        } else {
+            panic!("Wrong message type");
+        }
     }
 }
