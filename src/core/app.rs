@@ -292,11 +292,16 @@ impl App {
                 needs_redraw = true; // Redraw on blink
             }
 
-            // Handle periodic tick (for debug metrics)
+            // Handle periodic tick (for debug metrics, & lsp)
             if last_tick.elapsed() >= tick_rate {
                 if self.debug_state.enabled {
                     self.debug_state.tick_frame();
                 }
+                if self.language.lsp_ready() {
+                    log_info!("polling lsp");
+                    let _lsp_events = self.language.poll_lsp();
+                }
+
                 last_tick = Instant::now();
             }
         }
@@ -355,9 +360,10 @@ impl App {
                 // Load the theme from the root themes directory,
                 // TODO for now uses dark theme, later should load from current theme from thememanager
                 let theme = Theme::load_from_file("themes/dark.toml").ok();
+                let initial_content = self.editor.editor_content.join("\n");
 
                 // Activate the language manager
-                self.language.activate_for_file(path, theme);
+                self.language.activate_for_file(path, theme, &self.config.lsp, &initial_content);
             }
         }
     }
@@ -381,6 +387,14 @@ impl App {
 
                 // else is successful, so set content modified true
                 self.content_modified = self.editor.undo_redo_manager.is_dirty();
+
+
+                // Notify LSP of the change so diagnostics stay current
+                // Only when the buffer actually changed (not just cursor moves)
+                if self.content_modified {
+                    let full_text = self.editor.editor_content.join("\n");
+                    self.language.notify_change(&full_text);
+                }
             }
             ActiveArea::CommandLine => {
                 //check for ENTER on commandline, to execute commands,
@@ -579,6 +593,10 @@ impl App {
 
         // mark saved index on undo tree
         self.editor.undo_redo_manager.mark_saved();
+
+        // Notify LSP that the file was saved (triggers re-check in some servers)
+        self.language.notify_save();
+
         Ok(())
     }
 

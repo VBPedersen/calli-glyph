@@ -71,7 +71,7 @@ impl SyntaxTree {
         };
         let mut tokens = Vec::new();
         Self::walk_node(tree.root_node(), config, &mut tokens);
-        log_trace!("Tokens Highlighted: {:?}", tokens);
+        // log_trace!("Tokens Highlighted: {:?}", tokens);
 
         self.token_cache = Some((version, tokens));
         &self.token_cache.as_ref().unwrap().1

@@ -160,6 +160,7 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
                 content_area.width as usize,
                 app.editor.cursor.y,
                 &app.config.editor,
+                &app.language
             ),
             ln_area,
         );
@@ -282,6 +283,7 @@ fn editor_side_line<'a>(
     editor_width: usize,
     cursor_y: i16,
     config: &EditorConfig,
+    language: &crate::language::manager::LanguageManager,
 ) -> Paragraph<'a> {
     let mut line_nrs: Text = Text::from(vec![]);
 
@@ -294,7 +296,7 @@ fn editor_side_line<'a>(
 
     for (nr, s) in editor_content.iter().enumerate() {
         let line_index = nr;
-        let is_current_line = cursor_y as usize == line_index;
+        let is_current_line = cursor_y as usize == nr;
 
         // Calculate line number to display
         let line_num_display = if config.relative_line_numbers && !is_current_line {
@@ -303,11 +305,22 @@ fn editor_side_line<'a>(
             (line_index + 1).to_string()
         };
 
+        // Diagnostic marker for this line
+        let diags = language.diagnostics_on_line(nr as u32);
+        let marker = if diags.iter().any(|d| d.severity == crate::language::lsp::DiagnosticSeverity::Error) {
+            Span::styled("E ", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
+        } else if diags.iter().any(|d| d.severity == crate::language::lsp::DiagnosticSeverity::Warning) {
+            Span::styled("W ", Style::default().fg(Color::Yellow))
+        } else {
+            Span::raw("  ")
+        };
+
         // If content of line is longer than editor
         let has_overflow = s.width() >= editor_width;
 
         let line = if has_overflow {
             Line::from(vec![
+                marker,
                 Span::styled(
                     line_num_display,
                     if is_current_line {
@@ -319,7 +332,9 @@ fn editor_side_line<'a>(
                 Span::styled(">", overflow_marker_style),
             ])
         } else {
-            Line::from(vec![Span::styled(
+            Line::from(vec![
+                marker,
+                Span::styled(
                 line_num_display,
                 if is_current_line {
                     current_line_style

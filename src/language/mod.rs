@@ -28,3 +28,4 @@ pub mod theme;
 pub mod manager;
 
 pub mod lang_configs;
+pub mod lsp;

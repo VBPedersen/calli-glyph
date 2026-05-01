@@ -136,6 +136,7 @@ dependencies = [
  "once_cell",
  "ratatui",
  "serde",
+ "serde_json",
  "serial_test",
  "sysinfo",
  "tempfile",

@@ -5,12 +5,19 @@ use crate::language::syntax::SyntaxTree;
 use crate::language::theme::Theme;
 use ratatui::style::Style;
 use std::path::Path;
+use crate::config::LspConfig;
+use crate::language::lsp;
+use crate::language::lsp::{CompletionItem, ConnectionState, Diagnostic, HoverResult, LspClient, LspMessage};
 
 pub struct LanguageManager {
     pub syntax: Option<SyntaxTree>,
     pub theme: Option<Theme>,
-    // pub lsp: Option<crate::language::lsp::LspClient>,
     pub language_id: Option<String>,
+    pub lsp: Option<LspClient>,
+    pub current_uri: Option<String>,
+    pub diagnostics: Vec<Diagnostic>,
+    pub completions: Vec<CompletionItem>,
+    pub hover: Option<HoverResult>,
 }
 
 impl LanguageManager {
@@ -18,15 +25,24 @@ impl LanguageManager {
         Self {
             syntax: None,
             theme: None,
-            /*lsp: None,*/
             language_id: None,
+            lsp: None,
+            current_uri: None,
+            diagnostics: Vec::new(),
+            completions: Vec::new(),
+            hover: None,
         }
     }
 
     /// Actives the tree-sitter according to file type.
     /// Called when a file is opened or language config changes.
     /// TODO use FALLBACK THEME if none provided
-    pub fn activate_for_file(&mut self, path: &Path, theme: Option<Theme>) {
+    pub fn activate_for_file(
+        &mut self,
+        path: &Path,
+        theme: Option<Theme>,
+        lsp_config: &LspConfig,
+        initial_content: &str,) {
         let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
         let (lang, lang_config, lang_id) = match ext {
             "rs" => (
@@ -53,7 +69,40 @@ impl LanguageManager {
         self.syntax = lang.map(|l| SyntaxTree::new(l, lang_config));
         self.theme = theme;
         log_info!("Language manager activated, with language : {:?}", lang_id);
+
+
+        // Reset LSP state
+        self.lsp = None;
+        self.diagnostics.clear();
+        self.completions.clear();
+        self.hover = None;
+
+        let uri = lsp::path_to_uri(path);
+        self.current_uri = Some(uri.clone());
+
+        // Start LSP server if configured for this extension
+        if lsp_config.enabled {
+            if let Some((server_name, server_cfg)) = lsp_config.server_for_extension(ext) {
+                let workspace_root = path.parent().and_then(|p| p.to_str()).map(String::from);
+
+                match LspClient::start(server_name.to_string(), server_cfg, workspace_root.as_deref()) {
+                    Ok(mut client) => {
+                        let language_id_str = lsp::extension_to_language_id(ext).to_string();
+                        let _ = client.notify_did_open(&uri, &language_id_str, initial_content);
+                        self.lsp = Some(client);
+                        log_info!("[LSP] Started '{}' for .{}, with command name to run: {}", server_name, ext, server_cfg.command);
+                    }
+                    Err(e) => {
+                        log_warn!("[LSP] Failed to start '{}': {}", server_name, e);
+                    }
+                }
+            }
+        }
     }
+
+    // -------------------
+    // Tree-sitter
+    // -------------------
 
     /// Feed the current buffer contents to the parser.
     /// Called whenever the buffer changes (after every edit action).
@@ -126,6 +175,111 @@ impl LanguageManager {
         }
 
         result
+    }
+
+
+
+    // -------------------
+    // LSP
+    // -------------------
+
+    /// Notify the server of a buffer change. Call after every edit.
+    pub fn notify_change(&mut self, full_text: &str) {
+        if let (Some(lsp), Some(uri)) = (&mut self.lsp, &self.current_uri) {
+            if lsp.state == ConnectionState::Ready {
+                let uri = uri.clone();
+                if let Err(e) = lsp.notify_did_change(&uri, full_text) {
+                    log_warn!("[LSP] didChange failed: {}", e);
+                }
+            }
+        }
+    }
+
+    /// Notify the server the file was saved.
+    pub fn notify_save(&mut self) {
+        if let (Some(lsp), Some(uri)) = (&mut self.lsp, &self.current_uri) {
+            if lsp.state == ConnectionState::Ready {
+                let uri = uri.clone();
+                if let Err(e) = lsp.notify_did_save(&uri) {
+                    log_warn!("[LSP] didSave failed: {}", e);
+                }
+            }
+        }
+    }
+
+    /// Request completion items at cursor (0-indexed line/character).
+    pub fn request_completion(&mut self, line: u32, character: u32) {
+        if let (Some(lsp), Some(uri)) = (&mut self.lsp, &self.current_uri) {
+            let uri = uri.clone();
+            if let Err(e) = lsp.request_completion(&uri, line, character) {
+                log_warn!("[LSP] completion request failed: {}", e);
+            }
+        }
+    }
+
+    /// Request hover docs at cursor position.
+    pub fn request_hover(&mut self, line: u32, character: u32) {
+        if let (Some(lsp), Some(uri)) = (&mut self.lsp, &self.current_uri) {
+            let uri = uri.clone();
+            if let Err(e) = lsp.request_hover(&uri, line, character) {
+                log_warn!("[LSP] hover request failed: {}", e);
+            }
+        }
+    }
+
+    /// Drain LSP messages. Call once per tick. Returns events for App to act on.
+    pub fn poll_lsp(&mut self) -> Vec<LspMessage> {
+        let Some(lsp) = &mut self.lsp else { return vec![] };
+        let events = lsp.poll();
+
+        for event in &events {
+            match event {
+                LspMessage::Diagnostics { uri, diagnostics } => {
+                    if self.current_uri.as_deref() == Some(uri.as_str()) {
+                        self.diagnostics = diagnostics.clone();
+                    }
+                }
+                LspMessage::CompletionResponse { items, .. } => {
+                    self.completions = items.clone();
+                }
+                LspMessage::HoverResponse { result, .. } => {
+                    self.hover = result.clone();
+                }
+                LspMessage::ServerExited => {
+                    log_warn!("[LSP] Server exited unexpectedly");
+                    self.lsp = None;
+                }
+                LspMessage::Error { message, .. } => {
+                    log_warn!("[LSP] Server error: {}", message);
+                }
+                LspMessage::Initialized => {
+                    log_info!("[LSP] Server ready");
+                }
+            }
+        }
+        log_trace!("LSP events: {:?}", events);
+        events
+    }
+
+    /// Diagnostics for a specific buffer line (0-indexed).
+    pub fn diagnostics_on_line(&self, line: u32) -> Vec<&Diagnostic> {
+        self.diagnostics.iter().filter(|d| d.line == line).collect()
+    }
+
+    pub fn lsp_ready(&self) -> bool {
+        self.lsp.as_ref().map(|l| l.state == ConnectionState::Ready).unwrap_or(false)
+    }
+
+    pub fn lsp_status(&self) -> &str {
+        match &self.lsp {
+            None => "",
+            Some(l) => match &l.state {
+                ConnectionState::Disconnected => "LSP: off",
+                ConnectionState::Initializing => "LSP: starting…",
+                ConnectionState::Ready => "LSP: ready",
+                ConnectionState::Failed(_) => "LSP: error",
+            },
+        }
     }
 }
 
