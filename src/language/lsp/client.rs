@@ -735,12 +735,21 @@ mod tests {
         let (tx, rx) = channel();
         let (_child_tx, child_rx): (Sender<()>, Receiver<()>) = channel();
 
-        // We use a dummy command that does nothing to satisfy the type system
-        let mut child = Command::new("echo")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .spawn()
-            .unwrap();
+        // Use 'true' or 'exit' so the process dies immediately
+        let mut child = if cfg!(windows) {
+            Command::new("cmd")
+                .args(["/c", "exit"])
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .spawn()
+                .unwrap()
+        } else {
+            Command::new("true")
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .spawn()
+                .unwrap()
+        };
 
         LspClient {
             server_name: "mock".to_string(),
