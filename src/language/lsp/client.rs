@@ -699,29 +699,14 @@ impl LspClient {
 
         Some(HoverResult { contents, range })
     }
+}
 
-    /// Converts a [Path] to uri string
-    fn path_to_uri(path: &Path) -> String {
-        let path_str = path.to_string_lossy();
-
-        // Convert Windows backslashes to forward slashes
-        let normalized = path_str.replace('\\', "/");
-
-        if cfg!(windows) {
-            // Windows needs: file:///C:/path/to/repo
-            if normalized.starts_with('/') {
-                format!("file://{}", normalized)
-            } else {
-                format!("file:///{}", normalized)
-            }
-        } else {
-            // Unix needs: file:///home/user/path/to/repo
-            if normalized.starts_with('/') {
-                format!("file://{}", normalized)
-            } else {
-                format!("file:///{}", normalized)
-            }
-        }
+/// Implement [Drop] so the child lsp process dies when app closes
+impl Drop for LspClient {
+    fn drop(&mut self) {
+        // Attempt to kill the child process to prevent zombie instances
+        let _ = self._child.kill();
+        log_info!("[LSP] Cleaned up server process for {}", self.server_name);
     }
 }
 
@@ -772,7 +757,7 @@ mod tests {
     fn test_path_to_uri_cross_platform() {
         // Test Unix-style
         let unix_path = Path::new("/home/user/project/main.rs");
-        let uri = LspClient::path_to_uri(unix_path);
+        let uri = path_to_uri(unix_path);
         assert!(uri.starts_with("file:///"));
         assert!(uri.contains("home/user/project/main.rs"));
 
