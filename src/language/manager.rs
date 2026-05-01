@@ -1,13 +1,15 @@
+use crate::config::LspConfig;
 use crate::language::lang_configs::javascript_config::javascript_config;
 use crate::language::lang_configs::python::python_config;
 use crate::language::lang_configs::rust::rust_config;
+use crate::language::lsp;
+use crate::language::lsp::{
+    CompletionItem, ConnectionState, Diagnostic, HoverResult, LspClient, LspMessage,
+};
 use crate::language::syntax::SyntaxTree;
 use crate::language::theme::Theme;
 use ratatui::style::Style;
 use std::path::Path;
-use crate::config::LspConfig;
-use crate::language::lsp;
-use crate::language::lsp::{CompletionItem, ConnectionState, Diagnostic, HoverResult, LspClient, LspMessage};
 
 pub struct LanguageManager {
     pub syntax: Option<SyntaxTree>,
@@ -42,7 +44,8 @@ impl LanguageManager {
         path: &Path,
         theme: Option<Theme>,
         lsp_config: &LspConfig,
-        initial_content: &str,) {
+        initial_content: &str,
+    ) {
         let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
         let (lang, lang_config, lang_id) = match ext {
             "rs" => (
@@ -70,7 +73,6 @@ impl LanguageManager {
         self.theme = theme;
         log_info!("Language manager activated, with language : {:?}", lang_id);
 
-
         // Reset LSP state
         self.lsp = None;
         self.diagnostics.clear();
@@ -85,12 +87,21 @@ impl LanguageManager {
             if let Some((server_name, server_cfg)) = lsp_config.server_for_extension(ext) {
                 let workspace_root = path.parent().and_then(|p| p.to_str()).map(String::from);
 
-                match LspClient::start(server_name.to_string(), server_cfg, workspace_root.as_deref()) {
+                match LspClient::start(
+                    server_name.to_string(),
+                    server_cfg,
+                    workspace_root.as_deref(),
+                ) {
                     Ok(mut client) => {
                         let language_id_str = lsp::extension_to_language_id(ext).to_string();
                         let _ = client.notify_did_open(&uri, &language_id_str, initial_content);
                         self.lsp = Some(client);
-                        log_info!("[LSP] Started '{}' for .{}, with command name to run: {}", server_name, ext, server_cfg.command);
+                        log_info!(
+                            "[LSP] Started '{}' for .{}, with command name to run: {}",
+                            server_name,
+                            ext,
+                            server_cfg.command
+                        );
                     }
                     Err(e) => {
                         log_warn!("[LSP] Failed to start '{}': {}", server_name, e);
@@ -177,8 +188,6 @@ impl LanguageManager {
         result
     }
 
-
-
     // -------------------
     // LSP
     // -------------------
@@ -229,7 +238,9 @@ impl LanguageManager {
 
     /// Drain LSP messages. Call once per tick. Returns events for App to act on.
     pub fn poll_lsp(&mut self) -> Vec<LspMessage> {
-        let Some(lsp) = &mut self.lsp else { return vec![] };
+        let Some(lsp) = &mut self.lsp else {
+            return vec![];
+        };
         let events = lsp.poll();
 
         for event in &events {
@@ -267,7 +278,10 @@ impl LanguageManager {
     }
 
     pub fn lsp_ready(&self) -> bool {
-        self.lsp.as_ref().map(|l| l.state == ConnectionState::Ready).unwrap_or(false)
+        self.lsp
+            .as_ref()
+            .map(|l| l.state == ConnectionState::Ready)
+            .unwrap_or(false)
     }
 
     pub fn lsp_status(&self) -> &str {

@@ -363,7 +363,8 @@ impl App {
                 let initial_content = self.editor.editor_content.join("\n");
 
                 // Activate the language manager
-                self.language.activate_for_file(path, theme, &self.config.lsp, &initial_content);
+                self.language
+                    .activate_for_file(path, theme, &self.config.lsp, &initial_content);
             }
         }
     }
@@ -387,7 +388,6 @@ impl App {
 
                 // else is successful, so set content modified true
                 self.content_modified = self.editor.undo_redo_manager.is_dirty();
-
 
                 // Notify LSP of the change so diagnostics stay current
                 // Only when the buffer actually changed (not just cursor moves)

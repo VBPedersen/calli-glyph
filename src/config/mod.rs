@@ -5,10 +5,10 @@ use std::path::PathBuf;
 mod defaults;
 mod editor; //Editor settings
 mod keymaps; //Keybinding config
+pub mod lsp;
 mod performance; //Performance settings
 pub mod plugins;
 mod ui;
-pub mod lsp;
 //UI settings //Default configurations
 
 use crate::config::keymaps::RuntimeKeymaps;
@@ -16,9 +16,9 @@ use crate::config::plugins::PluginsConfig;
 use crate::errors::config_errors::ConfigError;
 pub use editor::EditorConfig;
 pub use keymaps::KeymapConfig;
+pub use lsp::LspConfig;
 pub use performance::PerformanceConfig;
 pub use ui::UIConfig;
-pub use lsp::LspConfig;
 
 // Thread local storage for mocking the configuration path during tests.
 // This is used by the config_path() function below.

@@ -160,7 +160,7 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
                 content_area.width as usize,
                 app.editor.cursor.y,
                 &app.config.editor,
-                &app.language
+                &app.language,
             ),
             ln_area,
         );
@@ -307,9 +307,18 @@ fn editor_side_line<'a>(
 
         // Diagnostic marker for this line
         let diags = language.diagnostics_on_line(nr as u32);
-        let marker = if diags.iter().any(|d| d.severity == crate::language::lsp::DiagnosticSeverity::Error) {
-            Span::styled("E ", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
-        } else if diags.iter().any(|d| d.severity == crate::language::lsp::DiagnosticSeverity::Warning) {
+        let marker = if diags
+            .iter()
+            .any(|d| d.severity == crate::language::lsp::DiagnosticSeverity::Error)
+        {
+            Span::styled(
+                "E ",
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            )
+        } else if diags
+            .iter()
+            .any(|d| d.severity == crate::language::lsp::DiagnosticSeverity::Warning)
+        {
             Span::styled("W ", Style::default().fg(Color::Yellow))
         } else {
             Span::raw("  ")
@@ -335,13 +344,14 @@ fn editor_side_line<'a>(
             Line::from(vec![
                 marker,
                 Span::styled(
-                line_num_display,
-                if is_current_line {
-                    current_line_style
-                } else {
-                    normal_line_style
-                },
-            )])
+                    line_num_display,
+                    if is_current_line {
+                        current_line_style
+                    } else {
+                        normal_line_style
+                    },
+                ),
+            ])
         };
 
         line_nrs.push_line(line);

@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Top-level LSP config. Lives under [lsp] in config.toml.
 ///
@@ -107,8 +107,6 @@ impl LspConfig {
             .map(|(name, cfg)| (name.as_str(), cfg))
     }
 }
-
-
 
 /// Configuration for a single LSP server.
 #[derive(Debug, Clone, Serialize, Deserialize)]

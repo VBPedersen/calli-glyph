@@ -1,23 +1,21 @@
-
-
 // ------------------------------
 // LSP message types, implemented based on 3.17 specification: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/
 // ------------------------------
 
+use crate::config::lsp::LspServerConfig;
+use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
-use serde_json::{json, Value};
-use crate::config::lsp::LspServerConfig;
 
 /// A diagnostic reported by the server for a specific position in a file.
 /// Based on https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#diagnostic
 #[derive(Debug, Clone)]
 pub struct Diagnostic {
-    pub line: u32,        // 0-indexed
-    pub col_start: u32,   // 0-indexed byte column
+    pub line: u32,      // 0-indexed
+    pub col_start: u32, // 0-indexed byte column
     pub col_end: u32,
     pub severity: DiagnosticSeverity,
     pub message: String,
@@ -35,30 +33,27 @@ pub enum DiagnosticSeverity {
 }
 
 impl DiagnosticSeverity {
-    fn from_lsp_int(n:u8) -> Self {
+    fn from_lsp_int(n: u8) -> Self {
         match n {
             1 => Self::Error,
             2 => Self::Warning,
             3 => Self::Information,
             4 => Self::Hint,
-            _ => Self::Hint
+            _ => Self::Hint,
         }
     }
 }
-
 
 /// A single completion item offered by the server.
 /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#completionItem
 #[derive(Debug, Clone)]
 pub struct CompletionItem {
     pub label: String,
-    pub detail: Option<String>,      // e.g. type signature
+    pub detail: Option<String>, // e.g. type signature
     pub kind: CompletionKind,
     pub documentation: Option<String>,
     pub insert_text: Option<String>, // what to actually insert; falls back to label
 }
-
-
 
 /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#completionItemKind
 /// The kind of a completion entry
@@ -89,11 +84,11 @@ pub enum CompletionKind {
     Event,
     Operator,
     TypeParameter,
-    Other
+    Other,
 }
 
 impl CompletionKind {
-    fn from_lsp_int(n:u8) -> Self {
+    fn from_lsp_int(n: u8) -> Self {
         match n {
             1 => Self::Text,
             2 => Self::Method,
@@ -105,22 +100,22 @@ impl CompletionKind {
             8 => Self::Interface,
             9 => Self::Module,
             10 => Self::Property,
-            11=> Self::Unit,
-            12=> Self::Value,
-            13=> Self::Enum,
-            14=> Self::Keyword,
-            15=> Self::Snippet,
-            16=> Self::Color,
-            17=> Self::File,
-            18=> Self::Reference,
-            19=> Self::Folder,
-            20=> Self::EnumMember,
-            21=> Self::Constant,
-            22=> Self::Struct,
-            23=> Self::Event,
-            24=> Self::Operator,
-            25=> Self::TypeParameter,
-            _ => Self::Other
+            11 => Self::Unit,
+            12 => Self::Value,
+            13 => Self::Enum,
+            14 => Self::Keyword,
+            15 => Self::Snippet,
+            16 => Self::Color,
+            17 => Self::File,
+            18 => Self::Reference,
+            19 => Self::Folder,
+            20 => Self::EnumMember,
+            21 => Self::Constant,
+            22 => Self::Struct,
+            23 => Self::Event,
+            24 => Self::Operator,
+            25 => Self::TypeParameter,
+            _ => Self::Other,
         }
     }
 }
@@ -153,14 +148,10 @@ pub enum LspMessage {
     /// Server initialized successfully
     Initialized,
     /// Any error the server reported
-    Error {
-        code: i64,
-        message: String,
-    },
+    Error { code: i64, message: String },
     /// Server process died or the pipe closed
     ServerExited,
 }
-
 
 // ------------------------------
 // LSP Client
@@ -220,7 +211,7 @@ pub struct LspClient {
 impl LspClient {
     /// Spawn the server process and send the initialize request.
     /// Returns immediately, the initialize response arrives later with poll().
-        pub fn start(
+    pub fn start(
         server_name: String,
         config: &LspServerConfig,
         workspace_root: Option<&str>,
@@ -228,7 +219,10 @@ impl LspClient {
         let mut child = Command::new(&config.command)
             .args(&config.args)
             .stdin(Stdio::piped())
-            .stdout(Stdio::piped()).stderr(Stdio::null()).spawn().map_err(|e| format!("Failed to spawn process {}:{}",config.command,e))?;
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|e| format!("Failed to spawn process {}:{}", config.command, e))?;
 
         let stdin = child.stdin.take().unwrap();
         let stdout = child.stdout.take().unwrap();
@@ -355,15 +349,17 @@ impl LspClient {
         Ok(client)
     }
 
-
-
-
     // ------------------------------
     // Notifications to the server
     // ------------------------------
 
     /// Tell the server a file was opened. Call once when a file is first loaded.
-    pub fn notify_did_open(&mut self, uri: &str, language_id: &str, text: &str) -> Result<(), String> {
+    pub fn notify_did_open(
+        &mut self,
+        uri: &str,
+        language_id: &str,
+        text: &str,
+    ) -> Result<(), String> {
         self.doc_version = 1;
         self.send_notification(
             "textDocument/didOpen",
@@ -410,7 +406,6 @@ impl LspClient {
         )
     }
 
-
     // ------------------------------
     // Requests to the server
     // ------------------------------
@@ -441,12 +436,7 @@ impl LspClient {
     }
 
     /// Request hover documentation at the given cursor position.
-    pub fn request_hover(
-        &mut self,
-        uri: &str,
-        line: u32,
-        character: u32,
-    ) -> Result<(), String> {
+    pub fn request_hover(&mut self, uri: &str, line: u32, character: u32) -> Result<(), String> {
         if self.state != ConnectionState::Ready {
             return Ok(());
         }
@@ -462,9 +452,6 @@ impl LspClient {
             }),
         )
     }
-
-
-
 
     // ------------------------------
     // Polling
@@ -524,7 +511,12 @@ impl LspClient {
                     .as_str()
                     .unwrap_or("unknown error")
                     .to_string();
-                log_warn!("[LSP {}] Error response id={}: {}", self.server_name, id, message);
+                log_warn!(
+                    "[LSP {}] Error response id={}: {}",
+                    self.server_name,
+                    id,
+                    message
+                );
                 events.push(LspMessage::Error { code, message });
                 self.pending.remove(&id);
                 continue;
@@ -568,9 +560,7 @@ impl LspClient {
         events
     }
 
-
-
-   // ------------------------------
+    // ------------------------------
     // Private helpers
     // ------------------------------
 
@@ -580,7 +570,6 @@ impl LspClient {
         self.next_id += 1;
         id
     }
-
 
     /// Formats method and parameters to json message and sends with write_message
     fn send_notification(&mut self, method: &str, params: Value) -> Result<(), String> {
@@ -605,8 +594,8 @@ impl LspClient {
 
     /// Writes and flushes message to stdin of child process
     fn write_message(&mut self, msg: &Value) -> Result<(), String> {
-        let body = serde_json::to_string(msg)
-            .map_err(|e| format!("JSON serialization failed: {}", e))?;
+        let body =
+            serde_json::to_string(msg).map_err(|e| format!("JSON serialization failed: {}", e))?;
         write!(self.stdin, "Content-Length: {}\r\n\r\n{}", body.len(), body)
             .map_err(|e| format!("Write to LSP stdin failed: {}", e))?;
         self.stdin
@@ -632,7 +621,7 @@ impl LspClient {
                     col_start: start["character"].as_u64()? as u32,
                     col_end: end["character"].as_u64()? as u32,
                     severity: DiagnosticSeverity::from_lsp_int(
-                        d["severity"].as_u64().unwrap_or(1) as u8,
+                        d["severity"].as_u64().unwrap_or(1) as u8
                     ),
                     message: d["message"].as_str()?.to_string(),
                     source: d["source"].as_str().map(String::from),
@@ -670,15 +659,12 @@ impl LspClient {
                         .or_else(|| item["documentation"]["value"].as_str())
                         .map(String::from),
                     insert_text: item["insertText"].as_str().map(String::from),
-                    kind: CompletionKind::from_lsp_int(
-                        item["kind"].as_u64().unwrap_or(0) as u8,
-                    ),
+                    kind: CompletionKind::from_lsp_int(item["kind"].as_u64().unwrap_or(0) as u8),
                 })
             })
             .take(50) // cap at 50 items for the popup
             .collect()
     }
-
 
     /// Parses hover response to single optional [HoverResult] type
     fn parse_hover_response(&self, result: &Value) -> Option<HoverResult> {
@@ -711,9 +697,4 @@ impl LspClient {
 
         Some(HoverResult { contents, range })
     }
-
-
 }
-
-
-

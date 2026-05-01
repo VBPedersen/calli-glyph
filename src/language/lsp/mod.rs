@@ -5,8 +5,8 @@
 mod client;
 
 pub use client::{
-    CompletionItem, CompletionKind, ConnectionState, Diagnostic, DiagnosticSeverity,
-    HoverResult, LspClient, LspMessage,
+    CompletionItem, CompletionKind, ConnectionState, Diagnostic, DiagnosticSeverity, HoverResult,
+    LspClient, LspMessage,
 };
 
 /// Convert a file path to a file:// URI the LSP server understands.
@@ -23,21 +23,21 @@ pub fn path_to_uri(path: &std::path::Path) -> String {
 /// Language id string for the LSP initialize/didOpen calls.
 pub fn extension_to_language_id(ext: &str) -> &'static str {
     match ext {
-        "rs"  => "rust",
-        "py"  => "python",
-        "js"  => "javascript",
-        "ts"  => "typescript",
+        "rs" => "rust",
+        "py" => "python",
+        "js" => "javascript",
+        "ts" => "typescript",
         "jsx" => "javascriptreact",
         "tsx" => "typescriptreact",
-        "c" | "h"   => "c",
+        "c" | "h" => "c",
         "cpp" | "cc" | "cxx" | "hpp" => "cpp",
-        "go"  => "go",
+        "go" => "go",
         "lua" => "lua",
-        "sh"  => "shellscript",
+        "sh" => "shellscript",
         "json" => "json",
         "toml" => "toml",
         "yaml" | "yml" => "yaml",
-        "md"  => "markdown",
-        _     => "plaintext",
+        "md" => "markdown",
+        _ => "plaintext",
     }
 }
