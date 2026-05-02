@@ -147,7 +147,7 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
                 app.editor.text_selection_start,
                 app.editor.text_selection_end,
                 app.content_modified,
-                app.language.diagnostics.clone()
+                app.language.diagnostics.clone(),
             ),
             status_area,
         );
@@ -245,7 +245,7 @@ fn info_bar<'a>(
     selection_start: Option<CursorPosition>,
     selection_end: Option<CursorPosition>,
     is_content_modified: bool,
-    diagnostics: Vec<Diagnostic>
+    diagnostics: Vec<Diagnostic>,
 ) -> Paragraph<'a> {
     let modified_indicator = if is_content_modified { "[+]" } else { "" };
 
@@ -258,10 +258,15 @@ fn info_bar<'a>(
     };
 
     let (errors, warnings) = (
-        diagnostics.iter().filter(|d| d.severity == DiagnosticSeverity::Error).count(),
-        diagnostics.iter().filter(|d| d.severity == DiagnosticSeverity::Warning).count(),
+        diagnostics
+            .iter()
+            .filter(|d| d.severity == DiagnosticSeverity::Error)
+            .count(),
+        diagnostics
+            .iter()
+            .filter(|d| d.severity == DiagnosticSeverity::Warning)
+            .count(),
     );
-
 
     let line = Line::from(vec![
         Span::styled(

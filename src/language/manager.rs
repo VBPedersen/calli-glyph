@@ -243,10 +243,8 @@ impl LanguageManager {
                     );
                     // Normalise both URIs to lowercase for case-insensitive comparison
                     let normalised_incoming = uri.to_lowercase();
-                    let normalised_current  = self.current_uri
-                        .as_deref()
-                        .unwrap_or("")
-                        .to_lowercase();
+                    let normalised_current =
+                        self.current_uri.as_deref().unwrap_or("").to_lowercase();
                     if normalised_incoming == normalised_current {
                         self.diagnostics = diagnostics.clone();
                     }

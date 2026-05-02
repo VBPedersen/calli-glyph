@@ -26,7 +26,7 @@ pub fn path_to_uri(path: &std::path::Path) -> String {
     if encoded.starts_with('/') {
         // Unix absolute path
         format!("file://{}", encoded)
-   } else {
+    } else {
         // Windows: lowercase the drive letter (C:/ -> c:/)
         let lower = {
             let mut chars = encoded.chars();
@@ -45,8 +45,7 @@ fn percent_encode_path(s: &str) -> String {
     s.chars()
         .map(|c| match c {
             // Unreserved + path chars: pass through
-            'A'..='Z' | 'a'..='z' | '0'..='9'
-            | '-' | '_' | '.' | '~' | '/' | ':' => c.to_string(),
+            'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '_' | '.' | '~' | '/' | ':' => c.to_string(),
             // Everything else (spaces, parens, brackets, etc.): encode
             _ => {
                 let mut buf = [0u8; 4];
