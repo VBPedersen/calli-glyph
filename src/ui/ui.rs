@@ -1,6 +1,7 @@
 use crate::config::EditorConfig;
 use crate::core::app::{ActiveArea, App};
 use crate::core::cursor::CursorPosition;
+use crate::language::lsp::{Diagnostic, DiagnosticSeverity};
 use crate::ui::debug;
 use ratatui::layout::{Alignment, Position, Rect};
 use ratatui::style::{Color, Modifier, Style};
@@ -146,6 +147,7 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
                 app.editor.text_selection_start,
                 app.editor.text_selection_end,
                 app.content_modified,
+                app.language.diagnostics.clone()
             ),
             status_area,
         );
@@ -243,6 +245,7 @@ fn info_bar<'a>(
     selection_start: Option<CursorPosition>,
     selection_end: Option<CursorPosition>,
     is_content_modified: bool,
+    diagnostics: Vec<Diagnostic>
 ) -> Paragraph<'a> {
     let modified_indicator = if is_content_modified { "[+]" } else { "" };
 
@@ -254,7 +257,23 @@ fn info_bar<'a>(
         String::new()
     };
 
+    let (errors, warnings) = (
+        diagnostics.iter().filter(|d| d.severity == DiagnosticSeverity::Error).count(),
+        diagnostics.iter().filter(|d| d.severity == DiagnosticSeverity::Warning).count(),
+    );
+
+
     let line = Line::from(vec![
+        Span::styled(
+            format!(" ●{} ◆{}", errors, warnings),
+            if errors > 0 {
+                Style::default().fg(Color::Red)
+            } else if warnings > 0 {
+                Style::default().fg(Color::Yellow)
+            } else {
+                Style::default().fg(Color::DarkGray)
+            },
+        ),
         Span::styled(modified_indicator, Style::default().fg(Color::White)),
         Span::styled(file_name, Style::default().fg(Color::LightCyan)),
         Span::raw(" - "), // Separator
@@ -307,22 +326,32 @@ fn editor_side_line<'a>(
 
         // Diagnostic marker for this line
         let diags = language.diagnostics_on_line(nr as u32);
-        let marker = if diags
+
+        let (marker_char, marker_style) = if diags
             .iter()
-            .any(|d| d.severity == crate::language::lsp::DiagnosticSeverity::Error)
+            .any(|d| d.severity == DiagnosticSeverity::Error)
         {
-            Span::styled(
-                "E ",
+            (
+                "● ",
                 Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
             )
         } else if diags
             .iter()
-            .any(|d| d.severity == crate::language::lsp::DiagnosticSeverity::Warning)
+            .any(|d| d.severity == DiagnosticSeverity::Warning)
         {
-            Span::styled("W ", Style::default().fg(Color::Yellow))
+            ("◆ ", Style::default().fg(Color::Yellow))
+        } else if diags
+            .iter()
+            .any(|d| d.severity == DiagnosticSeverity::Information)
+        {
+            ("◉ ", Style::default().fg(Color::Cyan))
+        } else if diags.iter().any(|d| d.severity == DiagnosticSeverity::Hint) {
+            ("· ", Style::default().fg(Color::DarkGray))
         } else {
-            Span::raw("  ")
+            ("  ", Style::default())
         };
+
+        let marker = Span::styled(marker_char, marker_style);
 
         // If content of line is longer than editor
         let has_overflow = s.width() >= editor_width;

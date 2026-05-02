@@ -73,7 +73,8 @@ impl LanguageManager {
         self.completions.clear();
         self.hover = None;
 
-        let uri = lsp::path_to_uri(path);
+        let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+        let uri = lsp::path_to_uri(&canonical);
         self.current_uri = Some(uri.clone());
 
         // Start LSP server if configured for this extension
@@ -234,7 +235,19 @@ impl LanguageManager {
         for event in &events {
             match event {
                 LspMessage::Diagnostics { uri, diagnostics } => {
-                    if self.current_uri.as_deref() == Some(uri.as_str()) {
+                    log_trace!(
+                        "[LSP] diag uri='{}' current='{}'  match={}",
+                        uri,
+                        self.current_uri.as_deref().unwrap_or(""),
+                        self.current_uri.as_deref() == Some(uri.as_str())
+                    );
+                    // Normalise both URIs to lowercase for case-insensitive comparison
+                    let normalised_incoming = uri.to_lowercase();
+                    let normalised_current  = self.current_uri
+                        .as_deref()
+                        .unwrap_or("")
+                        .to_lowercase();
+                    if normalised_incoming == normalised_current {
                         self.diagnostics = diagnostics.clone();
                     }
                 }
