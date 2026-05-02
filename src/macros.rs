@@ -4,10 +4,10 @@
 #[macro_export]
 macro_rules! log_trace {
     // Message + Context
-    ($($arg:tt)*; $ctx:expr) => {
+    ($fmt:expr $(, $arg:expr)*; $ctx:expr) => {
         $crate::core::debug::log(
             $crate::core::debug::LogLevel::Trace,
-            format!($($arg)*),
+            format!($fmt $(, $arg)*),
             Some($ctx.to_string())
         )
     };
@@ -23,10 +23,10 @@ macro_rules! log_trace {
 
 #[macro_export]
 macro_rules! log_debug {
-    ($($arg:tt)*; $ctx:expr) => {
+    ($fmt:expr $(, $arg:expr)*; $ctx:expr) => {
         $crate::core::debug::log(
             $crate::core::debug::LogLevel::Debug,
-            format!($($arg)*),
+            format!($fmt $(, $arg)*),
             Some($ctx.to_string())
         )
     };
@@ -42,10 +42,10 @@ macro_rules! log_debug {
 /// Log at Info level
 #[macro_export]
 macro_rules! log_info {
-    ($($arg:tt)*; $ctx:expr) => {
+    ($fmt:expr $(, $arg:expr)*; $ctx:expr) => {
         $crate::core::debug::log(
             $crate::core::debug::LogLevel::Info,
-            format!($($arg)*),
+            format!($fmt $(, $arg)*),
             Some($ctx.to_string())
         )
     };
@@ -61,10 +61,10 @@ macro_rules! log_info {
 /// Log at Warn level
 #[macro_export]
 macro_rules! log_warn {
-    ($($arg:tt)*; $ctx:expr) => {
+    ($fmt:expr $(, $arg:expr)*; $ctx:expr) => {
         $crate::core::debug::log(
             $crate::core::debug::LogLevel::Warn,
-            format!($($arg)*),
+            format!($fmt $(, $arg)*),
             Some($ctx.to_string())
         )
     };
@@ -80,10 +80,10 @@ macro_rules! log_warn {
 /// Log at Error level
 #[macro_export]
 macro_rules! log_error {
-    ($($arg:tt)*; $ctx:expr) => {
+    ($fmt:expr $(, $arg:expr)*; $ctx:expr) => {
         $crate::core::debug::log(
             $crate::core::debug::LogLevel::Error,
-            format!($($arg)*),
+            format!($fmt $(, $arg)*),
             Some($ctx.to_string())
         )
     };
