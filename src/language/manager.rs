@@ -80,11 +80,15 @@ impl LanguageManager {
         // Start LSP server if configured for this extension
         if lsp_config.enabled {
             if let Some((server_name, server_cfg)) = lsp_config.server_for_extension(ext) {
-                let markers: Vec<&str> = server_cfg.root_markers.iter().map(|s| s.as_str()).collect();
+                let markers: Vec<&str> =
+                    server_cfg.root_markers.iter().map(|s| s.as_str()).collect();
                 let workspace_root = Self::find_project_root(&canonical, &markers)
                     .or_else(|| canonical.parent().map(|p| p.to_path_buf()))
                     .unwrap_or_else(|| std::env::current_dir().unwrap_or(PathBuf::from(".")));
-                log_info!("Attempting to start LSP client with workspace root: {:?}",workspace_root);
+                log_info!(
+                    "Attempting to start LSP client with workspace root: {:?}",
+                    workspace_root
+                );
 
                 match LspClient::start(server_name.to_string(), server_cfg, workspace_root) {
                     Ok(client) => {
@@ -303,14 +307,19 @@ impl LanguageManager {
     // Helpers
     // -------------------
     fn find_project_root(start_path: &Path, root_markers: &[&str]) -> Option<PathBuf> {
-        log_info!("[LANGUAGE MANAGER] Finding project root starting at {:?}", start_path);
+        log_info!(
+            "[LANGUAGE MANAGER] Finding project root starting at {:?}",
+            start_path
+        );
         let mut current = start_path.to_path_buf();
 
         // Iterate through parent directories
         while current.pop() {
-
             // Check if any of the markers exist in the current directory
-            if root_markers.iter().any(|marker| current.join(marker).exists()) {
+            if root_markers
+                .iter()
+                .any(|marker| current.join(marker).exists())
+            {
                 log_info!("Found project root: {:?}", current);
                 return Some(current);
             }
@@ -605,7 +614,8 @@ mod tests {
         fs::create_dir(project.join(".git")).unwrap();
 
         let file_path = src.join("main.rs");
-        let root = LanguageManager::find_project_root(&file_path, &[".git"]).expect("Should find a root");
+        let root =
+            LanguageManager::find_project_root(&file_path, &[".git"]).expect("Should find a root");
 
         // Canonicalize both to ensure identical formatting (fixes Windows prefix issues)
         let expected = project
