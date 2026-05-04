@@ -396,7 +396,12 @@ mod tests {
     fn make_manager(source: &str) -> LanguageManager {
         let mut mgr = LanguageManager::new();
         // Activate for a .rs file with no theme (we test styling separately)
-        mgr.activate_for_file(Path::new("test.rs"), None, &LspConfig::default(), &SyntaxConfig::default());
+        mgr.activate_for_file(
+            Path::new("test.rs"),
+            None,
+            &LspConfig::default(),
+            &SyntaxConfig::default(),
+        );
         mgr.update_source(source);
         mgr
     }
@@ -447,7 +452,12 @@ mod tests {
             },
         };
         let mut mgr = LanguageManager::new();
-        mgr.activate_for_file(Path::new("test.rs"), Some(theme), &LspConfig::default(), &SyntaxConfig::default());
+        mgr.activate_for_file(
+            Path::new("test.rs"),
+            Some(theme),
+            &LspConfig::default(),
+            &SyntaxConfig::default(),
+        );
         mgr.update_source(source);
         mgr
     }
@@ -457,21 +467,36 @@ mod tests {
     #[test]
     fn activate_sets_language_id_for_rust() {
         let mut mgr = LanguageManager::new();
-        mgr.activate_for_file(Path::new("main.rs"), None, &LspConfig::default(), &SyntaxConfig::default());
+        mgr.activate_for_file(
+            Path::new("main.rs"),
+            None,
+            &LspConfig::default(),
+            &SyntaxConfig::default(),
+        );
         assert_eq!(mgr.language_id.as_deref(), Some("rust"));
     }
 
     #[test]
     fn activate_sets_language_id_for_python() {
         let mut mgr = LanguageManager::new();
-        mgr.activate_for_file(Path::new("script.py"), None, &LspConfig::default(), &SyntaxConfig::default());
+        mgr.activate_for_file(
+            Path::new("script.py"),
+            None,
+            &LspConfig::default(),
+            &SyntaxConfig::default(),
+        );
         assert_eq!(mgr.language_id.as_deref(), Some("python"));
     }
 
     #[test]
     fn activate_unknown_extension_clears_syntax() {
         let mut mgr = LanguageManager::new();
-        mgr.activate_for_file(Path::new("file.xyz"), None, &LspConfig::default(), &SyntaxConfig::default());
+        mgr.activate_for_file(
+            Path::new("file.xyz"),
+            None,
+            &LspConfig::default(),
+            &SyntaxConfig::default(),
+        );
         assert!(mgr.syntax.is_none());
         assert!(mgr.language_id.is_none());
     }
@@ -487,7 +512,12 @@ mod tests {
     #[test]
     fn update_source_stores_source_in_syntax() {
         let mut mgr = LanguageManager::new();
-        mgr.activate_for_file(Path::new("a.rs"), None, &LspConfig::default(), &SyntaxConfig::default());
+        mgr.activate_for_file(
+            Path::new("a.rs"),
+            None,
+            &LspConfig::default(),
+            &SyntaxConfig::default(),
+        );
         mgr.update_source("let x = 1;");
         assert_eq!(mgr.syntax.as_ref().unwrap().source, "let x = 1;");
     }
@@ -666,8 +696,7 @@ mod tests {
         fs::create_dir(project.join(".git")).unwrap();
 
         let file_path = src.join("main.rs");
-        let root =
-            find_project_root(&file_path, &[".git"]).expect("Should find a root");
+        let root = find_project_root(&file_path, &[".git"]).expect("Should find a root");
 
         // Canonicalize both to ensure identical formatting (fixes Windows prefix issues)
         let expected = project

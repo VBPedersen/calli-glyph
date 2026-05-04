@@ -160,20 +160,20 @@ mod tests {
     fn make_lang_config() -> LangConfig {
         LangConfig {
             node_kind_map: HashMap::from([
-                ("fn".to_string(),              "keyword".to_string()),
-                ("let".to_string(),             "keyword".to_string()),
-                ("pub".to_string(),             "keyword".to_string()),
-                ("return".to_string(),          "keyword".to_string()),
-                ("true".to_string(),            "keyword".to_string()),
-                ("false".to_string(),           "keyword".to_string()),
-                ("string_literal".to_string(),  "string".to_string()),
-                ("char_literal".to_string(),    "string".to_string()),
+                ("fn".to_string(), "keyword".to_string()),
+                ("let".to_string(), "keyword".to_string()),
+                ("pub".to_string(), "keyword".to_string()),
+                ("return".to_string(), "keyword".to_string()),
+                ("true".to_string(), "keyword".to_string()),
+                ("false".to_string(), "keyword".to_string()),
+                ("string_literal".to_string(), "string".to_string()),
+                ("char_literal".to_string(), "string".to_string()),
                 ("integer_literal".to_string(), "number".to_string()),
-                ("float_literal".to_string(),   "number".to_string()),
-                ("line_comment".to_string(),    "comment".to_string()),
-                ("block_comment".to_string(),   "comment".to_string()),
+                ("float_literal".to_string(), "number".to_string()),
+                ("line_comment".to_string(), "comment".to_string()),
+                ("block_comment".to_string(), "comment".to_string()),
                 ("type_identifier".to_string(), "type".to_string()),
-                ("primitive_type".to_string(),  "type".to_string()),
+                ("primitive_type".to_string(), "type".to_string()),
             ]),
             stop_at: HashSet::from([
                 "string_literal".to_string(),
@@ -181,13 +181,11 @@ mod tests {
                 "line_comment".to_string(),
                 "block_comment".to_string(),
             ]),
-            parent_rules: vec![
-                ParentRule {
-                    node_kind:   "identifier".to_string(),
-                    parent_kind: "function_item".to_string(),
-                    token_type:  "function".to_string(),
-                },
-            ],
+            parent_rules: vec![ParentRule {
+                node_kind: "identifier".to_string(),
+                parent_kind: "function_item".to_string(),
+                token_type: "function".to_string(),
+            }],
         }
     }
 
