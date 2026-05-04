@@ -45,6 +45,14 @@ impl LanguageManager {
         lsp_config: &LspConfig,
         syntax_config: &SyntaxConfig,
     ) {
+        // Resolve relative paths against CWD before canonicalizing,
+        let absolute = if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            std::env::current_dir().unwrap_or_default().join(path)
+        };
+        let canonical = absolute.canonicalize().unwrap_or(absolute);
+
         let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
 
         self.language_id = None;
@@ -89,7 +97,6 @@ impl LanguageManager {
         self.completions.clear();
         self.hover = None;
 
-        let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
         let uri = lsp::path_to_uri(&canonical);
         self.current_uri = Some(uri.clone());
 
