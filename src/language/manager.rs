@@ -80,7 +80,7 @@ impl LanguageManager {
         // Start LSP server if configured for this extension
         if lsp_config.enabled {
             if let Some((server_name, server_cfg)) = lsp_config.server_for_extension(ext) {
-                let workspace_root = Self::find_project_root(path);
+                let workspace_root = Self::find_project_root(canonical.as_path());
 
                 match LspClient::start(server_name.to_string(), server_cfg, workspace_root) {
                     Ok(client) => {
@@ -299,10 +299,12 @@ impl LanguageManager {
     // Helpers
     // -------------------
     fn find_project_root(start_path: &Path) -> Option<PathBuf> {
+        log_info!("Finding project root starting at {:?}", start_path);
         let mut current = start_path.to_path_buf();
 
         // Iterate through parent directories
         while current.pop() {
+            log_info!("Checking {:?}", current);
             // Look for common root markers
             if current.join(".git").exists()
                 || current.join(".hg").exists()
