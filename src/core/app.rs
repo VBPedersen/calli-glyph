@@ -296,7 +296,6 @@ impl App {
             // Poll LSP every loop iteration for responsiveness
             let lsp_events = self.language.poll_lsp();
             for event in lsp_events {
-                log_info!("LSP event: {:?}", event);
                 if let LspMessage::Initialized = event {
                     // Since server is ready, send the initial buffer
                     let full_text = self.editor.editor_content.join("\n");
@@ -377,7 +376,7 @@ impl App {
 
                 // Activate the language manager
                 self.language
-                    .activate_for_file(path, theme, &self.config.lsp);
+                    .activate_for_file(path, theme, &self.config.lsp, &self.config.syntax);
             }
         }
     }

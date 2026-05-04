@@ -8,11 +8,13 @@ mod keymaps; //Keybinding config
 pub mod lsp;
 mod performance; //Performance settings
 pub mod plugins;
+pub mod syntax;
 mod ui;
 //UI settings //Default configurations
 
 use crate::config::keymaps::RuntimeKeymaps;
 use crate::config::plugins::PluginsConfig;
+pub(crate) use crate::config::syntax::SyntaxConfig;
 use crate::errors::config_errors::ConfigError;
 pub use editor::EditorConfig;
 pub use keymaps::KeymapConfig;
@@ -39,6 +41,7 @@ pub struct Config {
     pub performance: PerformanceConfig,
     pub plugins: PluginsConfig,
     pub lsp: LspConfig,
+    pub syntax: SyntaxConfig,
 
     // Runtime keymaps (not serialized)
     #[serde(skip)]
@@ -54,14 +57,27 @@ pub struct ValidationResult {
 }
 
 impl Config {
+    /// Returns path to the configuration file
     pub fn get_config_path() -> Result<PathBuf, ConfigError> {
         // If a test path is set, return it. ONLY USED FOR TESTING
         if let Some(path) = TEST_CONFIG_PATH.with(|cell| cell.borrow().clone()) {
             return Ok(path);
         }
 
-        let config_dir = dirs::config_dir().ok_or(ConfigError::InvalidConfigPath)?;
-        Ok(config_dir.join("calliglyph").join("config.toml"))
+        Self::get_config_base_dir().map(|p| p.join("config.toml"))
+    }
+
+    /// Returns the grammar directory (Option because Default needs it)
+    pub fn get_grammar_dir() -> Option<PathBuf> {
+        Self::get_config_base_dir().ok().map(|p| p.join("grammars"))
+    }
+
+    /// Helper to get the base app config directory using the name from Cargo.toml
+    pub fn get_config_base_dir() -> Result<PathBuf, ConfigError> {
+        let app_name = env!("CARGO_PKG_NAME"); // "calliglyph"
+        dirs::config_dir()
+            .map(|p| p.join(app_name))
+            .ok_or(ConfigError::InvalidConfigPath)
     }
 
     ///Tries to load config from path,
@@ -381,6 +397,7 @@ impl Default for Config {
             plugins: PluginsConfig::default(),
             runtime_keymaps,
             lsp: LspConfig::default(),
+            syntax: SyntaxConfig::default(),
         }
     }
 }

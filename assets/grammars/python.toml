@@ -1,0 +1,102 @@
+# tree-sitter-python node kinds -> calli-glyph token types
+# tree-sitter-python emits keywords as named leaf nodes (not anonymous punctuation),
+# so they appear directly in the node kind map rather than needing parent rules.
+
+
+# --- Stop at ---
+# Prevents the walker descending into children of these nodes,
+# avoiding double-highlighting of inner punctuation/escape sequences.
+stop_at = [
+    "string",
+    "concatenated_string",
+    "comment",
+]
+
+[node_kinds]
+# --- Strings ---
+# All quote styles (single, double, triple) and f-strings are "string" in tree-sitter-python.
+# Concatenated strings like "a" "b" are a separate node wrapping multiple string children.
+"string"               = "string"
+"concatenated_string"  = "string"
+
+# --- Numbers ---
+"integer"  = "number"
+"float"    = "number"
+"complex"  = "number"
+
+# --- Comments ---
+"comment"  = "comment"
+
+# --- Types ---
+"type"     = "type"
+
+# --- Keywords ---
+"def"      = "keyword"
+"class"    = "keyword"
+"return"   = "keyword"
+"yield"    = "keyword"
+"import"   = "keyword"
+"from"     = "keyword"
+"as"       = "keyword"
+"if"       = "keyword"
+"elif"     = "keyword"
+"else"     = "keyword"
+"for"      = "keyword"
+"while"    = "keyword"
+"break"    = "keyword"
+"continue" = "keyword"
+"pass"     = "keyword"
+"raise"    = "keyword"
+"try"      = "keyword"
+"except"   = "keyword"
+"finally"  = "keyword"
+"with"     = "keyword"
+"and"      = "keyword"
+"or"       = "keyword"
+"not"      = "keyword"
+"in"       = "keyword"
+"is"       = "keyword"
+"lambda"   = "keyword"
+"del"      = "keyword"
+"global"   = "keyword"
+"nonlocal" = "keyword"
+"assert"   = "keyword"
+"async"    = "keyword"
+"await"    = "keyword"
+"match"    = "keyword"   # Python 3.10+ structural pattern matching
+"case"     = "keyword"   # Python 3.10+
+
+# --- Booleans / None ---
+# tree-sitter-python uses lowercase node kinds for these literals
+"true"     = "boolean"
+"false"    = "boolean"
+"none"     = "keyword"   # None is closer to a keyword than a boolean
+
+
+
+# --- Parent rules ---
+# Identifier nodes get a more specific token type depending on their parent.
+
+[[parent_rules]]
+# def my_func(...)  ->  the name identifier gets "function"
+node_kind   = "identifier"
+parent_kind = "function_definition"
+token_type  = "function"
+
+[[parent_rules]]
+# async def my_func(...)  ->  wrapped in async_function_definition
+node_kind   = "identifier"
+parent_kind = "async_function_definition"
+token_type  = "function"
+
+[[parent_rules]]
+# class MyClass  ->  the name identifier gets "type"
+node_kind   = "identifier"
+parent_kind = "class_definition"
+token_type  = "type"
+
+[[parent_rules]]
+# Decorator names: @my_decorator  ->  treat as "function"
+node_kind   = "identifier"
+parent_kind = "decorator"
+token_type  = "function"

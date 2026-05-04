@@ -1,14 +1,13 @@
-use crate::config::LspConfig;
-use crate::language::lang_configs::javascript_config::javascript_config;
-use crate::language::lang_configs::python::python_config;
-use crate::language::lang_configs::rust::rust_config;
-use crate::language::lsp;
+use crate::config::syntax::SyntaxConfig;
+use crate::config::{Config, LspConfig};
 use crate::language::lsp::{
     CompletionItem, ConnectionState, Diagnostic, HoverResult, LspClient, LspMessage,
 };
 use crate::language::syntax::SyntaxTree;
 use crate::language::theme::Theme;
+use crate::language::{grammar_loader, lang_configs, lsp};
 use ratatui::style::Style;
+use std::fs;
 use std::path::{Path, PathBuf};
 
 pub struct LanguageManager {
@@ -39,33 +38,50 @@ impl LanguageManager {
     /// Actives the tree-sitter according to file type.
     /// Called when a file is opened or language config changes.
     /// TODO use FALLBACK THEME if none provided
-    pub fn activate_for_file(&mut self, path: &Path, theme: Option<Theme>, lsp_config: &LspConfig) {
+    pub fn activate_for_file(
+        &mut self,
+        path: &Path,
+        theme: Option<Theme>,
+        lsp_config: &LspConfig,
+        syntax_config: &SyntaxConfig,
+    ) {
         let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-        let (lang, lang_config, lang_id) = match ext {
-            "rs" => (
-                Some(tree_sitter::Language::from(tree_sitter_rust::LANGUAGE)),
-                Some(rust_config()),
-                Some("rust"),
-            ),
-            "py" => (
-                Some(tree_sitter::Language::from(tree_sitter_python::LANGUAGE)),
-                Some(python_config()),
-                Some("python"),
-            ),
-            "js" | "ts" => (
-                Some(tree_sitter::Language::from(
-                    tree_sitter_javascript::LANGUAGE,
-                )),
-                Some(javascript_config()),
-                Some("javascript"),
-            ),
-            _ => (None, None, None),
-        };
 
-        self.language_id = lang_id.map(String::from);
-        self.syntax = lang.map(|l| SyntaxTree::new(l, lang_config));
+        self.language_id = None;
+        self.syntax = None;
         self.theme = theme;
-        log_info!("Language manager activated, with language : {:?}", lang_id);
+
+        if syntax_config.enabled {
+            if let Some((lang_name, lang_cfg)) = syntax_config.language_for_extension(ext) {
+                // Always set language_id even when recognized
+                self.language_id = Some(lang_name.to_string());
+
+                let grammar_dir = resolve_grammar_dir(&syntax_config.grammar_dir);
+                ensure_default_grammar_configs(&grammar_dir);
+                let grammar = grammar_loader::load_grammar(&grammar_dir, &lang_cfg.grammar);
+                let lang_config =
+                    lang_configs::loader::load_lang_config(&grammar_dir, &lang_cfg.grammar);
+
+                match (grammar, lang_config) {
+                    (Ok(lang), Ok(cfg)) => {
+                        self.syntax = Some(SyntaxTree::new(lang, Some(cfg)));
+                        log_info!(
+                            "[Syntax] Loaded grammar '{}' for .{}",
+                            lang_cfg.grammar,
+                            ext
+                        );
+                    }
+                    (Err(e), _) | (_, Err(e)) => {
+                        log_warn!("[Syntax] Failed to load grammar for .{}: {}", ext, e);
+                    }
+                }
+            }
+        }
+
+        log_info!(
+            "Language manager activated, with language : {:?}",
+            self.language_id
+        );
 
         // Reset LSP state
         self.lsp = None;
@@ -82,7 +98,7 @@ impl LanguageManager {
             if let Some((server_name, server_cfg)) = lsp_config.server_for_extension(ext) {
                 let markers: Vec<&str> =
                     server_cfg.root_markers.iter().map(|s| s.as_str()).collect();
-                let workspace_root = Self::find_project_root(&canonical, &markers)
+                let workspace_root = find_project_root(&canonical, &markers)
                     .or_else(|| canonical.parent().map(|p| p.to_path_buf()))
                     .unwrap_or_else(|| std::env::current_dir().unwrap_or(PathBuf::from(".")));
                 log_info!(
@@ -243,12 +259,6 @@ impl LanguageManager {
         for event in &events {
             match event {
                 LspMessage::Diagnostics { uri, diagnostics } => {
-                    log_trace!(
-                        "[LSP] diag uri='{}' current='{}'  match={}",
-                        uri,
-                        self.current_uri.as_deref().unwrap_or(""),
-                        self.current_uri.as_deref() == Some(uri.as_str())
-                    );
                     // Normalise both URIs to lowercase for case-insensitive comparison
                     let normalised_incoming = uri.to_lowercase();
                     let normalised_current =
@@ -302,32 +312,74 @@ impl LanguageManager {
             },
         }
     }
+}
 
-    // -------------------
-    // Helpers
-    // -------------------
-    fn find_project_root(start_path: &Path, root_markers: &[&str]) -> Option<PathBuf> {
-        log_info!(
-            "[LANGUAGE MANAGER] Finding project root starting at {:?}",
-            start_path
-        );
-        let mut current = start_path.to_path_buf();
+// -------------------
+// Helpers
+// -------------------
+pub fn find_project_root(start_path: &Path, root_markers: &[&str]) -> Option<PathBuf> {
+    log_info!(
+        "[LANGUAGE MANAGER] Finding project root starting at {:?}",
+        start_path
+    );
+    let mut current = start_path.to_path_buf();
 
-        // Iterate through parent directories
-        while current.pop() {
-            // Check if any of the markers exist in the current directory
-            if root_markers
-                .iter()
-                .any(|marker| current.join(marker).exists())
-            {
-                log_info!("Found project root: {:?}", current);
-                return Some(current);
+    // Iterate through parent directories
+    while current.pop() {
+        // Check if any of the markers exist in the current directory
+        if root_markers
+            .iter()
+            .any(|marker| current.join(marker).exists())
+        {
+            log_info!("Found project root: {:?}", current);
+            return Some(current);
+        }
+    }
+
+    log_warn!("[LANGUAGE MANAGER] Could not find project root";"Subsystems might not work as intended, including LSP");
+    // No Fallback here just return of NONE
+    None
+}
+
+/// Select either inputted configured grammar directory or from config, and return selected
+pub fn resolve_grammar_dir(configured: &Option<String>) -> PathBuf {
+    if let Some(dir) = configured {
+        let expanded = dir.replace('~', &dirs::home_dir().unwrap_or_default().to_string_lossy());
+        return PathBuf::from(expanded);
+    }
+    // Default: <config_dir>/calliglyph/grammars/
+    Config::get_grammar_dir().unwrap_or_else(|| PathBuf::from("."))
+}
+
+/// Ensures that at least defualt grammar configs are present, if not then install from assets
+pub fn ensure_default_grammar_configs(grammar_dir: &Path) {
+    if let Err(e) = fs::create_dir_all(grammar_dir) {
+        log_warn!("[Syntax] Could not create grammar dir: {}", e);
+        return;
+    }
+
+    let defaults: &[(&str, &str)] = &[
+        ("rust.toml", include_str!("../../assets/grammars/rust.toml")),
+        (
+            "python.toml",
+            include_str!("../../assets/grammars/python.toml"),
+        ),
+        (
+            "typescript.toml",
+            include_str!("../../assets/grammars/typescript.toml"),
+        ),
+    ];
+
+    for (filename, content) in defaults {
+        let path = grammar_dir.join(filename);
+        if !path.exists() {
+            // never overwrite user edits
+            if let Err(e) = fs::write(&path, content) {
+                log_warn!("[Syntax] Could not write default {}: {}", filename, e);
+            } else {
+                log_info!("[Syntax] Wrote default grammar config: {}", path.display());
             }
         }
-
-        log_warn!("[LANGUAGE MANAGER] Could not find project root";"Subsystems might not work as intended, including LSP");
-        // No Fallback here just return of NONE
-        None
     }
 }
 
@@ -344,7 +396,7 @@ mod tests {
     fn make_manager(source: &str) -> LanguageManager {
         let mut mgr = LanguageManager::new();
         // Activate for a .rs file with no theme (we test styling separately)
-        mgr.activate_for_file(Path::new("test.rs"), None, &LspConfig::default());
+        mgr.activate_for_file(Path::new("test.rs"), None, &LspConfig::default(), &SyntaxConfig::default());
         mgr.update_source(source);
         mgr
     }
@@ -395,7 +447,7 @@ mod tests {
             },
         };
         let mut mgr = LanguageManager::new();
-        mgr.activate_for_file(Path::new("test.rs"), Some(theme), &LspConfig::default());
+        mgr.activate_for_file(Path::new("test.rs"), Some(theme), &LspConfig::default(), &SyntaxConfig::default());
         mgr.update_source(source);
         mgr
     }
@@ -405,21 +457,21 @@ mod tests {
     #[test]
     fn activate_sets_language_id_for_rust() {
         let mut mgr = LanguageManager::new();
-        mgr.activate_for_file(Path::new("main.rs"), None, &LspConfig::default());
+        mgr.activate_for_file(Path::new("main.rs"), None, &LspConfig::default(), &SyntaxConfig::default());
         assert_eq!(mgr.language_id.as_deref(), Some("rust"));
     }
 
     #[test]
     fn activate_sets_language_id_for_python() {
         let mut mgr = LanguageManager::new();
-        mgr.activate_for_file(Path::new("script.py"), None, &LspConfig::default());
+        mgr.activate_for_file(Path::new("script.py"), None, &LspConfig::default(), &SyntaxConfig::default());
         assert_eq!(mgr.language_id.as_deref(), Some("python"));
     }
 
     #[test]
     fn activate_unknown_extension_clears_syntax() {
         let mut mgr = LanguageManager::new();
-        mgr.activate_for_file(Path::new("file.xyz"), None, &LspConfig::default());
+        mgr.activate_for_file(Path::new("file.xyz"), None, &LspConfig::default(), &SyntaxConfig::default());
         assert!(mgr.syntax.is_none());
         assert!(mgr.language_id.is_none());
     }
@@ -435,7 +487,7 @@ mod tests {
     #[test]
     fn update_source_stores_source_in_syntax() {
         let mut mgr = LanguageManager::new();
-        mgr.activate_for_file(Path::new("a.rs"), None, &LspConfig::default());
+        mgr.activate_for_file(Path::new("a.rs"), None, &LspConfig::default(), &SyntaxConfig::default());
         mgr.update_source("let x = 1;");
         assert_eq!(mgr.syntax.as_ref().unwrap().source, "let x = 1;");
     }
@@ -615,7 +667,7 @@ mod tests {
 
         let file_path = src.join("main.rs");
         let root =
-            LanguageManager::find_project_root(&file_path, &[".git"]).expect("Should find a root");
+            find_project_root(&file_path, &[".git"]).expect("Should find a root");
 
         // Canonicalize both to ensure identical formatting (fixes Windows prefix issues)
         let expected = project
@@ -634,7 +686,7 @@ mod tests {
         let file_path = dir.path().join("standalone.rs");
 
         // No .git folder exists
-        let root = LanguageManager::find_project_root(&file_path, &[".git"]);
+        let root = find_project_root(&file_path, &[".git"]);
 
         // Should return none
         assert!(root.is_none());
@@ -651,7 +703,7 @@ mod tests {
         fs::create_dir(root.join(".git")).unwrap();
 
         let file = src.join("main.rs");
-        let discovered = LanguageManager::find_project_root(&file, &[".git"]).unwrap();
+        let discovered = find_project_root(&file, &[".git"]).unwrap();
 
         // Canonicalize to handle Windows path prefix variations (\\?\ vs C:\)
         assert_eq!(

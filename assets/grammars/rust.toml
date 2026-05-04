@@ -1,0 +1,79 @@
+
+stop_at = [
+    "string_literal",
+    "raw_string_literal",
+    "char_literal",
+    "line_comment",
+    "block_comment"
+]
+
+[node_kinds]
+"fn"        = "keyword"
+"let"       = "keyword"
+"pub"       = "keyword"
+"use"       = "keyword"
+"mod"       = "keyword"
+"struct"    = "keyword"
+"enum"      = "keyword"
+"impl"      = "keyword"
+"trait"     = "keyword"
+"match"     = "keyword"
+"if"        = "keyword"
+"else"      = "keyword"
+"for"       = "keyword"
+"while"     = "keyword"
+"loop"      = "keyword"
+"return"    = "keyword"
+"where"     = "keyword"
+"async"     = "keyword"
+"await"     = "keyword"
+"move"      = "keyword"
+"ref"       = "keyword"
+"mut"       = "keyword"
+"const"     = "keyword"
+"static"    = "keyword"
+"type"      = "keyword"
+"self"      = "keyword"
+"super"     = "keyword"
+"crate"     = "keyword"
+"extern"    = "keyword"
+"unsafe"    = "keyword"
+"true"      = "boolean"
+"false"     = "boolean"
+
+"string_literal"      = "string"
+"raw_string_literal"  = "string"
+"char_literal"        = "string"
+"integer_literal"     = "number"
+"float_literal"       = "number"
+"line_comment"        = "comment"
+"block_comment"       = "comment"
+"type_identifier"     = "type"
+"primitive_type"      = "type"
+
+
+
+[[parent_rules]]
+node_kind   = "identifier"
+parent_kind = "function_item"
+token_type  = "function"
+
+[[parent_rules]]
+node_kind   = "identifier"
+parent_kind = "function_signature_item"
+token_type  = "function"
+
+[[parent_rules]]
+node_kind   = "type_identifier"
+parent_kind = "struct_item"
+token_type  = "type"
+
+[[parent_rules]]
+node_kind   = "type_identifier"
+parent_kind = "enum_item"
+token_type  = "type"
+
+[[parent_rules]]
+node_kind   = "type_identifier"
+parent_kind = "impl_item"
+token_type  = "type"

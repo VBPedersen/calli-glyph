@@ -55,25 +55,3 @@ fn percent_encode_path(s: &str) -> String {
         })
         .collect()
 }
-
-/// Language id string for the LSP initialize/didOpen calls.
-pub fn extension_to_language_id(ext: &str) -> &'static str {
-    match ext {
-        "rs" => "rust",
-        "py" => "python",
-        "js" => "javascript",
-        "ts" => "typescript",
-        "jsx" => "javascriptreact",
-        "tsx" => "typescriptreact",
-        "c" | "h" => "c",
-        "cpp" | "cc" | "cxx" | "hpp" => "cpp",
-        "go" => "go",
-        "lua" => "lua",
-        "sh" => "shellscript",
-        "json" => "json",
-        "toml" => "toml",
-        "yaml" | "yml" => "yaml",
-        "md" => "markdown",
-        _ => "plaintext",
-    }
-}

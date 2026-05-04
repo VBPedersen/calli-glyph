@@ -1,6 +1,7 @@
 //! the tree-sitter wrapper
 
 use std::collections::{HashMap, HashSet};
+use std::ops::Range;
 use tree_sitter::{Language, Node, Parser, Tree};
 
 pub struct SyntaxTree {
@@ -11,7 +12,7 @@ pub struct SyntaxTree {
     pub source: String,
     config: Option<LangConfig>, // None = no highlighting rules loaded
     // Cache: last walk result + the content_version it was built for
-    token_cache: Option<(u64, Vec<(std::ops::Range<usize>, &'static str)>)>,
+    token_cache: Option<(u64, Vec<(Range<usize>, String)>)>,
 }
 
 impl SyntaxTree {
@@ -53,7 +54,7 @@ impl SyntaxTree {
 
     /// Walk the tree and produce (byte_range, token_type) pairs for highlighting.
     /// Should bed called once per render frame, not per line
-    pub fn highlight_tokens(&mut self, version: u64) -> &[(std::ops::Range<usize>, &'static str)] {
+    pub fn highlight_tokens(&mut self, version: u64) -> &[(Range<usize>, String)] {
         // Return cached result if version hasn't changed
         if let Some((cached_version, _)) = &self.token_cache {
             if *cached_version == version {
@@ -79,11 +80,7 @@ impl SyntaxTree {
 
     /// Recursively walks a node, getting the token type and byte range for each node,
     /// by recursively calling itself with child as new base node
-    fn walk_node<'a>(
-        node: Node,
-        config: &LangConfig,
-        out: &mut Vec<(std::ops::Range<usize>, &'static str)>,
-    ) {
+    fn walk_node<'a>(node: Node, config: &LangConfig, out: &mut Vec<(Range<usize>, String)>) {
         let kind = node.kind();
 
         // Check parent rules first (e.g. identifier inside function_item)
@@ -94,14 +91,14 @@ impl SyntaxTree {
                     .map(|p| p.kind() == rule.parent_kind)
                     .unwrap_or(false)
                 {
-                    out.push((node.byte_range(), rule.token_type));
+                    out.push((node.byte_range(), rule.token_type.clone()));
                     // fall through to still recurse unless it's in stop_at
                 }
             }
         }
 
-        if let Some(&token_type) = config.node_kind_map.get(kind) {
-            out.push((node.byte_range(), token_type));
+        if let Some(token_type) = config.node_kind_map.get(kind) {
+            out.push((node.byte_range(), token_type.clone()));
             if config.stop_at.contains(kind) {
                 return; // don't recurse
             }
@@ -120,14 +117,14 @@ impl SyntaxTree {
         &mut self,
         byte_start: usize,
         byte_end: usize,
-    ) -> Vec<(std::ops::Range<usize>, &'static str)> {
+    ) -> Vec<(Range<usize>, String)> {
         if byte_start >= byte_end {
             return vec![]; // zero or negative range, nothing can overlap
         }
         self.highlight_tokens(0)
             .into_iter()
             .filter(|(r, _)| r.start < byte_end && r.end > byte_start)
-            .map(|(r, t)| (r.clone(), *t))
+            .map(|(r, t)| (r.clone(), t.clone()))
             .collect()
     }
 }
@@ -135,11 +132,11 @@ impl SyntaxTree {
 pub struct LangConfig {
     /// node kinds that map directly to a semantic token type
     /// e.g. ("string_literal", "string"), ("integer_literal", "number")
-    pub node_kind_map: HashMap<&'static str, &'static str>,
+    pub node_kind_map: HashMap<String, String>,
 
     /// node kinds that should be highlighted but whose children should NOT be walked
     /// (avoids double-highlighting). Subset of node_kind_map.
-    pub stop_at: HashSet<&'static str>,
+    pub stop_at: HashSet<String>,
 
     /// If the node kind equals this, the parent kind is checked to decide the token type.
     /// e.g. in Rust, an "identifier" whose parent is "function_item" -> "function"
@@ -147,9 +144,9 @@ pub struct LangConfig {
 }
 
 pub struct ParentRule {
-    pub node_kind: &'static str,
-    pub parent_kind: &'static str,
-    pub token_type: &'static str,
+    pub node_kind: String,
+    pub parent_kind: String,
+    pub token_type: String,
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -159,56 +156,56 @@ pub struct ParentRule {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::language::lang_configs::rust::rust_config;
+
+    fn make_lang_config() -> LangConfig {
+        LangConfig {
+            node_kind_map: HashMap::from([
+                ("fn".to_string(),              "keyword".to_string()),
+                ("let".to_string(),             "keyword".to_string()),
+                ("pub".to_string(),             "keyword".to_string()),
+                ("return".to_string(),          "keyword".to_string()),
+                ("true".to_string(),            "keyword".to_string()),
+                ("false".to_string(),           "keyword".to_string()),
+                ("string_literal".to_string(),  "string".to_string()),
+                ("char_literal".to_string(),    "string".to_string()),
+                ("integer_literal".to_string(), "number".to_string()),
+                ("float_literal".to_string(),   "number".to_string()),
+                ("line_comment".to_string(),    "comment".to_string()),
+                ("block_comment".to_string(),   "comment".to_string()),
+                ("type_identifier".to_string(), "type".to_string()),
+                ("primitive_type".to_string(),  "type".to_string()),
+            ]),
+            stop_at: HashSet::from([
+                "string_literal".to_string(),
+                "char_literal".to_string(),
+                "line_comment".to_string(),
+                "block_comment".to_string(),
+            ]),
+            parent_rules: vec![
+                ParentRule {
+                    node_kind:   "identifier".to_string(),
+                    parent_kind: "function_item".to_string(),
+                    token_type:  "function".to_string(),
+                },
+            ],
+        }
+    }
 
     fn make_tree(source: &str) -> SyntaxTree {
-        let lang: Language = tree_sitter_rust::LANGUAGE.into();
-        let mut st = SyntaxTree::new(lang, Some(rust_config()));
+        let grammar_dir = crate::config::SyntaxConfig::default()
+            .grammar_dir
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| std::path::PathBuf::from("."));
+
+        let lang = crate::language::grammar_loader::load_grammar(&grammar_dir, "rust")
+            .expect("rust grammar .so not found — run tree-sitter build for rust first");
+
+        let mut st = SyntaxTree::new(lang, Some(make_lang_config()));
         st.update(source, None);
         st
     }
 
     // ── basic token detection ─────────────────────────────────────────────
-
-    #[test]
-    fn print_all_node_kinds() {
-        let lang: Language = tree_sitter_rust::LANGUAGE.into();
-        let mut parser = Parser::new();
-        parser.set_language(&lang).unwrap();
-
-        let source = r#"pub fn main() {
-            let x = 42;
-            let s = "hello";
-            // a comment
-            let b = true;
-        }"#;
-
-        let tree = parser.parse(source, None).unwrap();
-
-        fn walk(node: Node, source: &str, depth: usize) {
-            let indent = "  ".repeat(depth);
-            let text = &source[node.byte_range()];
-            let preview = if text.len() > 20 { &text[..20] } else { text };
-            println!(
-                "{}kind={:?} named={} children={} bytes={}..{} text={:?}",
-                indent,
-                node.kind(),
-                node.is_named(),
-                node.child_count(),
-                node.start_byte(),
-                node.end_byte(),
-                preview,
-            );
-            let mut cursor = node.walk();
-            for child in node.children(&mut cursor) {
-                walk(child, source, depth + 1);
-            }
-        }
-
-        walk(tree.root_node(), source, 0);
-        // This test always "fails" so the output prints — remove when done
-        // panic!("scroll up to read the tree");
-    }
 
     #[test]
     fn detects_keyword_fn() {
@@ -339,8 +336,12 @@ mod tests {
 
     #[test]
     fn no_update_returns_no_tokens() {
-        let lang: Language = tree_sitter_rust::LANGUAGE.into();
-        let mut st = SyntaxTree::new(lang, Some(rust_config())); // never call update()
+        let grammar_dir = crate::config::SyntaxConfig::default()
+            .grammar_dir
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| std::path::PathBuf::from("."));
+        let lang = crate::language::grammar_loader::load_grammar(&grammar_dir, "rust").unwrap();
+        let mut st = SyntaxTree::new(lang, Some(make_lang_config())); // never call update()
         assert!(
             st.highlight_tokens(0).is_empty(),
             "tree is None, should return empty"

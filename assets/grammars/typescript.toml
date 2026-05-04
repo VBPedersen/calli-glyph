@@ -1,0 +1,169 @@
+# tree-sitter-typescript node kinds -> calli-glyph token types
+# tree-sitter-typescript is a superset of tree-sitter-javascript.
+# This file covers TypeScript-specific nodes (type annotations, interfaces,
+# generics, enums, decorators) as well as all shared JavaScript nodes.
+# Use this file for both .ts and .tsx extensions.
+
+
+
+# --- Stop at ---
+# Prevents the walker descending into children of these nodes.
+# template_string is NOT in stop_at because we want ${...} interpolation
+# children to be walked and highlighted normally inside the backtick string.
+stop_at = [
+    "string",
+    "regex",
+    "comment",
+]
+
+[node_kinds]
+# --- Strings ---
+# tree-sitter-typescript uses "string" for both single and double quoted literals.
+# Template literals (backtick strings) are a separate node.
+"string"                    = "string"
+"template_string"           = "string"   # `hello ${name}`
+"regex"                     = "string"   # /pattern/flags
+
+# --- Numbers ---
+"number"                    = "number"
+
+# --- Comments ---
+"comment"                   = "comment"  # // line and /* block */
+
+# --- TypeScript type-level nodes ---
+"type_identifier"           = "type"     # MyType, T, Promise
+"predefined_type"           = "type"     # string, number, boolean, void, any, never, unknown, object
+"generic_type"              = "type"     # Array<string>, Map<K, V>
+
+# --- Keywords: declarations ---
+"var"                       = "keyword"
+"let"                       = "keyword"
+"const"                     = "keyword"
+"function"                  = "keyword"
+"class"                     = "keyword"
+"return"                    = "keyword"
+"new"                       = "keyword"
+"delete"                    = "keyword"
+"typeof"                    = "keyword"
+"instanceof"                = "keyword"
+"void"                      = "keyword"
+"in"                        = "keyword"
+"of"                        = "keyword"   # for...of
+
+# --- Keywords: control flow ---
+"if"                        = "keyword"
+"else"                      = "keyword"
+"for"                       = "keyword"
+"while"                     = "keyword"
+"do"                        = "keyword"
+"switch"                    = "keyword"
+"case"                      = "keyword"
+"default"                   = "keyword"
+"break"                     = "keyword"
+"continue"                  = "keyword"
+"throw"                     = "keyword"
+"try"                       = "keyword"
+"catch"                     = "keyword"
+"finally"                   = "keyword"
+
+# --- Keywords: modules ---
+"import"                    = "keyword"
+"export"                    = "keyword"
+"from"                      = "keyword"
+"as"                        = "keyword"
+
+# --- Keywords: async ---
+"async"                     = "keyword"
+"await"                     = "keyword"
+"yield"                     = "keyword"
+
+# --- Keywords: TypeScript-specific ---
+"type"                      = "keyword"   # type Foo = ...
+"interface"                 = "keyword"
+"enum"                      = "keyword"
+"namespace"                 = "keyword"
+"module"                    = "keyword"
+"declare"                   = "keyword"
+"abstract"                  = "keyword"
+"implements"                = "keyword"
+"extends"                   = "keyword"
+"keyof"                     = "keyword"
+"readonly"                  = "keyword"
+"override"                  = "keyword"
+"satisfies"                 = "keyword"  # TS 4.9+
+"using"                     = "keyword"  # TS 5.2+ explicit resource management
+"infer"                     = "keyword"  # conditional types
+
+# --- Accessibility modifiers ---
+"public"                    = "keyword"
+"private"                   = "keyword"
+"protected"                 = "keyword"
+"static"                    = "keyword"
+
+# --- Booleans / null / undefined ---
+"true"                      = "boolean"
+"false"                     = "boolean"
+"null"                      = "keyword"
+"undefined"                 = "keyword"
+
+# --- this / super ---
+"this"                      = "keyword"
+"super"                     = "keyword"
+
+# --- Decorators ---
+# The decorator node wraps the whole @Expression — the @ sign plus identifier.
+# Highlighted as "function" since decorators are callable.
+"decorator"                 = "function"
+
+
+# --- Parent rules ---
+# More specific token types based on the node's parent context.
+
+[[parent_rules]]
+# function foo() {}  ->  name identifier gets "function"
+node_kind   = "identifier"
+parent_kind = "function_declaration"
+token_type  = "function"
+
+[[parent_rules]]
+# const foo = function() {}  ->  name identifier in function expression
+node_kind   = "identifier"
+parent_kind = "function_expression"
+token_type  = "function"
+
+[[parent_rules]]
+# class MyClass  ->  name identifier gets "type"
+node_kind   = "type_identifier"
+parent_kind = "class_declaration"
+token_type  = "type"
+
+[[parent_rules]]
+# interface MyInterface  ->  name gets "type"
+node_kind   = "type_identifier"
+parent_kind = "interface_declaration"
+token_type  = "type"
+
+[[parent_rules]]
+# enum MyEnum  ->  name gets "type"
+node_kind   = "identifier"
+parent_kind = "enum_declaration"
+token_type  = "type"
+
+[[parent_rules]]
+# type Foo = ...  ->  name gets "type"
+node_kind   = "type_identifier"
+parent_kind = "type_alias_declaration"
+token_type  = "type"
+
+[[parent_rules]]
+# method definitions inside a class body: foo() {}
+node_kind   = "property_identifier"
+parent_kind = "method_definition"
+token_type  = "function"
+
+[[parent_rules]]
+# Arrow functions assigned to a const: const foo = () => {}
+# The identifier on the left side of the assignment
+node_kind   = "identifier"
+parent_kind = "variable_declarator"
+token_type  = "variable"
