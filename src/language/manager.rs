@@ -80,7 +80,11 @@ impl LanguageManager {
         // Start LSP server if configured for this extension
         if lsp_config.enabled {
             if let Some((server_name, server_cfg)) = lsp_config.server_for_extension(ext) {
-                let workspace_root = Self::find_project_root(canonical.as_path());
+                let markers: Vec<&str> = server_cfg.root_markers.iter().map(|s| s.as_str()).collect();
+                let workspace_root = Self::find_project_root(&canonical, &markers)
+                    .or_else(|| canonical.parent().map(|p| p.to_path_buf()))
+                    .unwrap_or_else(|| std::env::current_dir().unwrap_or(PathBuf::from(".")));
+                log_info!("Attempting to start LSP client with workspace root: {:?}",workspace_root);
 
                 match LspClient::start(server_name.to_string(), server_cfg, workspace_root) {
                     Ok(client) => {
@@ -298,24 +302,23 @@ impl LanguageManager {
     // -------------------
     // Helpers
     // -------------------
-    fn find_project_root(start_path: &Path) -> Option<PathBuf> {
-        log_info!("Finding project root starting at {:?}", start_path);
+    fn find_project_root(start_path: &Path, root_markers: &[&str]) -> Option<PathBuf> {
+        log_info!("[LANGUAGE MANAGER] Finding project root starting at {:?}", start_path);
         let mut current = start_path.to_path_buf();
 
         // Iterate through parent directories
         while current.pop() {
-            log_info!("Checking {:?}", current);
-            // Look for common root markers
-            if current.join(".git").exists()
-                || current.join(".hg").exists()
-                || current.join(".svn").exists()
-            {
+
+            // Check if any of the markers exist in the current directory
+            if root_markers.iter().any(|marker| current.join(marker).exists()) {
+                log_info!("Found project root: {:?}", current);
                 return Some(current);
             }
         }
 
-        // Fallback: use the folder the file is in if no VCS is found
-        start_path.parent().map(|p| p.to_path_buf())
+        log_warn!("[LANGUAGE MANAGER] Could not find project root";"Subsystems might not work as intended, including LSP");
+        // No Fallback here just return of NONE
+        None
     }
 }
 
@@ -602,7 +605,7 @@ mod tests {
         fs::create_dir(project.join(".git")).unwrap();
 
         let file_path = src.join("main.rs");
-        let root = LanguageManager::find_project_root(&file_path).expect("Should find a root");
+        let root = LanguageManager::find_project_root(&file_path, &[".git"]).expect("Should find a root");
 
         // Canonicalize both to ensure identical formatting (fixes Windows prefix issues)
         let expected = project
@@ -616,15 +619,15 @@ mod tests {
     }
 
     #[test]
-    fn test_find_project_root_fallback() {
+    fn test_find_project_root_returns_none() {
         let dir = tempdir().unwrap();
         let file_path = dir.path().join("standalone.rs");
 
         // No .git folder exists
-        let root = LanguageManager::find_project_root(&file_path);
+        let root = LanguageManager::find_project_root(&file_path, &[".git"]);
 
-        // Should fallback to the parent directory
-        assert_eq!(root.unwrap(), dir.path());
+        // Should return none
+        assert!(root.is_none());
     }
 
     #[test]
@@ -638,7 +641,7 @@ mod tests {
         fs::create_dir(root.join(".git")).unwrap();
 
         let file = src.join("main.rs");
-        let discovered = LanguageManager::find_project_root(&file).unwrap();
+        let discovered = LanguageManager::find_project_root(&file, &[".git"]).unwrap();
 
         // Canonicalize to handle Windows path prefix variations (\\?\ vs C:\)
         assert_eq!(

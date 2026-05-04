@@ -7,7 +7,6 @@ use std::collections::HashMap;
 /// ```toml
 /// [lsp]
 /// enabled = true
-/// log_level = "error"
 ///
 /// [lsp.servers.rust]
 /// command = "rust-analyzer"
@@ -55,6 +54,7 @@ impl Default for LspConfig {
                 args: vec![],
                 enabled: true,
                 file_extensions: vec!["rs".to_string()],
+                root_markers: vec![".git".to_string(), "Cargo.toml".to_string()],
                 initialization_options: HashMap::new(),
             },
         );
@@ -66,6 +66,7 @@ impl Default for LspConfig {
                 args: vec!["--stdio".to_string()],
                 enabled: false, // off by default — user opts in
                 file_extensions: vec!["py".to_string()],
+                root_markers: vec![".git".to_string()],
                 initialization_options: HashMap::new(),
             },
         );
@@ -82,6 +83,7 @@ impl Default for LspConfig {
                     "tsx".to_string(),
                     "jsx".to_string(),
                 ],
+                root_markers: vec![".git".to_string()],
                 initialization_options: HashMap::new(),
             },
         );
@@ -124,6 +126,9 @@ pub struct LspServerConfig {
     /// Which file extensions this server handles
     pub file_extensions: Vec<String>,
 
+    /// Which root markers to look for when locating workspace
+    pub root_markers: Vec<String>,
+
     /// Passed as initializationOptions in the LSP initialize request.
     /// Allows per server settings without knowing them at compile time.
     pub initialization_options: HashMap<String, serde_json::Value>,
@@ -136,6 +141,7 @@ impl Default for LspServerConfig {
             args: vec![],
             enabled: false,
             file_extensions: vec![],
+            root_markers: vec![],
             initialization_options: HashMap::new(),
         }
     }

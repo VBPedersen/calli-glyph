@@ -216,7 +216,7 @@ impl LspClient {
     pub fn start(
         server_name: String,
         config: &LspServerConfig,
-        workspace_root: Option<PathBuf>,
+        workspace_root: PathBuf,
     ) -> Result<Self, String> {
         let mut child = Command::new(&config.command)
             .args(&config.args)
@@ -290,9 +290,7 @@ impl LspClient {
             serde_json::to_value(&config.initialization_options).unwrap_or(Value::Null)
         };
 
-        let root_uri = workspace_root
-            .map(|p| path_to_uri(&p))
-            .unwrap_or_else(|| "file:///".to_string());
+        let root_uri = path_to_uri(&workspace_root);
 
         let mut client = Self {
             server_name,
