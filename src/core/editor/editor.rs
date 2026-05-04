@@ -902,6 +902,11 @@ impl Editor {
     //editor backspace
     ///handles backspace in editor, removes char at y line x position and sets new cursor position
     pub fn backspace(&mut self) {
+        // guard against empty file checking on chars
+        if self.editor_content.is_empty() {
+            return;
+        }
+
         let deleted_char: Option<char>;
         let y = self.cursor.y as usize;
         let x = self.cursor.x as usize;
