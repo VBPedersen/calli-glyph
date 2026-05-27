@@ -1036,7 +1036,7 @@ impl Editor {
         } else if current_line_len > (self.cursor.x + 1) {
             let line = &mut self.editor_content[self.cursor.y as usize];
             let mut line_chars_vec: Vec<char> = line.chars().collect();
-            let char = line_chars_vec.remove(self.cursor.x as usize + 1);
+            let char = line_chars_vec.remove(self.cursor.x as usize);
 
             self.undo_redo_manager.record_undo(EditAction::Delete {
                 pos: CursorPosition {
@@ -2089,7 +2089,7 @@ mod unit_editor_delete_tests {
         let mut editor = create_editor_with_editor_content(vec!["ab".to_string()]);
         editor.cursor.x = 0;
         editor.delete();
-        assert_eq!(editor.editor_content[0], "a");
+        assert_eq!(editor.editor_content[0], "b");
         assert_eq!(editor.cursor.x, 0);
     }
 
@@ -2098,7 +2098,7 @@ mod unit_editor_delete_tests {
         let mut editor = create_editor_with_editor_content(vec!["ᚠΩ₿😎".to_string()]);
         editor.cursor.x = 2;
         editor.delete();
-        assert_eq!(editor.editor_content[0], "ᚠΩ₿");
+        assert_eq!(editor.editor_content[0], "ᚠΩ😎");
         assert_eq!(editor.cursor.x, 2);
     }
 
