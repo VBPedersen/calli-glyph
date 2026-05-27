@@ -353,7 +353,7 @@ fn editor_side_line<'a>(
         } else if diags.iter().any(|d| d.severity == DiagnosticSeverity::Hint) {
             ("· ", Style::default().fg(Color::DarkGray))
         } else {
-            ("  ", Style::default())
+            ("", Style::default())
         };
 
         let marker = Span::styled(marker_char, marker_style);
