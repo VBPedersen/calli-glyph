@@ -16,6 +16,7 @@ use crate::plugins::plugin_registry::{Plugin, PluginManager};
 use crate::plugins::search_replace_plugin::SearchReplacePlugin;
 use crate::ui::debug::DebugView;
 use crate::ui::layout::UILayout;
+use crate::ui::modal::Modal;
 use crate::ui::popups::error_popup::ErrorPopup;
 use crate::ui::popups::popup::{Popup, PopupResult, PopupType};
 use crate::ui::ui::ui;
@@ -30,7 +31,6 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use crate::ui::modal::Modal;
 
 pub struct App {
     /// Is the application running?

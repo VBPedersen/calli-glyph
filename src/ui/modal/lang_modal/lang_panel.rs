@@ -1,10 +1,10 @@
-use ratatui::Frame;
-use ratatui::widgets::Clear;
 use crate::core::app::App;
 use crate::input::actions::InputAction;
 use crate::language::manager::LanguageManager;
 use crate::ui::modal::{Modal, ModalResponse};
 use crate::ui::ui::centered_rect;
+use ratatui::widgets::Clear;
+use ratatui::Frame;
 
 /// Language panel menu for managing the language related systems via modal
 pub struct LangPanel {
@@ -12,7 +12,6 @@ pub struct LangPanel {
 }
 
 impl LangPanel {
-
     pub fn new(lang: &LanguageManager) -> LangPanel {
         Self {
             selected_diagnostic: None,
@@ -20,19 +19,16 @@ impl LangPanel {
     }
 }
 
-
 impl Modal for LangPanel {
     fn handle_input(&mut self, action: InputAction, app: &mut App) -> ModalResponse {
         match action {
             InputAction::ENTER => {
-               /* if let Some(diag) = self.selected_diagnostic() {
+                /* if let Some(diag) = self.selected_diagnostic() {
                     app.editor.jump_to_line(diag.line as usize);
                 }*/
                 ModalResponse::Close
             }
-            InputAction::Modal(_) => {
-                ModalResponse::Consumed
-            }
+            InputAction::Modal(_) => ModalResponse::Consumed,
             _ => ModalResponse::Consumed,
         }
     }

@@ -26,7 +26,7 @@ pub enum Command {
     Debug {
         args: Vec<String>,
         flags: HashSet<CommandFlag>,
-    }, 
+    },
     // Language system
     Lang {
         args: Vec<String>,

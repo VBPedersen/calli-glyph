@@ -1,9 +1,8 @@
 pub mod lang_modal;
 
-use ratatui::Frame;
 use crate::core::app::App;
 use crate::input::actions::InputAction;
-
+use ratatui::Frame;
 
 pub trait Modal {
     fn handle_input(&mut self, action: InputAction, app: &mut App) -> ModalResponse;
