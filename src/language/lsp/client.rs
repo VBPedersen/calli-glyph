@@ -7,7 +7,7 @@ use crate::language::lsp::path_to_uri;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
@@ -712,6 +712,7 @@ impl Drop for LspClient {
 mod tests {
     use super::*;
     use serde_json::json;
+    use std::path::Path;
 
     // A helper to create a "skeleton" client for testing parsing logic
     fn mock_client() -> LspClient {
