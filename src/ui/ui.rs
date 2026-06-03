@@ -29,6 +29,16 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             render_editor_ui(frame, app);
         }
     }
+
+    // render any modals on top, back to front
+    // Can't call modal.render() with &mut app borrow active, so extract first
+    let modal_count = app.modal_stack.len();
+    for i in 0..modal_count {
+        // temporarily take the modal out to avoid borrow conflict
+        let mut modal = app.modal_stack.remove(i);
+        modal.render(frame, app);
+        app.modal_stack.insert(i, modal);
+    }
 }
 
 fn render_editor_ui(frame: &mut Frame, app: &mut App) {
@@ -222,7 +232,7 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
 }
 
 ///returns centered rect based on height,width and current screen Rect to use in layout
-fn centered_rect(percent_width: u16, percent_height: u16, area: Rect) -> Rect {
+pub fn centered_rect(percent_width: u16, percent_height: u16, area: Rect) -> Rect {
     let width = area.width * percent_width / 100;
     let height = area.height * percent_height / 100;
     let x = (area.width - width) / 2;

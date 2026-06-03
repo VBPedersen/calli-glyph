@@ -30,6 +30,7 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use crate::ui::modal::Modal;
 
 pub struct App {
     /// Is the application running?
@@ -51,6 +52,7 @@ pub struct App {
     pub layout: UILayout,
     pub help_registry: Arc<HelpRegistry>,
     pub language: LanguageManager,
+    pub modal_stack: Vec<Box<dyn Modal>>,
 }
 
 pub type OpCallback = Box<dyn FnOnce(&mut App)>;
@@ -100,6 +102,7 @@ impl Default for App {
                 }),
             ),
             language: LanguageManager::new(),
+            modal_stack: vec![],
         };
 
         // Load default plugins
@@ -137,6 +140,7 @@ impl App {
                 }),
             ),
             language: LanguageManager::new(),
+            modal_stack: vec![],
         };
 
         // Load default plugins

@@ -3,3 +3,4 @@ pub mod debug_console;
 pub mod layout;
 pub mod popups;
 pub mod ui;
+pub mod modal;

@@ -131,6 +131,17 @@ impl LanguageManager {
         }
     }
 
+    /// Clears the language system, including diagnostics, completions and hover results
+    pub fn clear(&mut self) {
+
+    }
+
+    /// Restarts the language system, including lsp, syntax and theming
+    pub fn restart(&mut self) {
+
+    }
+
+
     // -------------------
     // Tree-sitter
     // -------------------
