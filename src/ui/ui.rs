@@ -35,7 +35,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     let modal_count = app.modal_stack.len();
     for i in 0..modal_count {
         // temporarily take the modal out to avoid borrow conflict
-        let modal = app.modal_stack.remove(i);
+        let mut modal = app.modal_stack.remove(i);
         modal.render(frame, app);
         app.modal_stack.insert(i, modal);
     }

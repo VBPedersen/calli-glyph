@@ -1,42 +1,384 @@
 use crate::core::app::App;
-use crate::input::actions::InputAction;
+use crate::input::actions::{InputAction, ModalAction};
+use crate::language::lsp::DiagnosticSeverity;
 use crate::language::manager::LanguageManager;
+use crate::ui::debug::{DebugTab, DebugView};
 use crate::ui::modal::{Modal, ModalResponse};
 use crate::ui::ui::centered_rect;
-use ratatui::widgets::Clear;
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::prelude::{Color, Modifier, Style};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{Block, Borders, Clear, Paragraph, Tabs};
 use ratatui::Frame;
+// ----------   TABS   --------------
+
+/// Language Tabs
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LangTab {
+    Diagnostics,
+    Lsp,
+    Syntax,
+}
+
+impl LangTab {
+    fn next(self) -> Self {
+        match self {
+            Self::Diagnostics => Self::Lsp,
+            Self::Lsp => Self::Syntax,
+            Self::Syntax => Self::Diagnostics,
+        }
+    }
+
+    fn prev(self) -> Self {
+        match self {
+            Self::Diagnostics => Self::Syntax,
+            Self::Lsp => Self::Diagnostics,
+            Self::Syntax => Self::Lsp,
+        }
+    }
+
+    fn index(self) -> usize {
+        match self {
+            Self::Diagnostics => 0,
+            Self::Lsp => 1,
+            Self::Syntax => 2,
+        }
+    }
+}
+
+// ----------   DIAGNOTSTIC FILTER   --------------
+
+/// Diagnostic filter used to filter diagnostics from lsp
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+pub enum DiagFilter {
+    AllFiles,
+    CurrentFile,
+    ErrorsOnly,
+    WarningsOnly,
+}
+
+impl DiagFilter {
+    /// Cycles through filters
+    fn cycle(self) -> Self {
+        match self {
+            Self::AllFiles => Self::CurrentFile,
+            Self::CurrentFile => Self::ErrorsOnly,
+            Self::ErrorsOnly => Self::WarningsOnly,
+            Self::WarningsOnly => Self::AllFiles,
+        }
+    }
+
+    /// Returns label of current DiagFilter
+    fn label(self) -> &'static str {
+        match self {
+            DiagFilter::AllFiles => "All Files",
+            DiagFilter::CurrentFile => "Current File",
+            DiagFilter::ErrorsOnly => "Errors Only",
+            DiagFilter::WarningsOnly => "Warnings Only",
+        }
+    }
+}
+
+// ----------   MAIN STRUCT   --------------
 
 /// Language panel menu for managing the language related systems via modal
 pub struct LangPanel {
-    pub selected_diagnostic: Option<usize>, // diagnostic currently selected
+    pub tab: LangTab,
+    pub selected_diagnostic: usize, // index of diagnostic currently selected
+    pub diag_filter: DiagFilter,
+    pub diag_scroll: u16,
+    /// Flat list of (uri, diag_index, rendered_row) for the currently visible diagnostics,
+    /// rebuilt each render so selection always maps to a real diagnostic.
+    diag_index_map: Vec<(String, usize, usize)>,
+    visible_height: u16, // set each render frame from the actual area height
 }
 
 impl LangPanel {
     pub fn new(lang: &LanguageManager) -> LangPanel {
         Self {
-            selected_diagnostic: None,
+            tab: LangTab::Diagnostics,
+            selected_diagnostic: 0,
+            diag_filter: DiagFilter::AllFiles,
+            diag_scroll: 0,
+            diag_index_map: Vec::new(),
+            visible_height: 0,
         }
     }
+
+    // -------- HELPERS -------------
+
+    /// count of diagnostics in diag to index map
+    fn diag_count(self: &Self) -> usize {
+        self.diag_index_map.len()
+    }
+
+    /// Select next (down) diagnostic
+    fn select_down(&mut self) {
+        let max = self.diag_count().saturating_sub(1);
+        if self.selected_diagnostic < max {
+            self.selected_diagnostic += 1;
+
+            // keep selected item inside the visible scroll window
+            if let Some((_, _, row)) = self.diag_index_map.get(self.selected_diagnostic) {
+                let row = *row as u16;
+                let visible_height = self.visible_height;
+                if row >= self.diag_scroll + visible_height {
+                    self.diag_scroll = row.saturating_sub(visible_height - 1);
+                }
+            }
+        }
+    }
+
+    /// Select previous (up) diagnostic
+    fn select_up(&mut self) {
+        if self.selected_diagnostic > 0 {
+            self.selected_diagnostic -= 1;
+            if (self.selected_diagnostic as u16) < self.diag_scroll {
+                self.diag_scroll = self.selected_diagnostic as u16;
+            }
+        }
+    }
+
+    /// Renders the diagnostics tab of the modal
+    fn render_diagnostics_tab(&mut self, frame: &mut Frame, area: Rect, app: &App) {
+        self.visible_height = area.height.saturating_sub(3); // subtract hint bar rows
+
+        // Collect diagnostics according to current filter
+        let lsp = app.language.lsp.as_ref();
+        let current_uri = app.language.current_uri.as_deref().unwrap_or("");
+
+        // Build the flat index map so selection can resolve to real items
+        self.diag_index_map.clear();
+        let mut rendered_row: usize = 2; // start after filter bar + blank line
+
+        // Sort URIs so current file is always first
+        let mut uris: Vec<&String> = lsp
+            .map(|l| l.diagnostics.keys().collect())
+            .unwrap_or_default();
+        uris.sort_by_key(|u| if u.as_str() == current_uri { 0 } else { 1 });
+
+        let mut lines: Vec<Line> = Vec::new();
+
+        // Filter bar
+        lines.push(Line::from(vec![
+            Span::styled(" Filter: ", Style::default().fg(Color::DarkGray)),
+            Span::styled(
+                format!("[{} ▾]", self.diag_filter.label()),
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled("  f: cycle filter", Style::default().fg(Color::DarkGray)),
+        ]));
+        lines.push(Line::raw(""));
+
+        // Show all diagnostics resulted from filter
+
+        for uri in &uris {
+            let diags = match lsp.and_then(|l| l.diagnostics.get(*uri)) {
+                Some(d) => d,
+                None => continue,
+            };
+
+            // Apply filter
+            let filtered: Vec<(usize, &crate::language::lsp::Diagnostic)> = diags
+                .iter()
+                .enumerate()
+                .filter(|(_, d)| match self.diag_filter {
+                    DiagFilter::AllFiles => true,
+                    DiagFilter::CurrentFile => uri.as_str() == current_uri,
+                    DiagFilter::ErrorsOnly => d.severity == DiagnosticSeverity::Error,
+                    DiagFilter::WarningsOnly => d.severity == DiagnosticSeverity::Warning,
+                })
+                .collect();
+
+            if filtered.is_empty() {
+                continue;
+            }
+
+            // File header
+            let filename = uri.rsplit('/').next().unwrap_or(uri.as_str());
+            let is_current = uri.as_str() == current_uri;
+            let header_style = if is_current {
+                Style::default()
+                    .fg(Color::White)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::Gray)
+            };
+            lines.push(Line::from(vec![
+                Span::styled(if is_current { "▶ " } else { "  " }, header_style),
+                Span::styled(filename.to_string(), header_style),
+            ]));
+            rendered_row += 1;
+
+            for (orig_idx, diag) in &filtered {
+                let is_selected = self.diag_index_map.len() == self.selected_diagnostic;
+                self.diag_index_map
+                    .push((uri.to_string(), *orig_idx, rendered_row));
+
+                let (icon, sev_style) = severity_style(&diag.severity);
+                let loc = format!("{}:{}", diag.line + 1, diag.col_start + 1);
+                let src = diag.source.as_deref().unwrap_or("");
+
+                let row_style = if is_selected {
+                    Style::default().bg(Color::Rgb(45, 45, 60))
+                } else {
+                    Style::default()
+                };
+
+                let mut spans = vec![
+                    Span::styled("  ", row_style),
+                    Span::styled(icon, sev_style.patch(row_style)),
+                    Span::styled(
+                        format!("{:<8}", loc),
+                        Style::default().fg(Color::DarkGray).patch(row_style),
+                    ),
+                    Span::styled(
+                        truncate(&diag.message, 55),
+                        Style::default().fg(Color::White).patch(row_style),
+                    ),
+                ];
+                if !src.is_empty() {
+                    spans.push(Span::styled(
+                        format!("  [{}]", src),
+                        Style::default().fg(Color::DarkGray).patch(row_style),
+                    ));
+                }
+                lines.push(Line::from(spans));
+                rendered_row += 1;
+            }
+
+            lines.push(Line::raw(""));
+            rendered_row += 1;
+        }
+
+        if self.diag_index_map.is_empty() {
+            lines.push(Line::from(Span::styled(
+                "  No diagnostics match the current filter.",
+                Style::default().fg(Color::DarkGray),
+            )));
+        }
+
+        // Hint bar
+        lines.push(Line::raw(""));
+        lines.push(Line::from(Span::styled(
+            " j/k: navigate   Enter: jump to line   f: filter   Esc: close",
+            Style::default().fg(Color::DarkGray),
+        )));
+
+        let p = Paragraph::new(lines).scroll((self.diag_scroll, 0));
+        frame.render_widget(p, area);
+    }
+
+    /// Renders the lsp tab of the modal
+    fn render_lsp_tab(&mut self, frame: &mut Frame, area: Rect, app: &App) {}
+
+    /// Renders the syntax tab of the modal
+    fn render_syntax_tab(&mut self, frame: &mut Frame, area: Rect, app: &App) {}
 }
 
 impl Modal for LangPanel {
     fn handle_input(&mut self, action: InputAction, app: &mut App) -> ModalResponse {
-        match action {
-            InputAction::ENTER => {
+        let InputAction::Modal(modal_action) = action else {
+            return ModalResponse::Consumed;
+        };
+
+        match modal_action {
+            ModalAction::Close => return ModalResponse::Close,
+            ModalAction::ScrollUp => match self.tab {
+                LangTab::Diagnostics => self.select_up(),
+                _ => self.diag_scroll = self.diag_scroll.saturating_sub(1),
+            },
+            ModalAction::ScrollDown => match self.tab {
+                LangTab::Diagnostics => self.select_down(),
+                _ => self.diag_scroll = self.diag_scroll.saturating_add(1),
+            },
+            ModalAction::NextTab => self.tab = self.tab.next(),
+            ModalAction::PrevTab => self.tab = self.tab.prev(),
+            ModalAction::Confirm => {
                 /* if let Some(diag) = self.selected_diagnostic() {
                     app.editor.jump_to_line(diag.line as usize);
                 }*/
-                ModalResponse::Close
             }
-            InputAction::Modal(_) => ModalResponse::Consumed,
-            _ => ModalResponse::Consumed,
+            // ----- tab specific char actions -----
+            ModalAction::Action(c) => match (self.tab, c) {
+                // Diagnostics tab
+                (LangTab::Diagnostics, 'f') => {
+                    self.diag_filter = self.diag_filter.cycle();
+                    self.selected_diagnostic = 0;
+                    self.diag_scroll = 0;
+                    self.diag_index_map.clear();
+                }
+
+                _ => {}
+            },
         }
+
+        ModalResponse::Consumed
     }
 
-    fn render(&self, frame: &mut Frame, app: &App) {
-        let diags = &app.language.diagnostics;
+    fn render(&mut self, frame: &mut Frame, app: &App) {
+        let area = centered_rect(80, 75, frame.area());
+
         // render on top of whatever is already drawn
-        let area = centered_rect(80, 60, frame.area());
         frame.render_widget(Clear, area);
+
+        let outer = Block::default().borders(Borders::ALL);
+
+        frame.render_widget(outer.clone(), area);
+        let inner = outer.inner(area);
+
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(2), // Tab bar
+                Constraint::Min(0),    // Content
+            ])
+            .split(inner);
+
+        let tab_titles = vec![
+            Line::from(" [1] Diagnostics "),
+            Line::from(" [2] LSP "),
+            Line::from(" [3] Syntax "),
+        ];
+        let tabs = Tabs::new(tab_titles)
+            .select(self.tab.index())
+            .style(Style::default().fg(Color::DarkGray))
+            .highlight_style(
+                Style::default()
+                    .fg(Color::White)
+                    .add_modifier(Modifier::BOLD)
+                    .bg(Color::Rgb(40, 40, 55)),
+            )
+            .divider("|");
+        frame.render_widget(tabs, chunks[0]);
+
+        match self.tab {
+            LangTab::Diagnostics => self.render_diagnostics_tab(frame, chunks[1], app),
+            LangTab::Lsp => self.render_lsp_tab(frame, chunks[1], app),
+            LangTab::Syntax => self.render_syntax_tab(frame, chunks[1], app),
+        }
+    }
+}
+
+// ----------   HELPERS   --------------
+
+/// Style of diagnostic severity
+fn severity_style(sev: &DiagnosticSeverity) -> (&'static str, Style) {
+    match sev {
+        DiagnosticSeverity::Error => ("● ", Style::default().fg(Color::Red)),
+        DiagnosticSeverity::Warning => ("◆ ", Style::default().fg(Color::Yellow)),
+        DiagnosticSeverity::Information => ("◉ ", Style::default().fg(Color::Cyan)),
+        DiagnosticSeverity::Hint => ("· ", Style::default().fg(Color::DarkGray)),
+    }
+}
+
+/// Simple truncation
+fn truncate(s: &str, max: usize) -> String {
+    if s.len() <= max {
+        s.to_string()
+    } else {
+        format!("{}…", &s[..max.saturating_sub(1)])
     }
 }
