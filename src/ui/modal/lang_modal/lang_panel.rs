@@ -222,7 +222,7 @@ impl LangPanel {
                 let src = diag.source.as_deref().unwrap_or("");
 
                 let row_style = if is_selected {
-                    Style::default().bg(Color::Rgb(80,80,100))
+                    Style::default().bg(Color::Rgb(80, 80, 100))
                 } else {
                     Style::default()
                 };
@@ -276,16 +276,14 @@ impl LangPanel {
         let lsp = app.language.lsp.as_ref();
 
         let (state_icon, state_label, state_color) = match lsp.map(|l| &l.state) {
-            Some(ConnectionState::Ready)          => ("●", "Ready",        Color::Green),
-            Some(ConnectionState::Initializing)   => ("◌", "Initializing", Color::Yellow),
-            Some(ConnectionState::Disconnected)   => ("○", "Disconnected", Color::DarkGray),
-            Some(ConnectionState::Failed(e))      => ("✗", e.as_str(),     Color::Red),
-            None                                  => ("○", "No server",    Color::DarkGray),
+            Some(ConnectionState::Ready) => ("●", "Ready", Color::Green),
+            Some(ConnectionState::Initializing) => ("◌", "Initializing", Color::Yellow),
+            Some(ConnectionState::Disconnected) => ("○", "Disconnected", Color::DarkGray),
+            Some(ConnectionState::Failed(e)) => ("✗", e.as_str(), Color::Red),
+            None => ("○", "No server", Color::DarkGray),
         };
 
-        let server_name = lsp
-            .map(|l| l.server_name.as_str())
-            .unwrap_or("—");
+        let server_name = lsp.map(|l| l.server_name.as_str()).unwrap_or("—");
 
         let workspace = lsp
             .map(|l| l.workspace_root.display().to_string())
@@ -293,24 +291,40 @@ impl LangPanel {
 
         let uri = app.language.current_uri.as_deref().unwrap_or("—");
 
-        let errors   = count_severity(app, DiagnosticSeverity::Error);
+        let errors = count_severity(app, DiagnosticSeverity::Error);
         let warnings = count_severity(app, DiagnosticSeverity::Warning);
-        let hints    = count_severity(app, DiagnosticSeverity::Hint);
+        let hints = count_severity(app, DiagnosticSeverity::Hint);
 
         let truncation_width = area.width.saturating_sub(16) as usize;
         let truncated_uri = truncate(uri, truncation_width);
         let lines: Vec<Line> = vec![
             Line::raw(""),
-            row_kv("Server",    server_name),
-            row_kv_styled("State", state_label, Style::default().fg(state_color).add_modifier(Modifier::BOLD), state_icon),
-            row_kv("Root",      &workspace),
-            row_kv("File URI",  &truncated_uri),
+            row_kv("Server", server_name),
+            row_kv_styled(
+                "State",
+                state_label,
+                Style::default()
+                    .fg(state_color)
+                    .add_modifier(Modifier::BOLD),
+                state_icon,
+            ),
+            row_kv("Root", &workspace),
+            row_kv("File URI", &truncated_uri),
             Line::raw(""),
             Line::from(vec![
                 Span::styled("  Diagnostics   ", Style::default().fg(Color::DarkGray)),
-                Span::styled(format!("● {} errors  ", errors),   Style::default().fg(Color::Red)),
-                Span::styled(format!("◆ {} warnings  ", warnings), Style::default().fg(Color::Yellow)),
-                Span::styled(format!("· {} hints", hints),       Style::default().fg(Color::DarkGray)),
+                Span::styled(
+                    format!("● {} errors  ", errors),
+                    Style::default().fg(Color::Red),
+                ),
+                Span::styled(
+                    format!("◆ {} warnings  ", warnings),
+                    Style::default().fg(Color::Yellow),
+                ),
+                Span::styled(
+                    format!("· {} hints", hints),
+                    Style::default().fg(Color::DarkGray),
+                ),
             ]),
             Line::raw(""),
             section_header("Actions"),
@@ -322,7 +336,6 @@ impl LangPanel {
         ];
 
         frame.render_widget(Paragraph::new(lines), area);
-
     }
 
     /// Renders the syntax tab of the modal
@@ -418,16 +431,21 @@ impl Modal for LangPanel {
 /// Returns Line with key and value in specific style
 fn row_kv<'a>(key: &'a str, value: &'a str) -> Line<'a> {
     Line::from(vec![
-        Span::styled(format!("  {:<12}", key), Style::default().fg(Color::DarkGray)),
+        Span::styled(
+            format!("  {:<12}", key),
+            Style::default().fg(Color::DarkGray),
+        ),
         Span::styled(value.to_string(), Style::default().fg(Color::White)),
     ])
 }
 
-
 /// Returns Line with key and value in passed style
 fn row_kv_styled<'a>(key: &'a str, value: &'a str, style: Style, icon: &'a str) -> Line<'a> {
     Line::from(vec![
-        Span::styled(format!("  {:<12}", key), Style::default().fg(Color::DarkGray)),
+        Span::styled(
+            format!("  {:<12}", key),
+            Style::default().fg(Color::DarkGray),
+        ),
         Span::styled(format!("{} {}", icon, value), style),
     ])
 }
@@ -445,7 +463,12 @@ fn section_header(label: &str) -> Line {
 /// Returns action row line from key and description
 fn action_row(key: char, desc: &str) -> Line {
     Line::from(vec![
-        Span::styled(format!("  [{}]  ", key), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            format!("  [{}]  ", key),
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(desc.to_string(), Style::default().fg(Color::White)),
     ])
 }
@@ -457,9 +480,6 @@ fn hint_line(text: &str) -> Line {
         Style::default().fg(Color::DarkGray),
     ))
 }
-
-
-
 
 /// Style of diagnostic severity
 fn severity_style(sev: &DiagnosticSeverity) -> (&'static str, Style) {
@@ -486,10 +506,9 @@ fn count_severity(app: &App, sev: DiagnosticSeverity) -> usize {
         .unwrap_or(0)
 }
 
-
 /// Simple truncation
 fn truncate(s: &str, max: usize) -> String {
-    if max== 0 || s.len() <= max {
+    if max == 0 || s.len() <= max {
         s.to_string()
     } else {
         format!("{}…", &s[..max.saturating_sub(1)])
