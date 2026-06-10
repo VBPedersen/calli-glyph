@@ -185,6 +185,7 @@ enum PendingRequest {
 /// and in general the entry to the LSP system
 pub struct LspClient {
     pub server_name: String,
+    pub workspace_root: PathBuf,
     pub state: ConnectionState,
 
     stdin: ChildStdin,
@@ -294,6 +295,7 @@ impl LspClient {
 
         let mut client = Self {
             server_name,
+            workspace_root,
             state: ConnectionState::Initializing,
             stdin,
             incoming: rx,
@@ -737,6 +739,7 @@ mod tests {
 
         LspClient {
             server_name: "mock".to_string(),
+            workspace_root: Default::default(),
             state: ConnectionState::Ready,
             stdin: child.stdin.take().unwrap(),
             incoming: rx,

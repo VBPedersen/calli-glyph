@@ -1,6 +1,6 @@
 use crate::core::app::App;
 use crate::input::actions::{InputAction, ModalAction};
-use crate::language::lsp::DiagnosticSeverity;
+use crate::language::lsp::{ConnectionState, DiagnosticSeverity};
 use crate::language::manager::LanguageManager;
 use crate::ui::debug::{DebugTab, DebugView};
 use crate::ui::modal::{Modal, ModalResponse};
@@ -142,7 +142,7 @@ impl LangPanel {
     /// Renders the diagnostics tab of the modal
     fn render_diagnostics_tab(&mut self, frame: &mut Frame, area: Rect, app: &App) {
         self.visible_height = area.height.saturating_sub(3); // subtract hint bar rows
-
+        let truncation_width = area.width.saturating_sub(24) as usize;
         // Collect diagnostics according to current filter
         let lsp = app.language.lsp.as_ref();
         let current_uri = app.language.current_uri.as_deref().unwrap_or("");
@@ -222,7 +222,7 @@ impl LangPanel {
                 let src = diag.source.as_deref().unwrap_or("");
 
                 let row_style = if is_selected {
-                    Style::default().bg(Color::Rgb(45, 45, 60))
+                    Style::default().bg(Color::Rgb(80,80,100))
                 } else {
                     Style::default()
                 };
@@ -235,7 +235,7 @@ impl LangPanel {
                         Style::default().fg(Color::DarkGray).patch(row_style),
                     ),
                     Span::styled(
-                        truncate(&diag.message, 55),
+                        truncate(&diag.message, truncation_width),
                         Style::default().fg(Color::White).patch(row_style),
                     ),
                 ];
@@ -272,7 +272,58 @@ impl LangPanel {
     }
 
     /// Renders the lsp tab of the modal
-    fn render_lsp_tab(&mut self, frame: &mut Frame, area: Rect, app: &App) {}
+    fn render_lsp_tab(&mut self, frame: &mut Frame, area: Rect, app: &App) {
+        let lsp = app.language.lsp.as_ref();
+
+        let (state_icon, state_label, state_color) = match lsp.map(|l| &l.state) {
+            Some(ConnectionState::Ready)          => ("●", "Ready",        Color::Green),
+            Some(ConnectionState::Initializing)   => ("◌", "Initializing", Color::Yellow),
+            Some(ConnectionState::Disconnected)   => ("○", "Disconnected", Color::DarkGray),
+            Some(ConnectionState::Failed(e))      => ("✗", e.as_str(),     Color::Red),
+            None                                  => ("○", "No server",    Color::DarkGray),
+        };
+
+        let server_name = lsp
+            .map(|l| l.server_name.as_str())
+            .unwrap_or("—");
+
+        let workspace = lsp
+            .map(|l| l.workspace_root.display().to_string())
+            .unwrap_or_else(|| "—".to_string());
+
+        let uri = app.language.current_uri.as_deref().unwrap_or("—");
+
+        let errors   = count_severity(app, DiagnosticSeverity::Error);
+        let warnings = count_severity(app, DiagnosticSeverity::Warning);
+        let hints    = count_severity(app, DiagnosticSeverity::Hint);
+
+        let truncation_width = area.width.saturating_sub(16) as usize;
+        let truncated_uri = truncate(uri, truncation_width);
+        let lines: Vec<Line> = vec![
+            Line::raw(""),
+            row_kv("Server",    server_name),
+            row_kv_styled("State", state_label, Style::default().fg(state_color).add_modifier(Modifier::BOLD), state_icon),
+            row_kv("Root",      &workspace),
+            row_kv("File URI",  &truncated_uri),
+            Line::raw(""),
+            Line::from(vec![
+                Span::styled("  Diagnostics   ", Style::default().fg(Color::DarkGray)),
+                Span::styled(format!("● {} errors  ", errors),   Style::default().fg(Color::Red)),
+                Span::styled(format!("◆ {} warnings  ", warnings), Style::default().fg(Color::Yellow)),
+                Span::styled(format!("· {} hints", hints),       Style::default().fg(Color::DarkGray)),
+            ]),
+            Line::raw(""),
+            section_header("Actions"),
+            action_row('r', "Restart LSP server"),
+            action_row('l', "Locate project root (.git / .hg / .svn)"),
+            action_row('d', "Re-send didOpen for current file"),
+            Line::raw(""),
+            hint_line("r/l/d: actions   Esc: close"),
+        ];
+
+        frame.render_widget(Paragraph::new(lines), area);
+
+    }
 
     /// Renders the syntax tab of the modal
     fn render_syntax_tab(&mut self, frame: &mut Frame, area: Rect, app: &App) {}
@@ -364,6 +415,52 @@ impl Modal for LangPanel {
 
 // ----------   HELPERS   --------------
 
+/// Returns Line with key and value in specific style
+fn row_kv<'a>(key: &'a str, value: &'a str) -> Line<'a> {
+    Line::from(vec![
+        Span::styled(format!("  {:<12}", key), Style::default().fg(Color::DarkGray)),
+        Span::styled(value.to_string(), Style::default().fg(Color::White)),
+    ])
+}
+
+
+/// Returns Line with key and value in passed style
+fn row_kv_styled<'a>(key: &'a str, value: &'a str, style: Style, icon: &'a str) -> Line<'a> {
+    Line::from(vec![
+        Span::styled(format!("  {:<12}", key), Style::default().fg(Color::DarkGray)),
+        Span::styled(format!("{} {}", icon, value), style),
+    ])
+}
+
+/// Returns section header line from label
+fn section_header(label: &str) -> Line {
+    Line::from(Span::styled(
+        format!("  {}", label),
+        Style::default()
+            .fg(Color::White)
+            .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+    ))
+}
+
+/// Returns action row line from key and description
+fn action_row(key: char, desc: &str) -> Line {
+    Line::from(vec![
+        Span::styled(format!("  [{}]  ", key), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(desc.to_string(), Style::default().fg(Color::White)),
+    ])
+}
+
+/// Returns hint line from text passed
+fn hint_line(text: &str) -> Line {
+    Line::from(Span::styled(
+        format!(" {}", text),
+        Style::default().fg(Color::DarkGray),
+    ))
+}
+
+
+
+
 /// Style of diagnostic severity
 fn severity_style(sev: &DiagnosticSeverity) -> (&'static str, Style) {
     match sev {
@@ -374,9 +471,25 @@ fn severity_style(sev: &DiagnosticSeverity) -> (&'static str, Style) {
     }
 }
 
+/// Counts the number of diagnostics with specific DiagnosticSeverity
+fn count_severity(app: &App, sev: DiagnosticSeverity) -> usize {
+    app.language
+        .lsp
+        .as_ref()
+        .map(|lsp| {
+            lsp.diagnostics
+                .values()
+                .flat_map(|v| v.iter())
+                .filter(|d| d.severity == sev)
+                .count()
+        })
+        .unwrap_or(0)
+}
+
+
 /// Simple truncation
 fn truncate(s: &str, max: usize) -> String {
-    if s.len() <= max {
+    if max== 0 || s.len() <= max {
         s.to_string()
     } else {
         format!("{}…", &s[..max.saturating_sub(1)])
