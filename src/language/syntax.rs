@@ -12,7 +12,7 @@ pub struct SyntaxTree {
     pub source: String,
     config: Option<LangConfig>, // None = no highlighting rules loaded
     // Cache: last walk result + the content_version it was built for
-    token_cache: Option<(u64, Vec<(Range<usize>, String)>)>,
+    pub token_cache: Option<(u64, Vec<(Range<usize>, String)>)>,
 }
 
 impl SyntaxTree {

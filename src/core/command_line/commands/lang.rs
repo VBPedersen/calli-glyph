@@ -1,7 +1,5 @@
-use crate::core::app::ActiveArea;
 use crate::core::app::App;
 use crate::core::command_line::command::CommandFlag;
-use crate::core::cursor::CursorPosition;
 use crate::errors::command_errors::CommandError;
 use crate::ui::modal::lang_modal::lang_panel::LangPanel;
 use std::collections::HashSet;
@@ -37,7 +35,7 @@ pub fn lang_command(
     match sub_command {
         LangSubcommand::Open => {
             app.modal_stack
-                .push(Box::new(LangPanel::new(&app.language)));
+                .push(Box::new(LangPanel::new()));
             Ok(())
         }
         LangSubcommand::Restart => {

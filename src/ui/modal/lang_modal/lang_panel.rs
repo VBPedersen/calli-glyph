@@ -1,8 +1,6 @@
 use crate::core::app::App;
 use crate::input::actions::{InputAction, ModalAction};
 use crate::language::lsp::{ConnectionState, DiagnosticSeverity};
-use crate::language::manager::LanguageManager;
-use crate::ui::debug::{DebugTab, DebugView};
 use crate::ui::modal::{Modal, ModalResponse};
 use crate::ui::ui::centered_rect;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -94,7 +92,7 @@ pub struct LangPanel {
 }
 
 impl LangPanel {
-    pub fn new(lang: &LanguageManager) -> LangPanel {
+    pub fn new() -> LangPanel {
         Self {
             tab: LangTab::Diagnostics,
             selected_diagnostic: 0,
@@ -339,7 +337,110 @@ impl LangPanel {
     }
 
     /// Renders the syntax tab of the modal
-    fn render_syntax_tab(&mut self, frame: &mut Frame, area: Rect, app: &App) {}
+    fn render_syntax_tab(&mut self, frame: &mut Frame, area: Rect, app: &App) {
+        let grammar_id = app.language.language_id.as_deref().unwrap_or("—");
+        let syntax_loaded = app.language.syntax.is_some();
+        let theme_loaded = app.language.theme.is_some();
+        let theme_name = app
+            .language
+            .theme
+            .as_ref()
+            .map(|t| t.name.as_str())
+            .unwrap_or("—");
+
+        let token_count = app
+            .language
+            .syntax
+            .as_ref()
+            .and_then(|s| s.token_cache.as_ref())
+            .map(|(_, t)| t.len())
+            .unwrap_or(0);
+
+        let grammar_dir =
+            crate::language::manager::resolve_grammar_dir(&app.config.syntax.grammar_dir);
+        let grammar_dir_str = grammar_dir.display().to_string();
+
+        let (syn_icon, syn_color) = if syntax_loaded {
+            ("● Loaded", Color::Green)
+        } else {
+            ("✗ Not loaded", Color::Red)
+        };
+        let (thm_icon, thm_color) = if theme_loaded {
+            ("● Loaded", Color::Green)
+        } else {
+            ("✗ Not loaded", Color::Red)
+        };
+
+        // Build loaded-grammars section from config
+        let mut grammar_rows: Vec<Line> = Vec::new();
+        for (name, cfg) in &app.config.syntax.languages {
+            let lib_name = format!("tree_sitter_{}", cfg.grammar);
+            let filename = crate::language::grammar_loader::platform_lib_name(&lib_name);
+            let lib_path = grammar_dir.join(&filename);
+            let (icon, color) = if lib_path.exists() {
+                ("●", Color::Green)
+            } else {
+                ("✗", Color::Red)
+            };
+            grammar_rows.push(Line::from(vec![
+                Span::raw("  "),
+                Span::styled(icon, Style::default().fg(color)),
+                Span::raw("  "),
+                Span::styled(format!("{:<14}", name), Style::default().fg(Color::White)),
+                Span::styled(
+                    format!("{:<18}", cfg.file_extensions.join(", ")),
+                    Style::default().fg(Color::DarkGray),
+                ),
+                Span::styled(filename, Style::default().fg(Color::DarkGray)),
+            ]));
+        }
+
+        let mut lines: Vec<Line> = vec![
+            Line::raw(""),
+            row_kv("Grammar dir", &grammar_dir_str),
+            Line::raw(""),
+            Line::from(vec![
+                Span::styled("  Grammar  ", Style::default().fg(Color::DarkGray)),
+                Span::styled(
+                    grammar_id,
+                    Style::default()
+                        .fg(Color::White)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::raw("   "),
+                Span::styled(syn_icon, Style::default().fg(syn_color)),
+            ]),
+            Line::from(vec![
+                Span::styled("  Theme    ", Style::default().fg(Color::DarkGray)),
+                Span::styled(theme_name, Style::default().fg(Color::White)),
+                Span::raw("   "),
+                Span::styled(thm_icon, Style::default().fg(thm_color)),
+            ]),
+            Line::from(vec![
+                Span::styled("  Tokens   ", Style::default().fg(Color::DarkGray)),
+                Span::styled(
+                    format!("{} cached", token_count),
+                    Style::default().fg(Color::Cyan),
+                ),
+            ]),
+            Line::raw(""),
+            section_header("Loaded grammars"),
+        ];
+
+        lines.extend(grammar_rows);
+
+        lines.extend(vec![
+            Line::raw(""),
+            section_header("Actions"),
+            action_row('r', "Reload grammar config from disk"),
+            action_row('c', "Clear token cache"),
+            action_row('o', "Open grammar config in editor"),
+            Line::raw(""),
+            hint_line("r/c/o: actions   Esc: close"),
+        ]);
+
+        frame.render_widget(Paragraph::new(lines), area);
+    }
 }
 
 impl Modal for LangPanel {
@@ -451,7 +552,7 @@ fn row_kv_styled<'a>(key: &'a str, value: &'a str, style: Style, icon: &'a str) 
 }
 
 /// Returns section header line from label
-fn section_header(label: &str) -> Line {
+fn section_header(label: &str) -> Line<'_> {
     Line::from(Span::styled(
         format!("  {}", label),
         Style::default()
@@ -461,7 +562,7 @@ fn section_header(label: &str) -> Line {
 }
 
 /// Returns action row line from key and description
-fn action_row(key: char, desc: &str) -> Line {
+fn action_row(key: char, desc: &str) -> Line<'_> {
     Line::from(vec![
         Span::styled(
             format!("  [{}]  ", key),
@@ -474,7 +575,7 @@ fn action_row(key: char, desc: &str) -> Line {
 }
 
 /// Returns hint line from text passed
-fn hint_line(text: &str) -> Line {
+fn hint_line(text: &str) -> Line<'_> {
     Line::from(Span::styled(
         format!(" {}", text),
         Style::default().fg(Color::DarkGray),

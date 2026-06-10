@@ -197,7 +197,7 @@ impl LanguageManager {
             }
 
             let line_byte_start = line_starts[line_idx];
-            let line_byte_end = line_byte_start + lines[line_idx].len();
+            let _line_byte_end = line_byte_start + lines[line_idx].len();
 
             // Clamp the token range to this line's byte bounds
             let local_start = range.start.saturating_sub(line_byte_start);

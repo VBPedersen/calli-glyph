@@ -45,7 +45,7 @@ pub fn load_grammar(grammar_dir: &Path, grammar_name: &str) -> Result<Language, 
     Ok(language)
 }
 
-fn platform_lib_name(stem: &str) -> String {
+pub fn platform_lib_name(stem: &str) -> String {
     #[cfg(target_os = "windows")]
     return format!("{}.dll", stem);
     #[cfg(target_os = "macos")]
