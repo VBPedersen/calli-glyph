@@ -34,8 +34,7 @@ pub fn lang_command(
 
     match sub_command {
         LangSubcommand::Open => {
-            app.modal_stack
-                .push(Box::new(LangPanel::new()));
+            app.modal_stack.push(Box::new(LangPanel::new()));
             Ok(())
         }
         LangSubcommand::Restart => {

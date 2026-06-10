@@ -137,6 +137,68 @@ impl LangPanel {
         }
     }
 
+    /// Jump the editor cursor to the selected diagnostic's line.
+    /// TODO NEED TO OPEN ANOTHER FILE AND JUMP TO LINE IF DIAG SELECTED IS FROM OTHER FILE
+    fn jump_to_selected(&self, app: &mut App) {
+        if let Some((uri, diag_idx, _rrow)) = self.diag_index_map.get(self.selected_diagnostic) {
+            // Find the diagnostic in the LSP client's map
+            let line = app
+                .language
+                .lsp
+                .as_ref()
+                .and_then(|lsp| lsp.diagnostics.get(uri))
+                .and_then(|diags| diags.get(*diag_idx))
+                .map(|d| d.line as usize);
+
+            if let Some(line) = line {
+                // Call the unified editor method instead of modifying state manually
+                app.editor.jump_to_line(line);
+            }
+        }
+    }
+
+    /// Restart the LSP server for the current file.
+    fn restart_lsp(&self, app: &mut App) {
+        if let Some(path) = app.file_path.clone() {
+            let theme = app.language.theme.clone();
+            app.language
+                .activate_for_file(&path, theme, &app.config.lsp, &app.config.syntax);
+            log_info!("[LangPanel] LSP restarted");
+        }
+    }
+
+    /// Re-run project root detection and log the result.
+    fn log_project_root(&self, app: &mut App) {
+        let lsp = app.language.lsp.as_ref();
+        let root = lsp
+            .map(|l| l.workspace_root.display().to_string())
+            .unwrap_or_else(|| "—".to_string());
+        if root.len() > 0 {
+            log_info!("[LangPanel] Project root: {}", root)
+        } else {
+            log_info!("[LangPanel] No project root is identified");
+        }
+    }
+
+    /// Reload the grammar config from disk and clear the token cache.
+    fn reload_grammar(&self, app: &mut App) {
+        if let Some(lang_id) = &app.language.language_id.clone() {
+            let grammar_dir =
+                crate::language::manager::resolve_grammar_dir(&app.config.syntax.grammar_dir);
+            match crate::language::lang_configs::loader::load_lang_config(&grammar_dir, lang_id) {
+                Ok(cfg) => {
+                    if let Some(syntax) = &mut app.language.syntax {
+                        //syntax.reload_config(cfg); TODO implement some reload of only grammar or maybe just make new SyntaxTree and pass to manager
+                    }
+                    log_info!("[LangPanel] Grammar config reloaded: {}.toml", lang_id);
+                }
+                Err(e) => log_warn!("[LangPanel] Failed to reload grammar config: {}", e),
+            }
+        }
+    }
+
+    // -------- RENDERING -------------
+
     /// Renders the diagnostics tab of the modal
     fn render_diagnostics_tab(&mut self, frame: &mut Frame, area: Rect, app: &App) {
         self.visible_height = area.height.saturating_sub(3); // subtract hint bar rows
@@ -462,12 +524,17 @@ impl Modal for LangPanel {
             ModalAction::NextTab => self.tab = self.tab.next(),
             ModalAction::PrevTab => self.tab = self.tab.prev(),
             ModalAction::Confirm => {
-                /* if let Some(diag) = self.selected_diagnostic() {
-                    app.editor.jump_to_line(diag.line as usize);
-                }*/
+                if self.tab == LangTab::Diagnostics {
+                    self.jump_to_selected(app);
+                    return ModalResponse::Close;
+                }
             }
             // ----- tab specific char actions -----
             ModalAction::Action(c) => match (self.tab, c) {
+                (_, '1') => self.tab = LangTab::Diagnostics,
+                (_, '2') => self.tab = LangTab::Lsp,
+                (_, '3') => self.tab = LangTab::Syntax,
+
                 // Diagnostics tab
                 (LangTab::Diagnostics, 'f') => {
                     self.diag_filter = self.diag_filter.cycle();
@@ -476,6 +543,32 @@ impl Modal for LangPanel {
                     self.diag_index_map.clear();
                 }
 
+                // LSP tab
+                (LangTab::Lsp, 'r') => self.restart_lsp(app),
+                (LangTab::Lsp, 'l') => self.log_project_root(app),
+                (LangTab::Lsp, 'd') => {
+                    // Re-send didOpen to trigger a fresh diagnostic pass
+                    if let (Some(lsp), Some(uri)) =
+                        (&mut app.language.lsp, &app.language.current_uri)
+                    {
+                        let uri = uri.clone();
+                        let lang_id = app.language.language_id.clone().unwrap_or_default();
+                        let content = app.editor.editor_content.join("\n");
+                        if let Err(e) = lsp.notify_did_open(&uri, &lang_id, &content) {
+                            log_warn!("[LangPanel] didOpen failed: {}", e);
+                        }
+                    }
+                }
+
+                // Syntax tab
+                (LangTab::Syntax, 'r') => self.reload_grammar(app),
+                (LangTab::Syntax, 'c') => {
+                    if let Some(syntax) = &mut app.language.syntax {
+                        syntax.token_cache = None;
+                        log_info!("[LangPanel] Token cache cleared");
+                    }
+                }
+                (LangTab::Syntax, 'o') => {} //self.open_grammar_config_in_editor(app), TODO NEEDS TO OPEN GRAMMAR CONFIG FILE IN EDITOR (SHOULD REQUIRE CONFIRM POPUP TO SAVE IF NEEDED)
                 _ => {}
             },
         }

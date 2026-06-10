@@ -1243,12 +1243,43 @@ impl Editor {
         }
     }
 
+    /// Checks if cursor is at start or end, returns boolean response for each, since both can be true and false
     fn is_selection_cursor_start_or_end(&self, current_pos: CursorPosition) -> (bool, bool) {
         let start = current_pos.x == self.text_selection_start.unwrap().x
             && current_pos.y == self.text_selection_start.unwrap().y;
         let end = current_pos.x == self.text_selection_end.unwrap().x
             && current_pos.y == self.text_selection_end.unwrap().y;
         (start, end)
+    }
+
+    /// Jumps the cursor to a specific line index (0-indexed).
+    /// Safely clamps the line and column to valid bounds, adjusts the scroll offset,
+    /// and resets any active text selection.
+    pub fn jump_to_line(&mut self, line: usize) {
+        //Handle cases with empty editor
+        if self.editor_content.is_empty() {
+            self.cursor.x = 0;
+            self.cursor.y = 0;
+            self.scroll_offset = 0;
+            self.reset_text_selection_cursor();
+            return;
+        }
+
+        // Clamp the target line to the maximum available line index
+        let max_line = self.editor_content.len().saturating_sub(1);
+        let target_line = line.min(max_line);
+        self.cursor.y = target_line as i16;
+
+        // Clamp the cursor's column position (x) to the character length of the new line
+        let line_len = self.editor_content[target_line].chars().count();
+        self.cursor.x = self.cursor.x.min(line_len as i16).max(0);
+
+        // Set a sensible initial scroll offset (e.g., padding 5 lines above)
+        self.scroll_offset = target_line.saturating_sub(5) as i16;
+
+        // Adjust view to cursor and reset text selection
+        self.adjust_view_to_cursor();
+        self.reset_text_selection_cursor();
     }
 
     //SCROLL
@@ -2423,6 +2454,82 @@ mod unit_editor_cursor_tests {
         assert_eq!(editor.text_selection_start.unwrap().y, 0);
         assert_eq!(editor.text_selection_end.unwrap().x, 3);
         assert_eq!(editor.text_selection_end.unwrap().y, 0);
+    }
+
+    // Helper to simulate the existing test harness structure
+    fn create_test_editor(content: Vec<&str>) -> Editor {
+        let mut editor =
+            create_editor_with_editor_content(content.into_iter().map(|s| s.to_string()).collect());
+        editor.editor_height = 20; // set a mock view height
+        editor
+    }
+
+    #[test]
+    fn test_jump_to_valid_line() {
+        let mut editor = create_test_editor(vec![
+            "line 0", "line 1", "line 2", "line 3", "line 4", "line 6",
+        ]);
+
+        // Jump to an explicit valid line
+        editor.jump_to_line(2);
+
+        assert_eq!(editor.cursor.y, 2);
+        // Verify that it handles basic scrolling context alignment
+        assert!(editor.scroll_offset >= 0);
+    }
+
+    #[test]
+    fn test_jump_to_line_out_of_bounds_clamping() {
+        let mut editor = create_test_editor(vec!["first", "second", "third"]);
+
+        // Attempting to jump to index 100 on a 3-line file
+        editor.jump_to_line(100);
+
+        // It should clamp directly to the last line index (2)
+        assert_eq!(editor.cursor.y, 2);
+    }
+
+    #[test]
+    fn test_jump_to_line_empty_editor() {
+        let mut editor = create_test_editor(vec![]);
+
+        // Jumping on an entirely empty content stream shouldn't panic
+        editor.jump_to_line(5);
+
+        assert_eq!(editor.cursor.y, 0);
+        assert_eq!(editor.cursor.x, 0);
+    }
+
+    #[test]
+    fn test_jump_to_line_clamps_cursor_x() {
+        let mut editor = create_test_editor(vec!["a very long line of text", "short"]);
+
+        // Position the cursor far right on line 0
+        editor.cursor.y = 0;
+        editor.cursor.x = 20;
+
+        // Jump to line 1 which only contains 5 characters ("short")
+        editor.jump_to_line(1);
+
+        assert_eq!(editor.cursor.y, 1);
+        // cursor.x must be clamped down to the length of "short" (5)
+        assert_eq!(editor.cursor.x, 5);
+    }
+
+    #[test]
+    fn test_jump_to_line_resets_text_selection() {
+        let mut editor = create_test_editor(vec!["line 0", "line 1", "line 2"]);
+
+        // Simulate an active text selection highlight bounds
+        editor.text_selection_start = Some(CursorPosition { x: 0, y: 0 });
+        editor.text_selection_end = Some(CursorPosition { x: 4, y: 0 });
+
+        // Trigger line jump
+        editor.jump_to_line(2);
+
+        // Check that active selection markers are safely cleared
+        assert!(editor.text_selection_start.is_none());
+        assert!(editor.text_selection_end.is_none());
     }
 }
 #[cfg(test)]
