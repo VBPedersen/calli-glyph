@@ -15,6 +15,7 @@
 //! * [`plugins`]: Extensible components for customizing behavior.
 //! * [`config`]:  Management of settings and persistent data.
 //! * [`errors`]:  Management of custom error structs.
+//! * [`language`]: Management of language related logic, i.e. tree-sitter and LSP logic
 
 //expose modules
 #[macro_use]
@@ -33,3 +34,5 @@ pub mod app_config;
 pub mod args;
 
 pub mod plugins;
+
+pub mod language;

@@ -12,4 +12,5 @@ pub mod command_binds {
 
     pub const COMMAND_DEBUG: &[&str] = &["debug", "dbg"];
     pub const COMMAND_CONFIG: &[&str] = &["config", "cfg"];
+    pub const COMMAND_LANG: &[&str] = &["lang", "lng", "language"];
 }

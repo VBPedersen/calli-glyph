@@ -172,6 +172,7 @@ impl Display for EditAction {
 #[derive(Debug)]
 pub struct Editor {
     pub editor_content: Vec<String>,
+    pub content_version: u64, // bumped on every content-changing action
     pub visual_cursor_x: i16,
     pub cursor: Cursor, //to save position in editor, when toggling area
     pub text_selection_start: Option<CursorPosition>,
@@ -190,6 +191,7 @@ impl Editor {
     pub fn new(config: Arc<EditorConfig>) -> Self {
         Self {
             editor_content: vec![],
+            content_version: 0,
             visual_cursor_x: 0,
             text_selection_start: None,
             text_selection_end: None,
@@ -203,18 +205,25 @@ impl Editor {
         }
     }
 
+    /// Bumps the content version
+    fn bump_version(&mut self) {
+        self.content_version = self.content_version.wrapping_add(1);
+    }
+
     ///function to handle input action on editor,
     /// responsible for dispatching action to correct internal method.
     pub fn handle_input_action(&mut self, action: InputAction) -> Result<(), EditorError> {
         match action {
             InputAction::TAB => {
                 self.tab();
+                self.bump_version();
                 Ok(())
             }
             InputAction::ENTER => {
                 self.enter();
                 self.adjust_view_to_cursor();
                 self.reset_text_selection_cursor(); //reset selection, to avoid errors
+                self.bump_version();
                 Ok(())
             }
             InputAction::Editor(editor_action) => match editor_action {
@@ -238,6 +247,7 @@ impl Editor {
                     } else {
                         self.backspace();
                     }
+                    self.bump_version();
                     Ok(())
                 }
                 EditorAction::DELETE => {
@@ -246,6 +256,7 @@ impl Editor {
                     } else {
                         self.delete();
                     }
+                    self.bump_version();
                     Ok(())
                 }
                 EditorAction::COPY => match self.copy() {
@@ -253,19 +264,31 @@ impl Editor {
                     Err(e) => Err(e),
                 },
                 EditorAction::CUT => match self.cut() {
-                    Ok(()) => Ok(()),
+                    Ok(()) => {
+                        self.bump_version();
+                        Ok(())
+                    }
                     Err(e) => Err(e),
                 },
                 EditorAction::PASTE => match self.paste() {
-                    Ok(()) => Ok(()),
+                    Ok(()) => {
+                        self.bump_version();
+                        Ok(())
+                    }
                     Err(e) => Err(e),
                 },
                 EditorAction::UNDO => match self.undo() {
-                    Ok(()) => Ok(()),
+                    Ok(()) => {
+                        self.bump_version();
+                        Ok(())
+                    }
                     Err(e) => Err(e),
                 },
                 EditorAction::REDO => match self.redo() {
-                    Ok(()) => Ok(()),
+                    Ok(()) => {
+                        self.bump_version();
+                        Ok(())
+                    }
                     Err(e) => Err(e),
                 },
                 EditorAction::WriteChar(c) => {
@@ -274,6 +297,7 @@ impl Editor {
                     } else {
                         self.write_char(c)
                     }
+                    self.bump_version();
                     Ok(())
                 }
                 _ => Ok(()),
@@ -878,6 +902,11 @@ impl Editor {
     //editor backspace
     ///handles backspace in editor, removes char at y line x position and sets new cursor position
     pub fn backspace(&mut self) {
+        // guard against empty file checking on chars
+        if self.editor_content.is_empty() {
+            return;
+        }
+
         let deleted_char: Option<char>;
         let y = self.cursor.y as usize;
         let x = self.cursor.x as usize;
@@ -1007,7 +1036,7 @@ impl Editor {
         } else if current_line_len > (self.cursor.x + 1) {
             let line = &mut self.editor_content[self.cursor.y as usize];
             let mut line_chars_vec: Vec<char> = line.chars().collect();
-            let char = line_chars_vec.remove(self.cursor.x as usize + 1);
+            let char = line_chars_vec.remove(self.cursor.x as usize);
 
             self.undo_redo_manager.record_undo(EditAction::Delete {
                 pos: CursorPosition {
@@ -1214,12 +1243,43 @@ impl Editor {
         }
     }
 
+    /// Checks if cursor is at start or end, returns boolean response for each, since both can be true and false
     fn is_selection_cursor_start_or_end(&self, current_pos: CursorPosition) -> (bool, bool) {
         let start = current_pos.x == self.text_selection_start.unwrap().x
             && current_pos.y == self.text_selection_start.unwrap().y;
         let end = current_pos.x == self.text_selection_end.unwrap().x
             && current_pos.y == self.text_selection_end.unwrap().y;
         (start, end)
+    }
+
+    /// Jumps the cursor to a specific line index (0-indexed).
+    /// Safely clamps the line and column to valid bounds, adjusts the scroll offset,
+    /// and resets any active text selection.
+    pub fn jump_to_line(&mut self, line: usize) {
+        //Handle cases with empty editor
+        if self.editor_content.is_empty() {
+            self.cursor.x = 0;
+            self.cursor.y = 0;
+            self.scroll_offset = 0;
+            self.reset_text_selection_cursor();
+            return;
+        }
+
+        // Clamp the target line to the maximum available line index
+        let max_line = self.editor_content.len().saturating_sub(1);
+        let target_line = line.min(max_line);
+        self.cursor.y = target_line as i16;
+
+        // Clamp the cursor's column position (x) to the character length of the new line
+        let line_len = self.editor_content[target_line].chars().count();
+        self.cursor.x = self.cursor.x.min(line_len as i16).max(0);
+
+        // Set a sensible initial scroll offset (e.g., padding 5 lines above)
+        self.scroll_offset = target_line.saturating_sub(5) as i16;
+
+        // Adjust view to cursor and reset text selection
+        self.adjust_view_to_cursor();
+        self.reset_text_selection_cursor();
     }
 
     //SCROLL
@@ -2060,7 +2120,7 @@ mod unit_editor_delete_tests {
         let mut editor = create_editor_with_editor_content(vec!["ab".to_string()]);
         editor.cursor.x = 0;
         editor.delete();
-        assert_eq!(editor.editor_content[0], "a");
+        assert_eq!(editor.editor_content[0], "b");
         assert_eq!(editor.cursor.x, 0);
     }
 
@@ -2069,7 +2129,7 @@ mod unit_editor_delete_tests {
         let mut editor = create_editor_with_editor_content(vec!["ᚠΩ₿😎".to_string()]);
         editor.cursor.x = 2;
         editor.delete();
-        assert_eq!(editor.editor_content[0], "ᚠΩ₿");
+        assert_eq!(editor.editor_content[0], "ᚠΩ😎");
         assert_eq!(editor.cursor.x, 2);
     }
 
@@ -2394,6 +2454,82 @@ mod unit_editor_cursor_tests {
         assert_eq!(editor.text_selection_start.unwrap().y, 0);
         assert_eq!(editor.text_selection_end.unwrap().x, 3);
         assert_eq!(editor.text_selection_end.unwrap().y, 0);
+    }
+
+    // Helper to simulate the existing test harness structure
+    fn create_test_editor(content: Vec<&str>) -> Editor {
+        let mut editor =
+            create_editor_with_editor_content(content.into_iter().map(|s| s.to_string()).collect());
+        editor.editor_height = 20; // set a mock view height
+        editor
+    }
+
+    #[test]
+    fn test_jump_to_valid_line() {
+        let mut editor = create_test_editor(vec![
+            "line 0", "line 1", "line 2", "line 3", "line 4", "line 6",
+        ]);
+
+        // Jump to an explicit valid line
+        editor.jump_to_line(2);
+
+        assert_eq!(editor.cursor.y, 2);
+        // Verify that it handles basic scrolling context alignment
+        assert!(editor.scroll_offset >= 0);
+    }
+
+    #[test]
+    fn test_jump_to_line_out_of_bounds_clamping() {
+        let mut editor = create_test_editor(vec!["first", "second", "third"]);
+
+        // Attempting to jump to index 100 on a 3-line file
+        editor.jump_to_line(100);
+
+        // It should clamp directly to the last line index (2)
+        assert_eq!(editor.cursor.y, 2);
+    }
+
+    #[test]
+    fn test_jump_to_line_empty_editor() {
+        let mut editor = create_test_editor(vec![]);
+
+        // Jumping on an entirely empty content stream shouldn't panic
+        editor.jump_to_line(5);
+
+        assert_eq!(editor.cursor.y, 0);
+        assert_eq!(editor.cursor.x, 0);
+    }
+
+    #[test]
+    fn test_jump_to_line_clamps_cursor_x() {
+        let mut editor = create_test_editor(vec!["a very long line of text", "short"]);
+
+        // Position the cursor far right on line 0
+        editor.cursor.y = 0;
+        editor.cursor.x = 20;
+
+        // Jump to line 1 which only contains 5 characters ("short")
+        editor.jump_to_line(1);
+
+        assert_eq!(editor.cursor.y, 1);
+        // cursor.x must be clamped down to the length of "short" (5)
+        assert_eq!(editor.cursor.x, 5);
+    }
+
+    #[test]
+    fn test_jump_to_line_resets_text_selection() {
+        let mut editor = create_test_editor(vec!["line 0", "line 1", "line 2"]);
+
+        // Simulate an active text selection highlight bounds
+        editor.text_selection_start = Some(CursorPosition { x: 0, y: 0 });
+        editor.text_selection_end = Some(CursorPosition { x: 4, y: 0 });
+
+        // Trigger line jump
+        editor.jump_to_line(2);
+
+        // Check that active selection markers are safely cleared
+        assert!(editor.text_selection_start.is_none());
+        assert!(editor.text_selection_end.is_none());
     }
 }
 #[cfg(test)]

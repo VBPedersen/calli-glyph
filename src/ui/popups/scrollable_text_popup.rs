@@ -4,7 +4,7 @@ use ratatui::layout::Direction::Vertical;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::text::Line;
-use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
+use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 use ratatui::Frame;
 
 pub struct ScrollableTextPopup<'a> {
@@ -33,6 +33,9 @@ impl<'a> ScrollableTextPopup<'a> {
 
 impl Popup for ScrollableTextPopup<'_> {
     fn render(&mut self, frame: &mut Frame, area: Rect) {
+        // Clear area to show popup over
+        frame.render_widget(Clear, area);
+
         let border_color = Color::White;
 
         // popup border and title

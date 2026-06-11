@@ -2,6 +2,7 @@ use super::actions::*;
 use crate::core::app::ActiveArea;
 use crate::core::app::App;
 use crate::input::actions::EditorAction;
+use crate::ui::modal::ModalResponse;
 use color_eyre::eyre::Result;
 use crossterm::event;
 use crossterm::event::{
@@ -16,6 +17,19 @@ pub(crate) fn handle_input(app: &mut App) -> Result<()> {
     match event::read()? {
         // it's important to check KeyEventKind::Press to avoid handling key release events
         Event::Key(key) if key.kind == KeyEventKind::Press => {
+            // Check Modal stack for active modal that wants to consume input
+            if !app.modal_stack.is_empty() {
+                let action = map_modal_key(key);
+
+                if let Some(mut modal) = app.modal_stack.pop() {
+                    match modal.handle_input(action, app) {
+                        ModalResponse::Consumed => app.modal_stack.push(modal),
+                        ModalResponse::Close => {} // since already popped, close does nothing
+                    }
+                }
+                return Ok(());
+            }
+
             // Check if active plugin wants to handle this
             if let Some(plugin_name) = app.plugins.active_plugin_name() {
                 // To handle borrow for now i remove and add back plugin from list
@@ -112,6 +126,7 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
     let config = &app.config;
     let keymaps = config.runtime_keymaps();
 
+    // Parse input to action based on active area
     let action = match app.active_area {
         ActiveArea::Editor => {
             match key.code {
@@ -197,4 +212,23 @@ fn on_scroll_events(app: &mut App, mouse_event: MouseEvent) {
         MouseEventKind::ScrollDown => app.editor.move_scroll_offset(1),
         _ => {}
     }
+}
+
+/// Maps a KeyEvent to a modal action, done centralized instead of in each modal,
+/// to ensure similar base behaviour acroos the app
+fn map_modal_key(key: KeyEvent) -> InputAction {
+    InputAction::Modal(match (key.modifiers, key.code) {
+        (KeyModifiers::NONE, KeyCode::Char('j')) | (KeyModifiers::NONE, KeyCode::Down) => {
+            ModalAction::ScrollDown
+        }
+        (KeyModifiers::NONE, KeyCode::Char('k')) | (KeyModifiers::NONE, KeyCode::Up) => {
+            ModalAction::ScrollUp
+        }
+        (KeyModifiers::NONE, KeyCode::Tab) => ModalAction::NextTab,
+        (KeyModifiers::SHIFT, KeyCode::BackTab) => ModalAction::PrevTab,
+        (KeyModifiers::NONE, KeyCode::Enter) => ModalAction::Confirm,
+        (KeyModifiers::NONE, KeyCode::Esc) => ModalAction::Close,
+        (KeyModifiers::NONE, KeyCode::Char(c)) => ModalAction::Action(c),
+        _ => ModalAction::Action('\0'),
+    })
 }

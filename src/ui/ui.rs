@@ -1,6 +1,7 @@
 use crate::config::EditorConfig;
 use crate::core::app::{ActiveArea, App};
 use crate::core::cursor::CursorPosition;
+use crate::language::lsp::{Diagnostic, DiagnosticSeverity};
 use crate::ui::debug;
 use ratatui::layout::{Alignment, Position, Rect};
 use ratatui::style::{Color, Modifier, Style};
@@ -27,6 +28,16 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
         _ => {
             render_editor_ui(frame, app);
         }
+    }
+
+    // render any modals on top, back to front
+    // Can't call modal.render() with &mut app borrow active, so extract first
+    let modal_count = app.modal_stack.len();
+    for i in 0..modal_count {
+        // temporarily take the modal out to avoid borrow conflict
+        let mut modal = app.modal_stack.remove(i);
+        modal.render(frame, app);
+        app.modal_stack.insert(i, modal);
     }
 }
 
@@ -97,12 +108,31 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
 
     app.editor.editor_width = content_area.width as i16;
 
+    // Feed the current buffer to the language manager so the syntax tree is
+    // up-to-date, then compute all highlight tokens in a single tree walk.
+    if app.content_modified
+        || app
+            .language
+            .syntax
+            .as_ref()
+            .map(|s| s.source.is_empty())
+            .unwrap_or(false)
+    {
+        let full_source = app.editor.editor_content.join("\n");
+        app.language.update_source(&full_source);
+    }
+
+    let syntax_highlights: Vec<Vec<(std::ops::Range<usize>, Style)>> = app
+        .language
+        .highlighted_lines(&app.editor.editor_content, app.editor.content_version);
+
     let editor_content: Text = handle_editor_content(
         app.editor.editor_content.clone(),
         app.editor.text_selection_start,
         app.editor.text_selection_end,
         content_area.width as usize,
         app,
+        &syntax_highlights,
     );
 
     let command_input: String = app.command_line.input.to_string();
@@ -127,6 +157,7 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
                 app.editor.text_selection_start,
                 app.editor.text_selection_end,
                 app.content_modified,
+                app.language.diagnostics.clone(),
             ),
             status_area,
         );
@@ -141,6 +172,7 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
                 content_area.width as usize,
                 app.editor.cursor.y,
                 &app.config.editor,
+                &app.language,
             ),
             ln_area,
         );
@@ -200,7 +232,7 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
 }
 
 ///returns centered rect based on height,width and current screen Rect to use in layout
-fn centered_rect(percent_width: u16, percent_height: u16, area: Rect) -> Rect {
+pub fn centered_rect(percent_width: u16, percent_height: u16, area: Rect) -> Rect {
     let width = area.width * percent_width / 100;
     let height = area.height * percent_height / 100;
     let x = (area.width - width) / 2;
@@ -223,6 +255,7 @@ fn info_bar<'a>(
     selection_start: Option<CursorPosition>,
     selection_end: Option<CursorPosition>,
     is_content_modified: bool,
+    diagnostics: Vec<Diagnostic>,
 ) -> Paragraph<'a> {
     let modified_indicator = if is_content_modified { "[+]" } else { "" };
 
@@ -234,7 +267,28 @@ fn info_bar<'a>(
         String::new()
     };
 
+    let (errors, warnings) = (
+        diagnostics
+            .iter()
+            .filter(|d| d.severity == DiagnosticSeverity::Error)
+            .count(),
+        diagnostics
+            .iter()
+            .filter(|d| d.severity == DiagnosticSeverity::Warning)
+            .count(),
+    );
+
     let line = Line::from(vec![
+        Span::styled(
+            format!(" ●{} ◆{}", errors, warnings),
+            if errors > 0 {
+                Style::default().fg(Color::Red)
+            } else if warnings > 0 {
+                Style::default().fg(Color::Yellow)
+            } else {
+                Style::default().fg(Color::DarkGray)
+            },
+        ),
         Span::styled(modified_indicator, Style::default().fg(Color::White)),
         Span::styled(file_name, Style::default().fg(Color::LightCyan)),
         Span::raw(" - "), // Separator
@@ -263,6 +317,7 @@ fn editor_side_line<'a>(
     editor_width: usize,
     cursor_y: i16,
     config: &EditorConfig,
+    language: &crate::language::manager::LanguageManager,
 ) -> Paragraph<'a> {
     let mut line_nrs: Text = Text::from(vec![]);
 
@@ -275,7 +330,7 @@ fn editor_side_line<'a>(
 
     for (nr, s) in editor_content.iter().enumerate() {
         let line_index = nr;
-        let is_current_line = cursor_y as usize == line_index;
+        let is_current_line = cursor_y as usize == nr;
 
         // Calculate line number to display
         let line_num_display = if config.relative_line_numbers && !is_current_line {
@@ -284,11 +339,41 @@ fn editor_side_line<'a>(
             (line_index + 1).to_string()
         };
 
+        // Diagnostic marker for this line
+        let diags = language.diagnostics_on_line(nr as u32);
+
+        let (marker_char, marker_style) = if diags
+            .iter()
+            .any(|d| d.severity == DiagnosticSeverity::Error)
+        {
+            (
+                "● ",
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            )
+        } else if diags
+            .iter()
+            .any(|d| d.severity == DiagnosticSeverity::Warning)
+        {
+            ("◆ ", Style::default().fg(Color::Yellow))
+        } else if diags
+            .iter()
+            .any(|d| d.severity == DiagnosticSeverity::Information)
+        {
+            ("◉ ", Style::default().fg(Color::Cyan))
+        } else if diags.iter().any(|d| d.severity == DiagnosticSeverity::Hint) {
+            ("· ", Style::default().fg(Color::DarkGray))
+        } else {
+            ("", Style::default())
+        };
+
+        let marker = Span::styled(marker_char, marker_style);
+
         // If content of line is longer than editor
         let has_overflow = s.width() >= editor_width;
 
         let line = if has_overflow {
             Line::from(vec![
+                marker,
                 Span::styled(
                     line_num_display,
                     if is_current_line {
@@ -300,14 +385,17 @@ fn editor_side_line<'a>(
                 Span::styled(">", overflow_marker_style),
             ])
         } else {
-            Line::from(vec![Span::styled(
-                line_num_display,
-                if is_current_line {
-                    current_line_style
-                } else {
-                    normal_line_style
-                },
-            )])
+            Line::from(vec![
+                marker,
+                Span::styled(
+                    line_num_display,
+                    if is_current_line {
+                        current_line_style
+                    } else {
+                        normal_line_style
+                    },
+                ),
+            ])
         };
 
         line_nrs.push_line(line);
@@ -401,6 +489,7 @@ fn handle_editor_content<'a>(
     selection_end: Option<CursorPosition>,
     editor_width: usize,
     app: &mut App,
+    syntax_highlights: &[Vec<(std::ops::Range<usize>, Style)>],
 ) -> Text<'a> {
     let editor_vec: Vec<String> = vec
         .into_iter()
@@ -418,6 +507,7 @@ fn handle_editor_content<'a>(
     let mut editor_text: Text = Text::default();
 
     if selection_start.is_some() {
+        // Selection active, skip syntax higlight, selection takes priority
         editor_text = highlight_text(editor_vec.clone(), selection_start, selection_end);
     } else {
         for (i, s) in editor_vec.into_iter().enumerate() {
@@ -426,15 +516,28 @@ fn handle_editor_content<'a>(
             // Line wrapping and horizontal scroll
             let line: Line = if app.config.editor.wrap_lines {
                 // Simple wrap TODO make actual wrapping solution that is intelligent
-                Line::from(s)
+                let spans = syntax_highlights.get(i);
+                match spans {
+                    Some(token_spans) if !token_spans.is_empty() => {
+                        Line::from(build_highlighted_spans(&s, token_spans))
+                    }
+                    _ => Line::from(s),
+                }
             } else if i == app.editor.cursor.y as usize && visual_x > editor_width as i16 {
-                // Horizontal scroll for current line
+                // Horizontal scroll for current line, no syntax highlight on scrolled line (TODO maybe)
                 let start_idx = (visual_x - editor_width as i16).max(0) as usize;
                 Line::from(
                     get_copy_of_editor_content_at_line_between_cursor_editor_width(s, start_idx),
                 )
             } else {
-                Line::from(s)
+                // Normal line, apply syntax highlighting if available
+                let spans = syntax_highlights.get(i);
+                match spans {
+                    Some(token_spans) if !token_spans.is_empty() => {
+                        Line::from(build_highlighted_spans(&s, token_spans))
+                    }
+                    _ => Line::from(s),
+                }
             };
 
             editor_text.push_line(line);
@@ -534,4 +637,51 @@ fn highlight_text<'a>(
     }
 
     Text::from(highlighted_lines)
+}
+
+/// Given a display line and its pre-computed (local_byte_range, Style) pairs,
+/// build a Vec of Spans that covers the entire line — unstyled text fills the
+/// gaps between tokens.
+///
+/// Preconditions (guaranteed by LanguageManager::highlighted_lines):
+///   - ranges are within 0..line.len()
+///   - start < end for every range
+///   - ranges are sorted by start (tree-sitter walk is left-to-right)
+fn build_highlighted_spans<'a>(
+    line: &str,
+    token_spans: &[(std::ops::Range<usize>, Style)],
+) -> Vec<Span<'a>> {
+    let mut spans: Vec<Span<'a>> = Vec::new();
+    let mut cursor = 0usize;
+
+    for (range, style) in token_spans {
+        let start = range.start.min(line.len());
+        let end = range.end.min(line.len());
+
+        if start > cursor {
+            // Gap before this token = plain unstyled text
+            spans.push(Span::raw(line[cursor..start].to_string()));
+        }
+
+        if start < end {
+            spans.push(Span::styled(line[start..end].to_string(), *style));
+        }
+
+        if end > cursor {
+            cursor = end;
+        }
+    }
+
+    // Trailing unstyled text after the last token
+    if cursor < line.len() {
+        spans.push(Span::raw(line[cursor..].to_string()));
+    }
+
+    // If nothing was produced,
+    // fall back to a single raw span so the line is never blank.
+    if spans.is_empty() {
+        spans.push(Span::raw(line.to_string()));
+    }
+
+    spans
 }

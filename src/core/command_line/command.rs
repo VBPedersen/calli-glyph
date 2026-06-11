@@ -26,7 +26,12 @@ pub enum Command {
     Debug {
         args: Vec<String>,
         flags: HashSet<CommandFlag>,
-    }, //DEBUG
+    },
+    // Language system
+    Lang {
+        args: Vec<String>,
+        flags: HashSet<CommandFlag>,
+    },
     Config {
         args: Vec<String>,
         flags: HashSet<CommandFlag>,
@@ -87,6 +92,7 @@ pub fn parse_command(bind: String, raw_args: Vec<String>) -> Command {
         _ if COMMAND_HELP.contains(&bind.as_str()) => Command::Help { args, flags },
         _ if COMMAND_DEBUG.contains(&bind.as_str()) => Command::Debug { args, flags },
         _ if COMMAND_CONFIG.contains(&bind.as_str()) => Command::Config { args, flags },
+        _ if COMMAND_LANG.contains(&bind.as_str()) => Command::Lang { args, flags },
         _ =>
         // Unknown commands are tried as plugins first
         {

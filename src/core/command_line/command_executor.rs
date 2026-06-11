@@ -23,6 +23,12 @@ pub fn execute_command(app: &mut App, command: Command) -> Result<(), CommandErr
             }
             Ok(())
         }
+        Command::Lang { args, flags } => {
+            if let Err(e) = commands::lang::lang_command(app, args, flags) {
+                return Err(e);
+            }
+            Ok(())
+        }
         Command::Config { args, flags } => {
             if let Err(e) = commands::config::config_command(app, args, flags) {
                 return Err(e);

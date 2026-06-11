@@ -9,10 +9,15 @@ use crate::errors::error::AppError::EditorFailure;
 use crate::errors::plugin_error::PluginError;
 use crate::input::actions::InputAction;
 use crate::input::input::handle_input;
+use crate::language::lsp::LspMessage;
+use crate::language::manager::LanguageManager;
+use crate::language::theme::Theme;
 use crate::plugins::plugin_registry::{Plugin, PluginManager};
 use crate::plugins::search_replace_plugin::SearchReplacePlugin;
 use crate::ui::debug::DebugView;
 use crate::ui::layout::UILayout;
+use crate::ui::modal::Modal;
+use crate::ui::popups::confirmation_popup::ConfirmationPopup;
 use crate::ui::popups::error_popup::ErrorPopup;
 use crate::ui::popups::popup::{Popup, PopupResult, PopupType};
 use crate::ui::ui::ui;
@@ -47,6 +52,8 @@ pub struct App {
     pub plugins: PluginManager,
     pub layout: UILayout,
     pub help_registry: Arc<HelpRegistry>,
+    pub language: LanguageManager,
+    pub modal_stack: Vec<Box<dyn Modal>>,
 }
 
 pub type OpCallback = Box<dyn FnOnce(&mut App)>;
@@ -56,7 +63,16 @@ pub enum PendingState {
     Saving(PathBuf),
     Quitting,         //quitting non absolute, requires confirm
     QuittingAbsolute, // quitting absolute, forced no confirm needed
-    ConfigEdit { on_confirm: OpCallback },
+    ConfigEdit {
+        on_confirm: OpCallback,
+    },
+    /// Open a file in the editor, optionally jumping to a specific line in file after opened.
+    /// If the current buffer has unsaved changes (is dirty), user is asked to save first.
+    /// after confirming if necessary, the file is loaded.
+    OpenFile {
+        path: PathBuf,
+        jump_to_line: Option<usize>,
+    },
 }
 
 #[derive(PartialEq, Debug, Default, Copy, Clone)]
@@ -95,6 +111,8 @@ impl Default for App {
                     HelpRegistry::empty()
                 }),
             ),
+            language: LanguageManager::new(),
+            modal_stack: vec![],
         };
 
         // Load default plugins
@@ -131,6 +149,8 @@ impl App {
                     HelpRegistry::empty()
                 }),
             ),
+            language: LanguageManager::new(),
+            modal_stack: vec![],
         };
 
         // Load default plugins
@@ -287,11 +307,28 @@ impl App {
                 needs_redraw = true; // Redraw on blink
             }
 
-            // Handle periodic tick (for debug metrics)
+            // Poll LSP every loop iteration for responsiveness
+            let lsp_events = self.language.poll_lsp();
+            for event in lsp_events {
+                if let LspMessage::Initialized = event {
+                    // Since server is ready, send the initial buffer
+                    let full_text = self.editor.editor_content.join("\n");
+                    if let (Some(uri), Some(lang_id)) =
+                        (&self.language.current_uri, &self.language.language_id)
+                    {
+                        if let Some(lsp) = &mut self.language.lsp {
+                            let _ = lsp.notify_did_open(uri, lang_id, &full_text);
+                        }
+                    }
+                }
+            }
+
+            // Handle periodic tick (for debug metrics, & lsp)
             if last_tick.elapsed() >= tick_rate {
                 if self.debug_state.enabled {
                     self.debug_state.tick_frame();
                 }
+
                 last_tick = Instant::now();
             }
         }
@@ -342,6 +379,20 @@ impl App {
         } else {
             vec![String::new()] // Start with an empty editor if no file is provided
         };
+
+        // activate language manager for file if path is some
+
+        if let Some(ref path) = self.file_path {
+            if path.extension().is_some() {
+                // Load the theme from the root themes directory,
+                // TODO for now uses dark theme, later should load from current theme from thememanager
+                let theme = Theme::load_from_file("themes/dark.toml").ok();
+
+                // Activate the language manager
+                self.language
+                    .activate_for_file(path, theme, &self.config.lsp, &self.config.syntax);
+            }
+        }
     }
 
     ///function to process input action, responsible for calling the related active area,
@@ -363,6 +414,13 @@ impl App {
 
                 // else is successful, so set content modified true
                 self.content_modified = self.editor.undo_redo_manager.is_dirty();
+
+                // Notify LSP of the change so diagnostics stay current
+                // Only when the buffer actually changed (not just cursor moves)
+                if self.content_modified {
+                    let full_text = self.editor.editor_content.join("\n");
+                    self.language.notify_change(&full_text);
+                }
             }
             ActiveArea::CommandLine => {
                 //check for ENTER on commandline, to execute commands,
@@ -496,6 +554,11 @@ impl App {
                     self.close_popup();
                 }
                 PendingState::Quitting => self.quit(),
+                PendingState::OpenFile { path, jump_to_line } => {
+                    log_info!("Opening file: {}", path.to_string_lossy());
+                    self.load_file_into_editor(&path, jump_to_line);
+                    self.close_popup();
+                }
                 _ => {}
             }
         }
@@ -561,7 +624,104 @@ impl App {
 
         // mark saved index on undo tree
         self.editor.undo_redo_manager.mark_saved();
+
+        // Notify LSP that the file was saved (triggers re-check in some servers)
+        self.language.notify_save();
+
         Ok(())
+    }
+
+    /// Opens a file in the editor, jumping to specific jump_to_line after load if any.
+    ///
+    /// If the current buffer has unsaved changes, the user is shown a confirmation popup first.
+    /// On confirmation the file is saved and new file opened.
+    ///
+    /// This is the single entry point for functionality to navigate to another file. TODO also implement in app file exploration that uses this
+    pub fn open_file(&mut self, path: PathBuf, jump_to_line: Option<usize>) {
+        if self.content_modified {
+            // Push the OpenFile action as a follow-up so that after the save
+            // completes the pending-state chain resumes with OpenFile.
+            self.pending_states.push_back(PendingState::OpenFile {
+                path: path.clone(),
+                jump_to_line,
+            });
+
+            // If there is a current file path, save it first.
+            if let Some(current_path) = self.file_path.clone() {
+                self.pending_states
+                    .push_front(PendingState::Saving(current_path));
+            }
+            let popup = Box::new(ConfirmationPopup::new(
+                "Save changes to current file before opening another?",
+            ));
+            self.open_popup(popup);
+        } else {
+            self.load_file_into_editor(&path, jump_to_line);
+        }
+    }
+
+    /// load a file from `path` into the editor buffer, replacing the
+    /// current content. Activates the language manager for the new file and
+    /// optionally jumps the cursor to `jump_to_line`.
+    ///
+    /// Does **NOT** check for unsaved changes, [`open_file`] is used for the
+    /// user-facing, confirmation-gated flow.
+    pub fn load_file_into_editor(&mut self, path: &PathBuf, jump_to_line: Option<usize>) {
+        let content = match File::open(path) {
+            Ok(f) => {
+                let mut reader = BufReader::new(f);
+                let mut text = String::new();
+                match reader.read_to_string(&mut text) {
+                    Ok(_) => text.lines().map(String::from).collect::<Vec<_>>(),
+                    Err(e) => {
+                        log_warn!("[App] Failed to read file '{}': {}", path.display(), e);
+                        let popup = Box::new(ErrorPopup::new(
+                            "Failed to open file",
+                            AppError::InternalError(e.to_string()),
+                        ));
+                        self.open_popup(popup);
+                        return;
+                    }
+                }
+            }
+            Err(e) => {
+                log_warn!("[App] Cannot open file '{}': {}", path.display(), e);
+                let popup = Box::new(ErrorPopup::new(
+                    "File not found",
+                    AppError::InternalError(e.to_string()),
+                ));
+                self.open_popup(popup);
+                return;
+            }
+        };
+
+        // Replace editor content and reset editor state for the new file
+        self.editor.editor_content = if content.is_empty() {
+            vec![String::new()]
+        } else {
+            content
+        };
+        self.editor.cursor.x = 0;
+        self.editor.cursor.y = 0;
+        self.editor.scroll_offset = 0;
+        self.editor.undo_redo_manager.mark_saved(); // fresh file = no unsaved changes
+
+        self.file_path = Some(path.clone());
+        self.content_modified = false;
+
+        // Activate language support for the new file
+        if path.extension().is_some() {
+            let theme = Theme::load_from_file("themes/dark.toml").ok();
+            self.language
+                .activate_for_file(path, theme, &self.config.lsp, &self.config.syntax);
+        }
+
+        // Optionally jump the cursor to the requested line
+        if let Some(line) = jump_to_line {
+            self.editor.jump_to_line(line);
+        }
+
+        log_info!("[App] Opened file: {}", path.display());
     }
 
     ///checks if file has changes and returns boolean

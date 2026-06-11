@@ -13,6 +13,7 @@ pub enum InputAction {
     CommandLine(CommandLineAction),
     Popup(PopupAction),
     Debug(DebugAction),
+    Modal(ModalAction),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -69,6 +70,19 @@ pub enum DebugAction {
     DebugResetMetrics,
     ExitDebug,
     DebugInteract,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ModalAction {
+    // Navigation all modals share
+    ScrollUp,
+    ScrollDown,
+    NextTab,
+    PrevTab,
+    Confirm, // Enter equivalent inside a modal
+    Close,   // Esc
+    // Generic action for modal-specific things
+    Action(char), // e.g. 'r' for restart, 'f' for filter on some modals
 }
 
 ///direction enum to use in action enum values
