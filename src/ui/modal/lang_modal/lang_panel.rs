@@ -137,24 +137,67 @@ impl LangPanel {
         }
     }
 
-    /// Jump the editor cursor to the selected diagnostic's line.
-    /// TODO NEED TO OPEN ANOTHER FILE AND JUMP TO LINE IF DIAG SELECTED IS FROM OTHER FILE
-    fn jump_to_selected(&self, app: &mut App) {
-        if let Some((uri, diag_idx, _rrow)) = self.diag_index_map.get(self.selected_diagnostic) {
-            // Find the diagnostic in the LSP client's map
-            let line = app
-                .language
-                .lsp
-                .as_ref()
-                .and_then(|lsp| lsp.diagnostics.get(uri))
-                .and_then(|diags| diags.get(*diag_idx))
-                .map(|d| d.line as usize);
+    /// Open the grammar config TOML for the current language in the editor.
+    ///
+    /// Uses `App::open_file` so user needs to confirm save if the current buffer has unsaved changes.
+    fn open_grammar_config_in_editor(&self, app: &mut App) {
+        let Some(lang_id) = app.language.language_id.clone() else {
+            log_warn!("[LangPanel] No language active — cannot open grammar config");
+            return;
+        };
 
-            if let Some(line) = line {
-                // Call the unified editor method instead of modifying state manually
-                app.editor.jump_to_line(line);
+        let grammar_dir =
+            crate::language::manager::resolve_grammar_dir(&app.config.syntax.grammar_dir);
+        let config_path = grammar_dir.join(format!("{}.toml", lang_id));
+
+        if !config_path.exists() {
+            log_warn!(
+                "[LangPanel] Grammar config not found: {}",
+                config_path.display()
+            );
+            return;
+        }
+
+        log_info!(
+            "[LangPanel] Opening grammar config: {}",
+            config_path.display()
+        );
+        app.open_file(config_path, None);
+    }
+
+
+    /// Jump the editor cursor to the selected diagnostic's line.
+    ///
+    /// If the diagnostic belongs to a different file than the one currently
+    /// open, `App::open_file` is called with the target path so user gets
+    /// "save before switching?" confirmation popup if needed.
+    fn jump_to_selected(&self, app: &mut App) {
+        let Some((uri, diag_idx, _row)) = self.diag_index_map.get(self.selected_diagnostic) else {
+            return;
+        };
+
+        let lsp = app.language.lsp.as_ref();
+        let line = lsp
+            .and_then(|l| l.diagnostics.get(uri))
+            .and_then(|diags| diags.get(*diag_idx))
+            .map(|d| d.line as usize);
+
+        let Some(line) = line else { return };
+
+        let current_uri = app.language.current_uri.as_deref().unwrap_or("");
+
+        if uri.as_str() == current_uri {
+            // Same file: just move the cursor
+            app.editor.jump_to_line(line);
+        } else {
+            // Different file: convert LSP URI to filesystem path and open file.
+            if let Some(path) = uri_to_path(uri) {
+                app.open_file(path, Some(line));
+            } else {
+                log_warn!("[LangPanel] Cannot resolve URI to path: {}", uri);
             }
         }
+
     }
 
     /// Restart the LSP server for the current file.
@@ -568,7 +611,7 @@ impl Modal for LangPanel {
                         log_info!("[LangPanel] Token cache cleared");
                     }
                 }
-                (LangTab::Syntax, 'o') => {} //self.open_grammar_config_in_editor(app), TODO NEEDS TO OPEN GRAMMAR CONFIG FILE IN EDITOR (SHOULD REQUIRE CONFIRM POPUP TO SAVE IF NEEDED)
+                (LangTab::Syntax, 'o') => self.open_grammar_config_in_editor(app),
                 _ => {}
             },
         }
@@ -706,5 +749,25 @@ fn truncate(s: &str, max: usize) -> String {
         s.to_string()
     } else {
         format!("{}…", &s[..max.saturating_sub(1)])
+    }
+}
+
+/// Convert an LSP `file://` URI to a [`PathBuf`].
+///
+/// Returns `None` if the URI does not start with `file://` or if the
+/// resulting path is empty.  Percent-decoding is used for the most
+/// common case (spaces encoded as `%20`);.
+fn uri_to_path(uri: &str) -> Option<std::path::PathBuf> {
+    let path_str = uri.strip_prefix("file:///")?;
+
+    // Minimal percent-decode: handle the common cases.
+    // TODO Replace this with a proper decoder
+    let decoded = path_str.replace("%20", " ").replace("%3A", ":");
+
+    let path = std::path::PathBuf::from(decoded);
+    if path.as_os_str().is_empty() {
+        None
+    } else {
+        Some(path)
     }
 }

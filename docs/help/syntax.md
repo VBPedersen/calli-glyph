@@ -59,11 +59,11 @@ and the `.toml` inside `grammar_dir`.
 A grammar library is a compiled shared library produced from a tree-sitter grammar.
 The file must be placed in `grammar_dir` and named after the platform convention:
 
-| Platform | Filename pattern           | Example                    |
-|----------|----------------------------|----------------------------|
-| Linux    | `libtree_sitter_<name>.so` | `libtree_sitter_rust.so`   |
-| macOS    | `libtree_sitter_<name>.dylib` | `libtree_sitter_rust.dylib` |
-| Windows  | `tree_sitter_<name>.dll`   | `tree_sitter_rust.dll`     |
+| Platform | Filename pattern           | Example                   |
+|----------|----------------------------|---------------------------|
+| Linux    | `tree_sitter_<name>.so`    | `tree_sitter_rust.so`     |
+| macOS    | `tree_sitter_<name>.dylib` | `tree_sitter_rust.dylib`  |
+| Windows  | `tree_sitter_<name>.dll`   | `tree_sitter_rust.dll`    |
 
 ### Compiling a grammar
 
@@ -76,11 +76,11 @@ git clone https://github.com/tree-sitter/tree-sitter-go
 cd tree-sitter-go
 
 # Linux / macOS
-gcc -shared -fPIC -o ~/.config/calliglyph/grammars/libtree_sitter_go.so \
+gcc -shared -fPIC -o ~/.config/calliglyph/grammars/tree_sitter_go.so \
     -I./src src/parser.c
 
 # Some grammars also have a scanner.c (external scanner for complex tokens)
-gcc -shared -fPIC -o ~/.config/calliglyph/grammars/libtree_sitter_go.so \
+gcc -shared -fPIC -o ~/.config/calliglyph/grammars/tree_sitter_go.so \
     -I./src src/parser.c src/scanner.c
 
 # Windows (MSVC)

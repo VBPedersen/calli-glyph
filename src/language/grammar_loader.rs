@@ -49,7 +49,7 @@ pub fn platform_lib_name(stem: &str) -> String {
     #[cfg(target_os = "windows")]
     return format!("{}.dll", stem);
     #[cfg(target_os = "macos")]
-    return format!("lib{}.dylib", stem);
+    return format!("{}.dylib", stem);
     #[cfg(not(any(target_os = "windows", target_os = "macos")))]
-    return format!("lib{}.so", stem);
+    return format!("{}.so", stem);
 }
