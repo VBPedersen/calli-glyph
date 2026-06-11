@@ -165,7 +165,6 @@ impl LangPanel {
         app.open_file(config_path, None);
     }
 
-
     /// Jump the editor cursor to the selected diagnostic's line.
     ///
     /// If the diagnostic belongs to a different file than the one currently
@@ -197,7 +196,6 @@ impl LangPanel {
                 log_warn!("[LangPanel] Cannot resolve URI to path: {}", uri);
             }
         }
-
     }
 
     /// Restart the LSP server for the current file.
@@ -758,11 +756,30 @@ fn truncate(s: &str, max: usize) -> String {
 /// resulting path is empty.  Percent-decoding is used for the most
 /// common case (spaces encoded as `%20`);.
 fn uri_to_path(uri: &str) -> Option<std::path::PathBuf> {
-    let path_str = uri.strip_prefix("file:///")?;
+    // LSP URIs are always "file://<authority><path>".
+    // On Unix:   file:///home/user/foo.rs  -> strip "file://" -> /home/user/foo.rs  ✓
+    // On Windows: file:///C:/Users/foo.rs  -> strip "file://" -> /C:/Users/foo.rs
+    //   The leading '/' before the drive letter is not valid on Windows, so strip it.
+    let path_str = uri.strip_prefix("file://")?;
 
-    // Minimal percent-decode: handle the common cases.
-    // TODO Replace this with a proper decoder
-    let decoded = path_str.replace("%20", " ").replace("%3A", ":");
+    // Full percent-decoder — covers the characters LSP servers actually encode.
+    let decoded = percent_decode(path_str);
+
+    // On Windows the path looks like "/C:/Users/…" after stripping "file://".
+    // Detect this by checking for "/<letter>:/" and drop the leading slash.
+    #[cfg(target_os = "windows")]
+    let decoded = {
+        let bytes = decoded.as_bytes();
+        if bytes.len() >= 3
+            && bytes[0] == b'/'
+            && bytes[1].is_ascii_alphabetic()
+            && bytes[2] == b':'
+        {
+            decoded[1..].to_string()
+        } else {
+            decoded
+        }
+    };
 
     let path = std::path::PathBuf::from(decoded);
     if path.as_os_str().is_empty() {
@@ -770,4 +787,38 @@ fn uri_to_path(uri: &str) -> Option<std::path::PathBuf> {
     } else {
         Some(path)
     }
+}
+
+/// Percent-decode a URI path component.
+///
+/// Handles every `%XX` sequence an LSP server is likely to emit:
+/// spaces (`%20`), colons (`%3A`/`%3a`), and anything else in the
+/// ASCII range.  Non-UTF-8 sequences are passed through
+/// unchanged so the caller still gets a usable (if odd) path.
+fn percent_decode(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '%' {
+            // Collect the next two hex digits
+            let h1 = chars.next();
+            let h2 = chars.next();
+            if let (Some(h1), Some(h2)) = (h1, h2) {
+                let hex = format!("{}{}", h1, h2);
+                if let Ok(byte) = u8::from_str_radix(&hex, 16) {
+                    out.push(byte as char);
+                    continue;
+                }
+                // Not valid hex — emit literally
+                out.push('%');
+                out.push(h1);
+                out.push(h2);
+            } else {
+                out.push('%');
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    out
 }

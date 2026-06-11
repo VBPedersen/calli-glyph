@@ -17,6 +17,7 @@ use crate::plugins::search_replace_plugin::SearchReplacePlugin;
 use crate::ui::debug::DebugView;
 use crate::ui::layout::UILayout;
 use crate::ui::modal::Modal;
+use crate::ui::popups::confirmation_popup::ConfirmationPopup;
 use crate::ui::popups::error_popup::ErrorPopup;
 use crate::ui::popups::popup::{Popup, PopupResult, PopupType};
 use crate::ui::ui::ui;
@@ -31,7 +32,6 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use crate::ui::popups::confirmation_popup::ConfirmationPopup;
 
 pub struct App {
     /// Is the application running?
@@ -63,13 +63,15 @@ pub enum PendingState {
     Saving(PathBuf),
     Quitting,         //quitting non absolute, requires confirm
     QuittingAbsolute, // quitting absolute, forced no confirm needed
-    ConfigEdit { on_confirm: OpCallback },
+    ConfigEdit {
+        on_confirm: OpCallback,
+    },
     /// Open a file in the editor, optionally jumping to a specific line in file after opened.
     /// If the current buffer has unsaved changes (is dirty), user is asked to save first.
     /// after confirming if necessary, the file is loaded.
     OpenFile {
         path: PathBuf,
-        jump_to_line: Option<usize>
+        jump_to_line: Option<usize>,
     },
 }
 
@@ -650,14 +652,13 @@ impl App {
                     .push_front(PendingState::Saving(current_path));
             }
             let popup = Box::new(ConfirmationPopup::new(
-                "Save changes to current file before opening another?"
+                "Save changes to current file before opening another?",
             ));
             self.open_popup(popup);
         } else {
             self.load_file_into_editor(&path, jump_to_line);
         }
     }
-
 
     /// load a file from `path` into the editor buffer, replacing the
     /// current content. Activates the language manager for the new file and
@@ -722,7 +723,6 @@ impl App {
 
         log_info!("[App] Opened file: {}", path.display());
     }
-
 
     ///checks if file has changes and returns boolean
     pub(crate) fn file_has_changes(
