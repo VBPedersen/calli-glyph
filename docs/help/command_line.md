@@ -51,6 +51,15 @@ it, type a command starting with `:`, and press `Enter` to run it.
 | `:search`                  | Open the search and replace dialog        |
 | `:find`, `:s`              | Aliases for `:search`                     |
 
+**Language System**
+
+| Command         | Description                                                                      |
+|-----------------|----------------------------------------------------------------------------------|
+| `:lang`         | Open the multi-tab Language, LSP, and Diagnostic panel                           |
+| `:lang restart` | Restarts the language system, including lsp, syntax and theming                  |
+| `:lang reset`   | Restarts the language system, including lsp, syntax and theming                  |
+| `:lang clear`   | Clears the language system, including diagnostics, completions and hover results |
+
 ## Flags
 
 Some commands accept flags to modify their behaviour:

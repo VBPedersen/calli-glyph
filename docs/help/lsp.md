@@ -2,7 +2,7 @@
 id: lsp
 title: Language Server Protocol
 summary: Real-time diagnostics, completions, and hover docs powered by any LSP server
-tags: lsp, language server, diagnostics, errors, warnings, hints, completion, hover, rust-analyzer, pylsp, typescript, tsserver, config, :lsp, lsp_status, enabled, command, args, extensions
+tags: lsp, language server, diagnostics, errors, warnings, hints, completion, hover, rust-analyzer, pylsp, typescript, tsserver, config, :lsp, lsp_status, enabled, command, args, extensions, :lang
 ---
 # Language Server Protocol (LSP)
 
@@ -125,6 +125,28 @@ directory is used as the fallback.
 
 This is important for servers like `rust-analyzer` that report diagnostics for the
 entire workspace (all crates in a Cargo workspace), not just the file you have open.
+
+
+## The Language UI Panel (`:lang`)
+
+Calliglyph features an interactive status hub for your project's underlying intelligence engines. Type `:lang` in the command line to toggle it open.
+
+### Navigation & Views
+The panel is split into three distinct views, which you can cycle through using your configured tab swapping keybindings:
+
+1. **Diagnostics Tab**
+   Lists all errors and warnings published by the language server for the current workspace. Each entry is styled by its severity:
+  - `● Error` — Critical compiler errors preventing valid builds.
+  - `◆ Warning` — Static code quality or logic warnings.
+  - `◉ Information` — Informative notes from the engine compiler.
+  - `· Hint` — Subtle styling or refactoring suggestions.
+
+2. **LSP Tab**
+   Displays the current standard I/O engine health status loop. Shows whether the communication pipeline is `Starting...`, fully `Ready`, or has encountered an execution failure.
+
+3. **Syntax Tab**
+   Displays active Tree-sitter node mappings and validation scopes parsed from your local grammar path directory configurations. Very helpful for debugging if a rule isn't highlighting correctly.
+
 
 ## Diagnostics Scope
 
