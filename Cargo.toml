@@ -5,6 +5,10 @@ authors = ["Victor B. Pedersen <vpede23@sdu.student.dk>"]
 license = "MIT"
 edition = "2021"
 
+[[bin]]
+name = "cglyph"
+path = "src/main.rs"
+
 [dependencies]
 crossterm = "0.28.1"
 ratatui = "0.29.0"
