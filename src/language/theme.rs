@@ -19,7 +19,6 @@ pub struct Theme {
 }
 
 impl Theme {
-
     /// Resolves and loads a syntax theme by name.
     /// Searches `~/.config/calliglyph/themes/<name>.toml` first, then `./themes/<name>.toml`.
     pub fn load_theme(theme_name: &str) -> Option<Self> {
