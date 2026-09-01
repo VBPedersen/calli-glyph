@@ -4,14 +4,14 @@ use ratatui::style::{Color, Modifier, Style};
 use serde::Deserialize;
 use std::collections::HashMap;
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, Default)]
 pub struct ThemeColor {
     pub fg: Option<String>, // e.g. "#FF8800" or "Yellow"
     pub bold: Option<bool>,
     pub italic: Option<bool>,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, Default)]
 pub struct Theme {
     pub name: String,
     pub tokens: HashMap<String, ThemeColor>, // "keyword" -> style
@@ -19,6 +19,44 @@ pub struct Theme {
 }
 
 impl Theme {
+
+    /// Resolves and loads a syntax theme by name.
+    /// Searches `~/.config/calliglyph/themes/<name>.toml` first, then `./themes/<name>.toml`.
+    pub fn load_theme(theme_name: &str) -> Option<Self> {
+        let file_name = if theme_name.ends_with(".toml") {
+            theme_name.to_string()
+        } else {
+            format!("{}.toml", theme_name)
+        };
+
+        // Check OS config dir (~/.config/calliglyph/themes/)
+        if let Some(mut path) = dirs::config_dir() {
+            path.push("calliglyph");
+            path.push("themes");
+            path.push(&file_name);
+            if path.exists() {
+                if let Some(path_str) = path.to_str() {
+                    if let Ok(theme) = Self::load_from_file(path_str) {
+                        return Some(theme);
+                    }
+                }
+            }
+        }
+
+        // Fallback to relative local working directory (themes/)
+        let relative_path = std::path::PathBuf::from("themes").join(&file_name);
+        relative_path
+            .to_str()
+            .and_then(|path_str| Self::load_from_file(path_str).ok())
+    }
+
+    /// Loads the requested theme name, falling back to "dark", or returning a default Theme.
+    pub fn load_or_default(theme_name: &str) -> Self {
+        Self::load_theme(theme_name)
+            .or_else(|| Self::load_theme("dark"))
+            .unwrap_or_default()
+    }
+
     pub fn load_from_file(path: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let content = std::fs::read_to_string(path)?;
         Ok(toml::from_str(&content)?)

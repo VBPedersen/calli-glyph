@@ -386,7 +386,7 @@ impl App {
             if path.extension().is_some() {
                 // Load the theme from the root themes directory,
                 // TODO for now uses dark theme, later should load from current theme from thememanager
-                let theme = Theme::load_from_file("themes/dark.toml").ok();
+                let theme = Theme::load_theme("dark");
 
                 // Activate the language manager
                 self.language
@@ -711,7 +711,7 @@ impl App {
 
         // Activate language support for the new file
         if path.extension().is_some() {
-            let theme = Theme::load_from_file("themes/dark.toml").ok();
+            let theme = Theme::load_theme("dark");
             self.language
                 .activate_for_file(path, theme, &self.config.lsp, &self.config.syntax);
         }

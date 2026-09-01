@@ -17,6 +17,10 @@ pub struct SyntaxConfig {
     /// Per-language settings, keyed by an arbitrary name (used as grammar filename addition)
     #[serde(default)]
     pub languages: HashMap<String, SyntaxLanguageConfig>,
+
+    /// Per language theme setting
+    #[serde(default = "default_theme_name")]
+    pub theme: String, // e.g. "dark", "monokai", "catppuccin"
 }
 
 /// Default impl for Syntax config, comes with rust, python and TypeScript setup be default
@@ -52,6 +56,7 @@ impl Default for SyntaxConfig {
             enabled: true,
             grammar_dir: Config::get_grammar_dir().map(|p| p.to_string_lossy().into_owned()),
             languages,
+            theme: default_theme_name(),
         }
     }
 }
@@ -70,4 +75,9 @@ impl SyntaxConfig {
             .find(|(_, cfg)| cfg.file_extensions.iter().any(|e| e == ext))
             .map(|(name, cfg)| (name.as_str(), cfg))
     }
+}
+
+/// Helper func to use a hardcoded default theme name
+fn default_theme_name() -> String {
+    "dark".to_string()
 }
