@@ -144,14 +144,14 @@ fn clone_repo(
             spec.repo_url,
             tmp_dir.to_str().ok_or("Invalid temp path")?,
         ])
-            // Disables git's interactive credential prompt. Without this, a
-            // failed/rate-limited anonymous clone makes git ask for a
-            // username on stdin — which, inherited from our raw-mode TUI
-            // terminal, is unusable and looks like a hang. With this set,
-            // git just fails immediately with a normal error instead. Kept
-            // even when authenticating, as a safety net.
-            .env("GIT_TERMINAL_PROMPT", "0")
-            .stdin(Stdio::null());
+        // Disables git's interactive credential prompt. Without this, a
+        // failed/rate-limited anonymous clone makes git ask for a
+        // username on stdin — which, inherited from our raw-mode TUI
+        // terminal, is unusable and looks like a hang. With this set,
+        // git just fails immediately with a normal error instead. Kept
+        // even when authenticating, as a safety net.
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .stdin(Stdio::null());
 
         if let Some(helper) = &askpass {
             helper.apply(&mut cmd);
@@ -254,7 +254,10 @@ fn write_default_lang_config(
 ) {
     let config_path = grammar_dir.join(format!("{}.toml", name));
     if config_path.exists() {
-        log(tx, format!("{}.toml already exists, leaving it as-is", name));
+        log(
+            tx,
+            format!("{}.toml already exists, leaving it as-is", name),
+        );
         return;
     }
 
@@ -290,7 +293,7 @@ fn compile_grammar(
     } else {
         find_compiler(&["cc", "gcc", "clang"])
     }
-        .ok_or_else(|| "No C/C++ compiler found on PATH (need cc/gcc/clang)".to_string())?;
+    .ok_or_else(|| "No C/C++ compiler found on PATH (need cc/gcc/clang)".to_string())?;
 
     log(tx, format!("Using compiler: {}", compiler));
 

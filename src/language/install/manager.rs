@@ -136,16 +136,15 @@ fn apply_success(id: &JobId, config: &mut Config, resolved_command: Option<Strin
             config.syntax.languages.insert(
                 spec.name.to_string(),
                 SyntaxLanguageConfig {
-                    file_extensions: spec
-                        .file_extensions
-                        .iter()
-                        .map(|s| s.to_string())
-                        .collect(),
+                    file_extensions: spec.file_extensions.iter().map(|s| s.to_string()).collect(),
                     grammar: spec.name.to_string(),
                 },
             );
             if let Err(e) = config.save() {
-                log_error!("[Install] Failed to save config after grammar install: {}", e);
+                log_error!(
+                    "[Install] Failed to save config after grammar install: {}",
+                    e
+                );
             }
         }
         JobId::LspServer(name) => {
@@ -158,11 +157,7 @@ fn apply_success(id: &JobId, config: &mut Config, resolved_command: Option<Strin
                     command: resolved_command.unwrap_or_else(|| spec.command.to_string()),
                     args: spec.args.iter().map(|s| s.to_string()).collect(),
                     enabled: true,
-                    file_extensions: spec
-                        .file_extensions
-                        .iter()
-                        .map(|s| s.to_string())
-                        .collect(),
+                    file_extensions: spec.file_extensions.iter().map(|s| s.to_string()).collect(),
                     root_markers: spec.root_markers.iter().map(|s| s.to_string()).collect(),
                     initialization_options: Default::default(),
                 },

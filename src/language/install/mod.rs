@@ -16,12 +16,12 @@
 //!  dead end.
 
 pub mod config_generator;
+pub mod credentials;
 pub mod grammar_installer;
 pub mod job;
 pub mod lsp_installer;
 pub mod manager;
 pub mod registry;
-pub mod credentials;
 
 pub use job::{JobId, JobStatus};
 pub use manager::InstallManager;
