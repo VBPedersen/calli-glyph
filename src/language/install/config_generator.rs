@@ -61,7 +61,9 @@ fn classify(type_name: &str, named: bool) -> Option<&'static str> {
         // always a keyword.
         let is_word = !type_name.is_empty()
             && type_name.len() > 1
-            && type_name.chars().all(|c| c.is_ascii_alphabetic() || c == '_');
+            && type_name
+                .chars()
+                .all(|c| c.is_ascii_alphabetic() || c == '_');
         return if is_word { Some("keyword") } else { None };
     }
 

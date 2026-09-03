@@ -81,7 +81,6 @@ impl DiagFilter {
     }
 }
 
-
 // ----------   Install Pnael Focus   --------------
 
 // New enum, near DiagFilter:
@@ -179,7 +178,9 @@ impl LangPanel {
                 }
             }
             InstallFocus::LspServers => {
-                let max = crate::language::install::LSP_SERVERS.len().saturating_sub(1);
+                let max = crate::language::install::LSP_SERVERS
+                    .len()
+                    .saturating_sub(1);
                 if self.install_lsp_selected < max {
                     self.install_lsp_selected += 1;
                 }
@@ -620,7 +621,7 @@ impl LangPanel {
 
     /// Renders the install language tab of the modal
     fn render_install_tab(&mut self, frame: &mut Frame, area: Rect, app: &App) {
-        use crate::language::install::{GRAMMARS, JobId, JobStatus, LSP_SERVERS};
+        use crate::language::install::{JobId, JobStatus, GRAMMARS, LSP_SERVERS};
 
         let rows = Layout::default()
             .direction(Direction::Vertical)
@@ -633,13 +634,13 @@ impl LangPanel {
             .split(rows[0]);
 
         // ---- Grammars column ----
-        let mut grammar_lines: Vec<Line> = vec![section_header(if self.install_focus
-            == InstallFocus::Grammars
-        {
-            "▸ Tree-sitter grammars"
-        } else {
-            "  Tree-sitter grammars"
-        })];
+        let mut grammar_lines: Vec<Line> = vec![section_header(
+            if self.install_focus == InstallFocus::Grammars {
+                "▸ Tree-sitter grammars"
+            } else {
+                "  Tree-sitter grammars"
+            },
+        )];
         grammar_lines.push(Line::raw(""));
         for (i, spec) in GRAMMARS.iter().enumerate() {
             let (label, color) = grammar_status(app, spec);
@@ -658,19 +659,22 @@ impl LangPanel {
                         }),
                 ),
                 Span::styled(format!("{:<16}", label), Style::default().fg(color)),
-                Span::styled(spec.file_extensions.join(","), Style::default().fg(Color::DarkGray)),
+                Span::styled(
+                    spec.file_extensions.join(","),
+                    Style::default().fg(Color::DarkGray),
+                ),
             ]));
         }
         frame.render_widget(Paragraph::new(grammar_lines), cols[0]);
 
         // ---- LSP column ----
-        let mut lsp_lines: Vec<Line> = vec![section_header(if self.install_focus
-            == InstallFocus::LspServers
-        {
-            "▸ LSP servers"
-        } else {
-            "  LSP servers"
-        })];
+        let mut lsp_lines: Vec<Line> = vec![section_header(
+            if self.install_focus == InstallFocus::LspServers {
+                "▸ LSP servers"
+            } else {
+                "  LSP servers"
+            },
+        )];
         lsp_lines.push(Line::raw(""));
         for (i, spec) in LSP_SERVERS.iter().enumerate() {
             let (label, color) = lsp_status(app, spec);
@@ -755,10 +759,10 @@ impl Modal for LangPanel {
                 LangTab::Diagnostics => {
                     self.jump_to_selected(app);
                     return ModalResponse::Close;
-                },
+                }
                 LangTab::Install => self.install_confirm(app),
                 _ => {}
-            }
+            },
             // ----- tab specific char actions -----
             ModalAction::Action(c) => match (self.tab, c) {
                 (_, '1') => self.tab = LangTab::Diagnostics,

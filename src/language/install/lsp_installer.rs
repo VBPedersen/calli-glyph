@@ -67,7 +67,9 @@ fn try_install(spec: &LspSpec, tx: &Sender<InstallEvent>) -> Result<InstallOutco
         tx,
         format!(
             "Installing {} via {} ({})",
-            spec.name, pm.binary(), spec.package
+            spec.name,
+            pm.binary(),
+            spec.package
         ),
     );
 
@@ -167,8 +169,8 @@ fn find_in_dir(dir: &Path, binary: &str) -> Option<PathBuf> {
 fn candidate_filenames(name: &str) -> Vec<String> {
     #[cfg(windows)]
     {
-        let pathext = std::env::var("PATHEXT")
-            .unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD;.PS1".to_string());
+        let pathext =
+            std::env::var("PATHEXT").unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD;.PS1".to_string());
         let mut names: Vec<String> = pathext
             .split(';')
             .filter(|e| !e.is_empty())
@@ -246,9 +248,7 @@ fn extra_bin_dirs(pm: PackageManager) -> Vec<PathBuf> {
             let cargo_home = std::env::var_os("CARGO_HOME")
                 .map(PathBuf::from)
                 .or_else(|| dirs::home_dir().map(|h| h.join(".cargo")));
-            cargo_home
-                .map(|c| vec![c.join("bin")])
-                .unwrap_or_default()
+            cargo_home.map(|c| vec![c.join("bin")]).unwrap_or_default()
         }
         PackageManager::Go => {
             if let Ok(output) = run_command("go")

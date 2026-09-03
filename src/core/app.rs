@@ -9,9 +9,11 @@ use crate::errors::error::AppError::EditorFailure;
 use crate::errors::plugin_error::PluginError;
 use crate::input::actions::InputAction;
 use crate::input::input::handle_input;
+use crate::language::install::InstallManager;
 use crate::language::lsp::LspMessage;
 use crate::language::manager::LanguageManager;
 use crate::language::theme::Theme;
+use crate::plugins::github_auth_plugin::GithubAuthPlugin;
 use crate::plugins::plugin_registry::{Plugin, PluginManager};
 use crate::plugins::search_replace_plugin::SearchReplacePlugin;
 use crate::ui::debug::DebugView;
@@ -53,6 +55,7 @@ pub struct App {
     pub layout: UILayout,
     pub help_registry: Arc<HelpRegistry>,
     pub language: LanguageManager,
+    pub install_manager: InstallManager,
     pub modal_stack: Vec<Box<dyn Modal>>,
 }
 
@@ -112,6 +115,7 @@ impl Default for App {
                 }),
             ),
             language: LanguageManager::new(),
+            install_manager: InstallManager::new(),
             modal_stack: vec![],
         };
 
@@ -149,6 +153,7 @@ impl App {
                     HelpRegistry::empty()
                 }),
             ),
+            install_manager: InstallManager::new(),
             language: LanguageManager::new(),
             modal_stack: vec![],
         };
@@ -188,6 +193,7 @@ impl App {
                 "search_replace_plugin",
                 Box::new(SearchReplacePlugin::new()),
             ),
+            ("github_auth_plugin", Box::new(GithubAuthPlugin::new())),
         ];
 
         // Only load enabled plugins
@@ -322,6 +328,9 @@ impl App {
                     }
                 }
             }
+
+            // Poll install jobs (grammar builds / lsp installs)
+            self.install_manager.poll(&mut self.config);
 
             // Handle periodic tick (for debug metrics, & lsp)
             if last_tick.elapsed() >= tick_rate {

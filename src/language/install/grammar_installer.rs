@@ -19,8 +19,13 @@ use std::thread;
 use std::time::Duration;
 
 /// Entry point run on the background thread spawned by `InstallJob::spawn`.
-pub fn install_grammar(spec: GrammarSpec, grammar_dir: PathBuf, tx: Sender<InstallEvent>) {
-    let result = try_install(&spec, &grammar_dir, &tx);
+pub fn install_grammar(
+    spec: GrammarSpec,
+    grammar_dir: PathBuf,
+    github_token: Option<String>,
+    tx: Sender<InstallEvent>,
+) {
+    let result = try_install(&spec, &grammar_dir, github_token.as_deref(), &tx);
     let _ = tx.send(InstallEvent::Done(result));
 }
 
@@ -31,6 +36,7 @@ fn log(tx: &Sender<InstallEvent>, msg: impl Into<String>) {
 fn try_install(
     spec: &GrammarSpec,
     grammar_dir: &Path,
+    github_token: Option<&str>,
     tx: &Sender<InstallEvent>,
 ) -> Result<InstallOutcome, String> {
     std::fs::create_dir_all(grammar_dir)
@@ -42,7 +48,7 @@ fn try_install(
     }
 
     log(tx, format!("Cloning {}", spec.repo_url));
-    clone_repo(spec, &tmp_dir, tx)?;
+    clone_repo(spec, &tmp_dir, github_token, tx)?;
 
     let grammar_root = match spec.subdir {
         Some(sub) => tmp_dir.join(sub),
@@ -88,9 +94,28 @@ fn try_install(
 /// set below, surfaces as a clean "could not read Username" error instead
 /// of hanging. That failure is usually transient, so retrying with a short
 /// backoff resolves it without the user needing to do anything.
-fn clone_repo(spec: &GrammarSpec, tmp_dir: &Path, tx: &Sender<InstallEvent>) -> Result<(), String> {
+///
+/// When `github_token` is set, authenticates via `GIT_ASKPASS` instead of
+/// cloning anonymously — this both avoids the rate limiting/anti-abuse
+/// heuristics above and never touches stdin (unlike embedding credentials
+/// in the URL, the token also never appears in the process's argv, only
+/// in an env var scoped to this one child process).
+fn clone_repo(
+    spec: &GrammarSpec,
+    tmp_dir: &Path,
+    github_token: Option<&str>,
+    tx: &Sender<InstallEvent>,
+) -> Result<(), String> {
     const MAX_ATTEMPTS: u32 = 3;
     let mut last_err = String::new();
+
+    let askpass = match github_token {
+        Some(token) => {
+            log(tx, "Using GitHub token for authentication");
+            Some(AskpassHelper::write(token)?)
+        }
+        None => None,
+    };
 
     for attempt in 1..=MAX_ATTEMPTS {
         if tmp_dir.exists() {
@@ -111,21 +136,28 @@ fn clone_repo(spec: &GrammarSpec, tmp_dir: &Path, tx: &Sender<InstallEvent>) -> 
             thread::sleep(backoff);
         }
 
-        let output = Command::new("git")
-            .args([
-                "clone",
-                "--depth",
-                "1",
-                spec.repo_url,
-                tmp_dir.to_str().ok_or("Invalid temp path")?,
-            ])
+        let mut cmd = Command::new("git");
+        cmd.args([
+            "clone",
+            "--depth",
+            "1",
+            spec.repo_url,
+            tmp_dir.to_str().ok_or("Invalid temp path")?,
+        ])
             // Disables git's interactive credential prompt. Without this, a
             // failed/rate-limited anonymous clone makes git ask for a
             // username on stdin — which, inherited from our raw-mode TUI
             // terminal, is unusable and looks like a hang. With this set,
-            // git just fails immediately with a normal error instead.
+            // git just fails immediately with a normal error instead. Kept
+            // even when authenticating, as a safety net.
             .env("GIT_TERMINAL_PROMPT", "0")
-            .stdin(Stdio::null())
+            .stdin(Stdio::null());
+
+        if let Some(helper) = &askpass {
+            helper.apply(&mut cmd);
+        }
+
+        let output = cmd
             .output()
             .map_err(|e| format!("Failed to run git (is it installed?): {}", e))?;
 
@@ -140,6 +172,74 @@ fn clone_repo(spec: &GrammarSpec, tmp_dir: &Path, tx: &Sender<InstallEvent>) -> 
         "git clone failed after {} attempts: {}",
         MAX_ATTEMPTS, last_err
     ))
+}
+
+/// A temporary `GIT_ASKPASS` helper script that answers any prompt (git
+/// invokes it once for username, once for password) with the token.
+/// GitHub accepts any non-empty username alongside a PAT, so answering
+/// both prompts identically works and keeps this simple.
+///
+/// Cleaned up via `Drop` so it's removed even if a clone attempt errors
+/// out early.
+struct AskpassHelper {
+    script_path: PathBuf,
+}
+
+impl AskpassHelper {
+    fn write(token: &str) -> Result<Self, String> {
+        let dir = std::env::temp_dir();
+        let unique = format!(
+            "calliglyph-askpass-{}",
+            std::process::id() // enough to avoid collisions between concurrent installs
+        );
+
+        #[cfg(unix)]
+        let script_path = dir.join(&unique);
+        #[cfg(windows)]
+        let script_path = dir.join(format!("{}.cmd", unique));
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            // Token is embedded directly in the script rather than read from
+            // an env var at askpass-invocation time — env vars set on the
+            // git Command aren't necessarily inherited by an externally
+            // invoked askpass helper the same way across platforms, so this
+            // is the more portable choice. The script itself is 0700
+            // (owner-only) and lives in a per-process-id temp path.
+            let content = format!("#!/bin/sh\necho '{}'\n", token.replace('\'', "'\\''"));
+            std::fs::write(&script_path, content)
+                .map_err(|e| format!("Failed to write askpass helper: {}", e))?;
+            let mut perms = std::fs::metadata(&script_path)
+                .map_err(|e| format!("Failed to stat askpass helper: {}", e))?
+                .permissions();
+            perms.set_mode(0o700);
+            std::fs::set_permissions(&script_path, perms)
+                .map_err(|e| format!("Failed to chmod askpass helper: {}", e))?;
+        }
+
+        #[cfg(windows)]
+        {
+            let content = format!("@echo off\r\necho {}\r\n", token);
+            std::fs::write(&script_path, content)
+                .map_err(|e| format!("Failed to write askpass helper: {}", e))?;
+        }
+
+        Ok(Self { script_path })
+    }
+
+    fn apply(&self, cmd: &mut Command) {
+        cmd.env("GIT_ASKPASS", &self.script_path);
+        // Some git versions/environments also check this for the
+        // credential fill-in step; harmless to set alongside GIT_ASKPASS.
+        cmd.env("GCM_INTERACTIVE", "never");
+    }
+}
+
+impl Drop for AskpassHelper {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.script_path);
+    }
 }
 
 /// Writes a starter `<name>.toml` node-kind config next to the grammar's

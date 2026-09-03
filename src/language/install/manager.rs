@@ -3,6 +3,7 @@
 //! result into `Config` (and saves it) so it takes effect immediately —
 //! no restart needed to start using a freshly installed grammar or server.
 
+use super::credentials;
 use super::grammar_installer;
 use super::job::{InstallJob, JobId, JobStatus};
 use super::lsp_installer;
@@ -15,13 +16,35 @@ use std::path::PathBuf;
 
 pub struct InstallManager {
     jobs: HashMap<JobId, InstallJob>,
+    github_token: Option<String>,
 }
 
 impl InstallManager {
     pub fn new() -> Self {
+        // Best-effort load — a missing/unreadable token file just means
+        // grammar clones proceed anonymously, same as before this existed.
+        let github_token = Config::get_config_base_dir()
+            .ok()
+            .and_then(|dir| credentials::load_github_token(&dir));
+
         Self {
             jobs: HashMap::new(),
+            github_token,
         }
+    }
+
+    pub fn has_github_token(&self) -> bool {
+        self.github_token.is_some()
+    }
+
+    /// Sets (or clears, with `None`) the GitHub token used to authenticate
+    /// grammar clones, persisting it to disk immediately.
+    pub fn set_github_token(&mut self, token: Option<String>) -> Result<(), String> {
+        let dir = Config::get_config_base_dir().map_err(|e| e.to_string())?;
+        credentials::save_github_token(&dir, token.as_deref())
+            .map_err(|e| format!("Failed to save GitHub token: {}", e))?;
+        self.github_token = token;
+        Ok(())
     }
 
     pub fn grammar_catalog(&self) -> &'static [GrammarSpec] {
@@ -51,8 +74,9 @@ impl InstallManager {
             return;
         }
         let job_id = id.clone();
+        let github_token = self.github_token.clone();
         let job = InstallJob::spawn(job_id, move |tx| {
-            grammar_installer::install_grammar(*spec, grammar_dir, tx);
+            grammar_installer::install_grammar(*spec, grammar_dir, github_token, tx);
         });
         self.jobs.insert(id, job);
     }
