@@ -11,10 +11,8 @@
 //!   :githubtoken clear     remove the stored token, back to anonymous cloning
 //!
 //! Note on secrecy: like any other command, the token is briefly visible
-//! on the command line while typing/pasting it, and (depending on your
-//! `CommandLine` implementation) may end up in in-memory command history.
-//! It is never logged. If that's a concern, generate a short-lived,
-//! narrowly-scoped token and rotate it.
+//! on the command line while typing/pasting it, and
+//! TODO might later need to be disregarded for a coming commandline history(depending on your
 
 use crate::core::app::App;
 use crate::errors::plugin_error::PluginError;
