@@ -30,3 +30,4 @@ pub mod manager;
 pub mod grammar_loader;
 pub mod lang_configs;
 pub mod lsp;
+pub mod install;

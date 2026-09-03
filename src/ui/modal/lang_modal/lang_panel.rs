@@ -16,6 +16,7 @@ pub enum LangTab {
     Diagnostics,
     Lsp,
     Syntax,
+    Install,
 }
 
 impl LangTab {
@@ -23,15 +24,17 @@ impl LangTab {
         match self {
             Self::Diagnostics => Self::Lsp,
             Self::Lsp => Self::Syntax,
-            Self::Syntax => Self::Diagnostics,
+            Self::Syntax => Self::Install,
+            Self::Install => Self::Diagnostics,
         }
     }
 
     fn prev(self) -> Self {
         match self {
-            Self::Diagnostics => Self::Syntax,
+            Self::Diagnostics => Self::Install,
             Self::Lsp => Self::Diagnostics,
             Self::Syntax => Self::Lsp,
+            Self::Install => Self::Syntax,
         }
     }
 
@@ -40,6 +43,7 @@ impl LangTab {
             Self::Diagnostics => 0,
             Self::Lsp => 1,
             Self::Syntax => 2,
+            Self::Install => 3,
         }
     }
 }
@@ -77,6 +81,16 @@ impl DiagFilter {
     }
 }
 
+
+// ----------   Install Pnael Focus   --------------
+
+// New enum, near DiagFilter:
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum InstallFocus {
+    Grammars,
+    LspServers,
+}
+
 // ----------   MAIN STRUCT   --------------
 
 /// Language panel menu for managing the language related systems via modal
@@ -89,6 +103,9 @@ pub struct LangPanel {
     /// rebuilt each render so selection always maps to a real diagnostic.
     diag_index_map: Vec<(String, usize, usize)>,
     visible_height: u16, // set each render frame from the actual area height
+    install_focus: InstallFocus,
+    install_grammar_selected: usize,
+    install_lsp_selected: usize,
 }
 
 impl LangPanel {
@@ -100,6 +117,9 @@ impl LangPanel {
             diag_scroll: 0,
             diag_index_map: Vec::new(),
             visible_height: 0,
+            install_focus: InstallFocus::Grammars,
+            install_grammar_selected: 0,
+            install_lsp_selected: 0,
         }
     }
 
@@ -133,6 +153,59 @@ impl LangPanel {
             self.selected_diagnostic -= 1;
             if (self.selected_diagnostic as u16) < self.diag_scroll {
                 self.diag_scroll = self.selected_diagnostic as u16;
+            }
+        }
+    }
+
+    /// Select previous (up) on install
+    fn install_select_up(&mut self) {
+        match self.install_focus {
+            InstallFocus::Grammars => {
+                self.install_grammar_selected = self.install_grammar_selected.saturating_sub(1)
+            }
+            InstallFocus::LspServers => {
+                self.install_lsp_selected = self.install_lsp_selected.saturating_sub(1)
+            }
+        }
+    }
+
+    /// Select next (down) on install
+    fn install_select_down(&mut self) {
+        match self.install_focus {
+            InstallFocus::Grammars => {
+                let max = crate::language::install::GRAMMARS.len().saturating_sub(1);
+                if self.install_grammar_selected < max {
+                    self.install_grammar_selected += 1;
+                }
+            }
+            InstallFocus::LspServers => {
+                let max = crate::language::install::LSP_SERVERS.len().saturating_sub(1);
+                if self.install_lsp_selected < max {
+                    self.install_lsp_selected += 1;
+                }
+            }
+        }
+    }
+
+    /// Confirm action on install screen
+    fn install_confirm(&self, app: &mut App) {
+        match self.install_focus {
+            InstallFocus::Grammars => {
+                if let Some(spec) =
+                    crate::language::install::GRAMMARS.get(self.install_grammar_selected)
+                {
+                    let grammar_dir = crate::language::manager::resolve_grammar_dir(
+                        &app.config.syntax.grammar_dir,
+                    );
+                    app.install_manager.start_grammar_install(spec, grammar_dir);
+                }
+            }
+            InstallFocus::LspServers => {
+                if let Some(spec) =
+                    crate::language::install::LSP_SERVERS.get(self.install_lsp_selected)
+                {
+                    app.install_manager.start_lsp_install(spec);
+                }
             }
         }
     }
@@ -544,6 +617,118 @@ impl LangPanel {
 
         frame.render_widget(Paragraph::new(lines), area);
     }
+
+    /// Renders the install language tab of the modal
+    fn render_install_tab(&mut self, frame: &mut Frame, area: Rect, app: &App) {
+        use crate::language::install::{GRAMMARS, JobId, JobStatus, LSP_SERVERS};
+
+        let rows = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Min(6), Constraint::Length(6)])
+            .split(area);
+
+        let cols = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .split(rows[0]);
+
+        // ---- Grammars column ----
+        let mut grammar_lines: Vec<Line> = vec![section_header(if self.install_focus
+            == InstallFocus::Grammars
+        {
+            "▸ Tree-sitter grammars"
+        } else {
+            "  Tree-sitter grammars"
+        })];
+        grammar_lines.push(Line::raw(""));
+        for (i, spec) in GRAMMARS.iter().enumerate() {
+            let (label, color) = grammar_status(app, spec);
+            let selected =
+                self.install_focus == InstallFocus::Grammars && i == self.install_grammar_selected;
+            grammar_lines.push(Line::from(vec![
+                Span::raw(if selected { "▶ " } else { "  " }),
+                Span::styled(
+                    format!("{:<12}", spec.name),
+                    Style::default()
+                        .fg(if selected { Color::White } else { Color::Gray })
+                        .add_modifier(if selected {
+                            Modifier::BOLD
+                        } else {
+                            Modifier::empty()
+                        }),
+                ),
+                Span::styled(format!("{:<16}", label), Style::default().fg(color)),
+                Span::styled(spec.file_extensions.join(","), Style::default().fg(Color::DarkGray)),
+            ]));
+        }
+        frame.render_widget(Paragraph::new(grammar_lines), cols[0]);
+
+        // ---- LSP column ----
+        let mut lsp_lines: Vec<Line> = vec![section_header(if self.install_focus
+            == InstallFocus::LspServers
+        {
+            "▸ LSP servers"
+        } else {
+            "  LSP servers"
+        })];
+        lsp_lines.push(Line::raw(""));
+        for (i, spec) in LSP_SERVERS.iter().enumerate() {
+            let (label, color) = lsp_status(app, spec);
+            let selected =
+                self.install_focus == InstallFocus::LspServers && i == self.install_lsp_selected;
+            lsp_lines.push(Line::from(vec![
+                Span::raw(if selected { "▶ " } else { "  " }),
+                Span::styled(
+                    format!("{:<12}", spec.name),
+                    Style::default()
+                        .fg(if selected { Color::White } else { Color::Gray })
+                        .add_modifier(if selected {
+                            Modifier::BOLD
+                        } else {
+                            Modifier::empty()
+                        }),
+                ),
+                Span::styled(format!("{:<16}", label), Style::default().fg(color)),
+                Span::styled(spec.command, Style::default().fg(Color::DarkGray)),
+            ]));
+        }
+        frame.render_widget(Paragraph::new(lsp_lines), cols[1]);
+
+        // ---- Log tail for the currently focused/selected job ----
+        let selected_id = match self.install_focus {
+            InstallFocus::Grammars => GRAMMARS
+                .get(self.install_grammar_selected)
+                .map(|s| JobId::Grammar(s.name.to_string())),
+            InstallFocus::LspServers => LSP_SERVERS
+                .get(self.install_lsp_selected)
+                .map(|s| JobId::LspServer(s.name.to_string())),
+        };
+
+        let mut log_lines: Vec<Line> = vec![section_header("Log")];
+        if let Some(id) = &selected_id {
+            if let Some(lines) = app.install_manager.job_log(id) {
+                for line in lines.iter().rev().take(3).rev() {
+                    log_lines.push(Line::styled(
+                        format!("  {}", line),
+                        Style::default().fg(Color::DarkGray),
+                    ));
+                }
+            }
+            if let Some(JobStatus::Failed(err)) = app.install_manager.job_status(id) {
+                for line in err.lines().take(3) {
+                    log_lines.push(Line::styled(
+                        format!("  {}", line),
+                        Style::default().fg(Color::Red),
+                    ));
+                }
+            }
+        }
+        log_lines.push(Line::raw(""));
+        log_lines.push(hint_line(
+            "g/l: focus list   ↑/↓: select   Enter: install   Esc: close",
+        ));
+        frame.render_widget(Paragraph::new(log_lines), rows[1]);
+    }
 }
 
 impl Modal for LangPanel {
@@ -556,25 +741,30 @@ impl Modal for LangPanel {
             ModalAction::Close => return ModalResponse::Close,
             ModalAction::ScrollUp => match self.tab {
                 LangTab::Diagnostics => self.select_up(),
+                LangTab::Install => self.install_select_up(),
                 _ => self.diag_scroll = self.diag_scroll.saturating_sub(1),
             },
             ModalAction::ScrollDown => match self.tab {
                 LangTab::Diagnostics => self.select_down(),
+                LangTab::Install => self.install_select_down(),
                 _ => self.diag_scroll = self.diag_scroll.saturating_add(1),
             },
             ModalAction::NextTab => self.tab = self.tab.next(),
             ModalAction::PrevTab => self.tab = self.tab.prev(),
-            ModalAction::Confirm => {
-                if self.tab == LangTab::Diagnostics {
+            ModalAction::Confirm => match self.tab {
+                LangTab::Diagnostics => {
                     self.jump_to_selected(app);
                     return ModalResponse::Close;
-                }
+                },
+                LangTab::Install => self.install_confirm(app),
+                _ => {}
             }
             // ----- tab specific char actions -----
             ModalAction::Action(c) => match (self.tab, c) {
                 (_, '1') => self.tab = LangTab::Diagnostics,
                 (_, '2') => self.tab = LangTab::Lsp,
                 (_, '3') => self.tab = LangTab::Syntax,
+                (_, '4') => self.tab = LangTab::Install,
 
                 // Diagnostics tab
                 (LangTab::Diagnostics, 'f') => {
@@ -610,6 +800,11 @@ impl Modal for LangPanel {
                     }
                 }
                 (LangTab::Syntax, 'o') => self.open_grammar_config_in_editor(app),
+
+                // Install tab
+                (LangTab::Install, 'g') => self.install_focus = InstallFocus::Grammars,
+                (LangTab::Install, 'l') => self.install_focus = InstallFocus::LspServers,
+
                 _ => {}
             },
         }
@@ -640,6 +835,7 @@ impl Modal for LangPanel {
             Line::from(" [1] Diagnostics "),
             Line::from(" [2] LSP "),
             Line::from(" [3] Syntax "),
+            Line::from(" [4] Install "),
         ];
         let tabs = Tabs::new(tab_titles)
             .select(self.tab.index())
@@ -657,6 +853,7 @@ impl Modal for LangPanel {
             LangTab::Diagnostics => self.render_diagnostics_tab(frame, chunks[1], app),
             LangTab::Lsp => self.render_lsp_tab(frame, chunks[1], app),
             LangTab::Syntax => self.render_syntax_tab(frame, chunks[1], app),
+            LangTab::Install => self.render_install_tab(frame, chunks[1], app),
         }
     }
 }
@@ -747,6 +944,66 @@ fn truncate(s: &str, max: usize) -> String {
         s.to_string()
     } else {
         format!("{}…", &s[..max.saturating_sub(1)])
+    }
+}
+
+/// Determines the UI display label and color status for a Tree-sitter syntax grammar installation.
+///
+/// Priority is given to active background installation jobs before checking
+/// local disk availability.
+///
+/// # Returns
+/// A tuple containing:
+/// - `&'static str`: A formatted display string with status symbols (e.g., "✓ installed").
+/// - `Color`: The associated UI theme color for styling the TUI element.
+fn grammar_status(
+    app: &App,
+    spec: &crate::language::install::GrammarSpec,
+) -> (&'static str, Color) {
+    // Check if an installation job for this grammar is currently active or recently completed
+    let id = crate::language::install::JobId::Grammar(spec.name.to_string());
+    if let Some(status) = app.install_manager.job_status(&id) {
+        return match status {
+            crate::language::install::JobStatus::Running => ("… installing", Color::Yellow),
+            crate::language::install::JobStatus::Success(_) => ("✓ installed", Color::Green),
+            crate::language::install::JobStatus::Failed(_) => ("✗ failed", Color::Red),
+        };
+    }
+    // Fallback: Check if the compiled grammar shared library already exists on disk
+    let grammar_dir = crate::language::manager::resolve_grammar_dir(&app.config.syntax.grammar_dir);
+    let filename =
+        crate::language::grammar_loader::platform_lib_name(&format!("tree_sitter_{}", spec.name));
+    if grammar_dir.join(filename).exists() {
+        ("✓ installed", Color::Green)
+    } else {
+        ("· not installed", Color::DarkGray)
+    }
+}
+
+/// Determines the UI display label and color status for a Language Server (LSP) installation.
+///
+/// Priority is given to active background installation jobs before checking
+/// active server configurations.
+///
+/// # Returns
+/// A tuple containing:
+/// - `&'static str`: A formatted display string with status symbols (e.g., "✓ configured").
+/// - `Color`: The associated UI theme color for styling the TUI element.
+fn lsp_status(app: &App, spec: &crate::language::install::LspSpec) -> (&'static str, Color) {
+    // Check if an installation job for this LSP server is currently active or recently completed
+    let id = crate::language::install::JobId::LspServer(spec.name.to_string());
+    if let Some(status) = app.install_manager.job_status(&id) {
+        return match status {
+            crate::language::install::JobStatus::Running => ("… installing", Color::Yellow),
+            crate::language::install::JobStatus::Success(_) => ("✓ installed", Color::Green),
+            crate::language::install::JobStatus::Failed(_) => ("✗ failed", Color::Red),
+        };
+    }
+    // Fallback: Check if the language server is configured in the editor settings
+    if app.config.lsp.servers.contains_key(spec.name) {
+        ("✓ configured", Color::Green)
+    } else {
+        ("· not installed", Color::DarkGray)
     }
 }
 
