@@ -719,7 +719,7 @@ mod tests {
     // A helper to create a "skeleton" client for testing parsing logic
     fn mock_client() -> LspClient {
         let (tx, rx) = channel();
-        let (_child_tx, child_rx): (Sender<()>, Receiver<()>) = channel();
+        let (_child_tx, _child_rx): (Sender<()>, Receiver<()>) = channel();
 
         // Use 'true' or 'exit' so the process dies immediately
         let mut child = if cfg!(windows) {
