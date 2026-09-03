@@ -729,7 +729,7 @@ impl LangPanel {
         }
         log_lines.push(Line::raw(""));
         log_lines.push(hint_line(
-            "g/l: focus list   ↑/↓: select   Enter: install   Esc: close",
+            "h/l: focus list   ↑/↓: select   Enter: install   Esc: close",
         ));
         frame.render_widget(Paragraph::new(log_lines), rows[1]);
     }
@@ -806,7 +806,7 @@ impl Modal for LangPanel {
                 (LangTab::Syntax, 'o') => self.open_grammar_config_in_editor(app),
 
                 // Install tab
-                (LangTab::Install, 'g') => self.install_focus = InstallFocus::Grammars,
+                (LangTab::Install, 'h') => self.install_focus = InstallFocus::Grammars,
                 (LangTab::Install, 'l') => self.install_focus = InstallFocus::LspServers,
 
                 _ => {}
