@@ -103,3 +103,102 @@ impl InstallJob {
         matches!(self.status, JobStatus::Running)
     }
 }
+
+//████████╗███████╗███████╗████████╗███████╗
+//╚══██╔══╝██╔════╝██╔════╝╚══██╔══╝██╔════╝
+//   ██║   █████╗  ███████╗   ██║   ███████╗
+//   ██║   ██╔══╝  ╚════██║   ██║   ╚════██║
+//   ██║   ███████╗███████║   ██║   ███████║
+//   ╚═╝   ╚══════╝╚══════╝   ╚═╝   ╚══════╝
+
+#[cfg(test)]
+mod unit_job_tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn spawn_starts_in_running_state_with_no_outcome() {
+        let job = InstallJob::spawn(JobId::Grammar("test".to_string()), |_tx| {
+            // Sender dropped immediately — nothing to send, just confirming
+            // the job starts Running before any event arrives.
+        });
+        assert!(job.is_running());
+        assert!(job.outcome.is_none());
+        assert!(job.log.is_empty());
+    }
+
+    #[test]
+    fn poll_collects_logs_and_marks_success() {
+        let mut job = InstallJob::spawn(JobId::LspServer("test".to_string()), |tx| {
+            let _ = tx.send(InstallEvent::Log("step one".to_string()));
+            let _ = tx.send(InstallEvent::Log("step two".to_string()));
+            let _ = tx.send(InstallEvent::Done(Ok(InstallOutcome {
+                summary: "done".to_string(),
+                resolved_command: Some("/usr/bin/test".to_string()),
+            })));
+        });
+
+        // Give the background thread a moment to push its events through.
+        let finished = wait_until_finished(&mut job);
+
+        assert!(finished);
+        assert!(!job.is_running());
+        assert_eq!(
+            job.log,
+            vec!["step one".to_string(), "step two".to_string()]
+        );
+        match &job.status {
+            JobStatus::Success(summary) => assert_eq!(summary, "done"),
+            _ => panic!("expected Success status"),
+        }
+        assert_eq!(
+            job.outcome.as_ref().unwrap().resolved_command.as_deref(),
+            Some("/usr/bin/test")
+        );
+    }
+
+    #[test]
+    fn poll_marks_failure_on_err() {
+        let mut job = InstallJob::spawn(JobId::Grammar("bad".to_string()), |tx| {
+            let _ = tx.send(InstallEvent::Done(Err("boom".to_string())));
+        });
+
+        let finished = wait_until_finished(&mut job);
+
+        assert!(finished);
+        assert!(!job.is_running());
+        assert!(job.outcome.is_none(), "outcome should stay None on failure");
+        match &job.status {
+            JobStatus::Failed(msg) => assert_eq!(msg, "boom"),
+            _ => panic!("expected Failed status"),
+        }
+    }
+
+    #[test]
+    fn job_id_equality_is_by_kind_and_name() {
+        assert_eq!(
+            JobId::Grammar("rust".to_string()),
+            JobId::Grammar("rust".to_string())
+        );
+        assert_ne!(
+            JobId::Grammar("rust".to_string()),
+            JobId::LspServer("rust".to_string())
+        );
+        assert_ne!(
+            JobId::Grammar("rust".to_string()),
+            JobId::Grammar("python".to_string())
+        );
+    }
+
+    /// Polls `job` in a loop for up to a second, since the background
+    /// thread's events arrive asynchronously.
+    fn wait_until_finished(job: &mut InstallJob) -> bool {
+        for _ in 0..100 {
+            if job.poll() {
+                return true;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        false
+    }
+}

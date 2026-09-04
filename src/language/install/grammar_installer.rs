@@ -343,3 +343,112 @@ fn find_compiler(candidates: &[&str]) -> Option<String> {
         })
         .map(|c| c.to_string())
 }
+
+//████████╗███████╗███████╗████████╗███████╗
+//╚══██╔══╝██╔════╝██╔════╝╚══██╔══╝██╔════╝
+//   ██║   █████╗  ███████╗   ██║   ███████╗
+//   ██║   ██╔══╝  ╚════██║   ██║   ╚════██║
+//   ██║   ███████╗███████║   ██║   ███████║
+//   ╚═╝   ╚══════╝╚══════╝   ╚═╝   ╚══════╝
+
+// NOTE: the network/process-spawning paths here (`try_install`, `clone_repo`,
+// `compile_grammar`) are deliberately not unit tested — they'd either need a
+// live network connection and a real compiler toolchain (slow, flaky, and
+// non-hermetic in CI) or a mockable `Command` abstraction this codebase
+// doesn't have. What's tested below is everything that doesn't require
+// either: the askpass helper's file handling, the "don't clobber an existing
+// config" guard, and compiler-detection's negative case.
+
+#[cfg(test)]
+mod unit_grammar_installer_tests {
+    use super::*;
+    use std::sync::mpsc::channel;
+    use tempfile::tempdir;
+
+    #[test]
+    fn find_compiler_returns_none_when_nothing_matches() {
+        assert!(find_compiler(&["definitely-not-a-real-compiler-xyz"]).is_none());
+    }
+
+    #[test]
+    fn write_default_lang_config_skips_existing_file() {
+        let grammar_dir = tempdir().unwrap();
+        let grammar_root = tempdir().unwrap();
+        let config_path = grammar_dir.path().join("fakelang.toml");
+        std::fs::write(&config_path, "# hand written, do not touch").unwrap();
+
+        let (tx, _rx) = channel();
+        write_default_lang_config(grammar_root.path(), grammar_dir.path(), "fakelang", &tx);
+
+        let content = std::fs::read_to_string(&config_path).unwrap();
+        assert_eq!(
+            content, "# hand written, do not touch",
+            "an existing lang config must never be overwritten"
+        );
+    }
+
+    #[test]
+    fn write_default_lang_config_writes_when_node_types_available() {
+        let grammar_dir = tempdir().unwrap();
+        let grammar_root = tempdir().unwrap();
+        let src_dir = grammar_root.path().join("src");
+        std::fs::create_dir_all(&src_dir).unwrap();
+        std::fs::write(
+            src_dir.join("node-types.json"),
+            r#"[{"type": "comment", "named": true}]"#,
+        )
+        .unwrap();
+
+        let (tx, _rx) = channel();
+        write_default_lang_config(grammar_root.path(), grammar_dir.path(), "fakelang", &tx);
+
+        let config_path = grammar_dir.path().join("fakelang.toml");
+        assert!(config_path.exists());
+        let content = std::fs::read_to_string(&config_path).unwrap();
+        assert!(content.contains("\"comment\" = \"comment\""));
+    }
+
+    #[test]
+    fn write_default_lang_config_does_nothing_when_no_node_types() {
+        let grammar_dir = tempdir().unwrap();
+        let grammar_root = tempdir().unwrap(); // no src/node-types.json at all
+
+        let (tx, _rx) = channel();
+        write_default_lang_config(grammar_root.path(), grammar_dir.path(), "fakelang", &tx);
+
+        assert!(!grammar_dir.path().join("fakelang.toml").exists());
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn askpass_helper_writes_owner_only_script_containing_the_token() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let helper = AskpassHelper::write("my-secret-token").expect("should write helper");
+        let content = std::fs::read_to_string(&helper.script_path).unwrap();
+        assert!(content.contains("my-secret-token"));
+
+        let mode = std::fs::metadata(&helper.script_path)
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o700);
+
+        let path = helper.script_path.clone();
+        drop(helper);
+        assert!(!path.exists(), "askpass helper should clean up on drop");
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn askpass_helper_escapes_single_quotes_without_panicking() {
+        let helper = AskpassHelper::write("weird'token'value").unwrap();
+        let content = std::fs::read_to_string(&helper.script_path).unwrap();
+        // Exact escaping format isn't the point here — what matters is the
+        // token's characters all still appear and the shell script is valid
+        // enough that `sh -c` wouldn't choke on unmatched quotes.
+        assert!(content.contains("weird"));
+        assert!(content.contains("token"));
+        assert!(content.contains("value"));
+    }
+}

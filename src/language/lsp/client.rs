@@ -460,7 +460,7 @@ impl LspClient {
     // ------------------------------
 
     /// Drain all pending messages from the background reader thread.
-    /// Call this once per tick in your main loop.
+    /// Call this once per tick in the main loop.
     /// Returns a list of events the rest of the app should act on.
     pub fn poll(&mut self) -> Vec<LspMessage> {
         let mut events = Vec::new();

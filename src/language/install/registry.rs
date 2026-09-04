@@ -236,3 +236,104 @@ pub const LSP_SERVERS: &[LspSpec] = &[
         manual_instructions: "Install via `npm install -g vscode-langservers-extracted`.",
     },
 ];
+
+//████████╗███████╗███████╗████████╗███████╗
+//╚══██╔══╝██╔════╝██╔════╝╚══██╔══╝██╔════╝
+//   ██║   █████╗  ███████╗   ██║   ███████╗
+//   ██║   ██╔══╝  ╚════██║   ██║   ╚════██║
+//   ██║   ███████╗███████║   ██║   ███████║
+//   ╚═╝   ╚══════╝╚══════╝   ╚═╝   ╚══════╝
+
+#[cfg(test)]
+mod unit_registry_tests {
+    use super::*;
+
+    #[test]
+    fn grammar_catalog_is_non_empty_and_has_unique_names() {
+        assert!(!GRAMMARS.is_empty());
+        let mut names: Vec<&str> = GRAMMARS.iter().map(|g| g.name).collect();
+        let total = names.len();
+        names.sort_unstable();
+        names.dedup();
+        assert_eq!(names.len(), total, "duplicate grammar names in registry");
+    }
+
+    #[test]
+    fn lsp_catalog_is_non_empty_and_has_unique_names() {
+        assert!(!LSP_SERVERS.is_empty());
+        let mut names: Vec<&str> = LSP_SERVERS.iter().map(|s| s.name).collect();
+        let total = names.len();
+        names.sort_unstable();
+        names.dedup();
+        assert_eq!(names.len(), total, "duplicate lsp server names in registry");
+    }
+
+    #[test]
+    fn every_grammar_has_at_least_one_file_extension() {
+        for spec in GRAMMARS {
+            assert!(
+                !spec.file_extensions.is_empty(),
+                "grammar '{}' has no file extensions",
+                spec.name
+            );
+        }
+    }
+
+    #[test]
+    fn every_lsp_server_has_at_least_one_file_extension() {
+        for spec in LSP_SERVERS {
+            assert!(
+                !spec.file_extensions.is_empty(),
+                "lsp server '{}' has no file extensions",
+                spec.name
+            );
+        }
+    }
+
+    #[test]
+    fn npm_install_args_include_global_flag_and_all_packages() {
+        let args = PackageManager::Npm.install_args(&["typescript-language-server", "typescript"]);
+        assert_eq!(
+            args,
+            vec!["install", "-g", "typescript-language-server", "typescript"]
+        );
+    }
+
+    #[test]
+    fn pip_install_args_use_user_flag() {
+        let args = PackageManager::Pip.install_args(&["pyright"]);
+        assert_eq!(args, vec!["install", "--user", "pyright"]);
+    }
+
+    #[test]
+    fn cargo_install_args_are_plain() {
+        let args = PackageManager::Cargo.install_args(&["ripgrep"]);
+        assert_eq!(args, vec!["install", "ripgrep"]);
+    }
+
+    #[test]
+    fn go_install_args_append_latest_tag() {
+        let args = PackageManager::Go.install_args(&["golang.org/x/tools/gopls"]);
+        assert_eq!(args, vec!["install", "golang.org/x/tools/gopls@latest"]);
+    }
+
+    #[test]
+    fn go_install_args_handle_multiple_packages() {
+        let args = PackageManager::Go.install_args(&["foo", "bar"]);
+        assert_eq!(args, vec!["install", "foo@latest", "bar@latest"]);
+    }
+
+    #[test]
+    fn package_manager_binaries_are_distinct() {
+        let mut bins = vec![
+            PackageManager::Npm.binary(),
+            PackageManager::Pip.binary(),
+            PackageManager::Cargo.binary(),
+            PackageManager::Go.binary(),
+        ];
+        let total = bins.len();
+        bins.sort_unstable();
+        bins.dedup();
+        assert_eq!(bins.len(), total);
+    }
+}

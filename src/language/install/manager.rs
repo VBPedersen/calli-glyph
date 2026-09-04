@@ -168,3 +168,139 @@ fn apply_success(id: &JobId, config: &mut Config, resolved_command: Option<Strin
         }
     }
 }
+
+//████████╗███████╗███████╗████████╗███████╗
+//╚══██╔══╝██╔════╝██╔════╝╚══██╔══╝██╔════╝
+//   ██║   █████╗  ███████╗   ██║   ███████╗
+//   ██║   ██╔══╝  ╚════██║   ██║   ╚════██║
+//   ██║   ███████╗███████║   ██║   ███████║
+//   ╚═╝   ╚══════╝╚══════╝   ╚═╝   ╚══════╝
+
+// IMPORTANT: `apply_success` calls `config.save()`, which writes to the
+// real OS config directory (via `Config::get_config_base_dir()`) — not a
+// path these tests control. `with_isolated_config_dir` redirects that via
+// `XDG_CONFIG_HOME`, which the `dirs` crate honors on Linux; on macOS and
+// Windows `dirs::config_dir()` does NOT consult that variable, so these
+// tests will write to your real per-user config location on those
+// platforms. If that's a concern, run these specifically on Linux/CI, or
+// treat a save failure/side effect here as a known limitation to fix by
+// making `Config::save()`'s target directory injectable.
+#[cfg(test)]
+mod unit_manager_tests {
+    use super::*;
+    use std::sync::Mutex;
+    use tempfile::tempdir;
+
+    static CONFIG_DIR_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    fn with_isolated_config_dir<F: FnOnce()>(f: F) {
+        let _guard = CONFIG_DIR_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+        let dir = tempdir().unwrap();
+        let prev = std::env::var("XDG_CONFIG_HOME").ok();
+        std::env::set_var("XDG_CONFIG_HOME", dir.path());
+
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
+
+        match prev {
+            Some(v) => std::env::set_var("XDG_CONFIG_HOME", v),
+            None => std::env::remove_var("XDG_CONFIG_HOME"),
+        }
+
+        if let Err(payload) = result {
+            std::panic::resume_unwind(payload);
+        }
+    }
+
+    #[test]
+    fn apply_success_registers_grammar_in_config() {
+        with_isolated_config_dir(|| {
+            let mut config = Config::default();
+            apply_success(&JobId::Grammar("rust".to_string()), &mut config, None);
+
+            let entry = config
+                .syntax
+                .languages
+                .get("rust")
+                .expect("rust should be registered");
+            assert_eq!(entry.grammar, "rust");
+            assert!(entry.file_extensions.contains(&"rs".to_string()));
+        });
+    }
+
+    #[test]
+    fn apply_success_registers_lsp_with_resolved_command() {
+        with_isolated_config_dir(|| {
+            let mut config = Config::default();
+            apply_success(
+                &JobId::LspServer("python".to_string()),
+                &mut config,
+                Some("/home/user/.local/bin/pyright-langserver".to_string()),
+            );
+
+            let entry = config
+                .lsp
+                .servers
+                .get("python")
+                .expect("python lsp should be registered");
+            assert_eq!(entry.command, "/home/user/.local/bin/pyright-langserver");
+            assert!(entry.enabled);
+        });
+    }
+
+    #[test]
+    fn apply_success_falls_back_to_bare_command_when_unresolved() {
+        with_isolated_config_dir(|| {
+            let mut config = Config::default();
+            apply_success(&JobId::LspServer("go".to_string()), &mut config, None);
+
+            let entry = config.lsp.servers.get("go").unwrap();
+            assert_eq!(entry.command, "gopls");
+        });
+    }
+
+    #[test]
+    fn apply_success_ignores_unknown_ids() {
+        with_isolated_config_dir(|| {
+            let mut config = Config::default();
+            let before_syntax = config.syntax.languages.len();
+            let before_lsp = config.lsp.servers.len();
+
+            apply_success(
+                &JobId::Grammar("not-a-real-grammar".to_string()),
+                &mut config,
+                None,
+            );
+            apply_success(
+                &JobId::LspServer("not-a-real-server".to_string()),
+                &mut config,
+                None,
+            );
+
+            assert_eq!(config.syntax.languages.len(), before_syntax);
+            assert_eq!(config.lsp.servers.len(), before_lsp);
+        });
+    }
+
+    #[test]
+    fn new_install_manager_has_no_running_jobs() {
+        with_isolated_config_dir(|| {
+            let manager = InstallManager::new();
+            let id = JobId::Grammar("rust".to_string());
+            assert!(!manager.is_installing(&id));
+            assert!(manager.job_status(&id).is_none());
+            assert!(manager.job_log(&id).is_none());
+        });
+    }
+
+    #[test]
+    fn catalogs_are_exposed_and_non_empty() {
+        with_isolated_config_dir(|| {
+            let manager = InstallManager::new();
+            assert!(!manager.grammar_catalog().is_empty());
+            assert!(!manager.lsp_catalog().is_empty());
+        });
+    }
+}

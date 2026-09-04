@@ -63,6 +63,88 @@ fn restrict_permissions(path: &Path) -> io::Result<()> {
 fn restrict_permissions(_path: &Path) -> io::Result<()> {
     // Windows ACLs aren't handled here — the file lives under the user's
     // config directory, which is already scoped to the current user by
-    // default on most setups. Contributions welcome.
+    // default on most setups.
     Ok(())
+}
+
+//████████╗███████╗███████╗████████╗███████╗
+//╚══██╔══╝██╔════╝██╔════╝╚══██╔══╝██╔════╝
+//   ██║   █████╗  ███████╗   ██║   ███████╗
+//   ██║   ██╔══╝  ╚════██║   ██║   ╚════██║
+//   ██║   ███████╗███████║   ██║   ███████║
+//   ╚═╝   ╚══════╝╚══════╝   ╚═╝   ╚══════╝
+
+#[cfg(test)]
+mod unit_credentials_tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn load_returns_none_when_no_file_exists() {
+        let dir = tempdir().unwrap();
+        assert!(load_github_token(dir.path()).is_none());
+    }
+
+    #[test]
+    fn save_then_load_roundtrips() {
+        let dir = tempdir().unwrap();
+        save_github_token(dir.path(), Some("ghp_abc123")).unwrap();
+        assert_eq!(
+            load_github_token(dir.path()),
+            Some("ghp_abc123".to_string())
+        );
+    }
+
+    #[test]
+    fn save_trims_whitespace() {
+        let dir = tempdir().unwrap();
+        save_github_token(dir.path(), Some("  ghp_abc123  \n")).unwrap();
+        assert_eq!(
+            load_github_token(dir.path()),
+            Some("ghp_abc123".to_string())
+        );
+    }
+
+    #[test]
+    fn saving_none_clears_existing_token() {
+        let dir = tempdir().unwrap();
+        save_github_token(dir.path(), Some("ghp_abc123")).unwrap();
+        assert!(load_github_token(dir.path()).is_some());
+
+        save_github_token(dir.path(), None).unwrap();
+        assert!(load_github_token(dir.path()).is_none());
+    }
+
+    #[test]
+    fn saving_whitespace_only_is_treated_as_clear() {
+        let dir = tempdir().unwrap();
+        save_github_token(dir.path(), Some("ghp_abc123")).unwrap();
+        save_github_token(dir.path(), Some("   ")).unwrap();
+        assert!(load_github_token(dir.path()).is_none());
+    }
+
+    #[test]
+    fn save_creates_config_dir_if_missing() {
+        let dir = tempdir().unwrap();
+        let nested = dir.path().join("does/not/exist/yet");
+        assert!(!nested.exists());
+        save_github_token(&nested, Some("ghp_abc123")).unwrap();
+        assert_eq!(load_github_token(&nested), Some("ghp_abc123".to_string()));
+    }
+
+    #[test]
+    fn clearing_when_no_file_exists_is_a_no_op() {
+        let dir = tempdir().unwrap();
+        assert!(save_github_token(dir.path(), None).is_ok());
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn token_file_is_owner_only_on_unix() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempdir().unwrap();
+        save_github_token(dir.path(), Some("ghp_abc123")).unwrap();
+        let meta = std::fs::metadata(token_file_path(dir.path())).unwrap();
+        assert_eq!(meta.permissions().mode() & 0o777, 0o600);
+    }
 }

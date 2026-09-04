@@ -120,3 +120,134 @@ fn render_toml(
 
     out
 }
+
+//████████╗███████╗███████╗████████╗███████╗
+//╚══██╔══╝██╔════╝██╔════╝╚══██╔══╝██╔════╝
+//   ██║   █████╗  ███████╗   ██║   ███████╗
+//   ██║   ██╔══╝  ╚════██║   ██║   ╚════██║
+//   ██║   ███████╗███████║   ██║   ███████║
+//   ╚═╝   ╚══════╝╚══════╝   ╚═╝   ╚══════╝
+
+#[cfg(test)]
+mod unit_config_generator_tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn classifies_common_named_nodes() {
+        assert_eq!(classify("comment", true), Some("comment"));
+        assert_eq!(classify("line_comment", true), Some("comment"));
+        assert_eq!(classify("string", true), Some("string"));
+        assert_eq!(classify("template_string", true), Some("string"));
+        assert_eq!(classify("regex", true), Some("string"));
+        assert_eq!(classify("number", true), Some("number"));
+        assert_eq!(classify("integer_literal", true), Some("number"));
+        assert_eq!(classify("float", true), Some("number"));
+        assert_eq!(classify("true", true), Some("boolean"));
+        assert_eq!(classify("false", true), Some("boolean"));
+        assert_eq!(classify("type_identifier", true), Some("type"));
+        assert_eq!(classify("predefined_type", true), Some("type"));
+        assert_eq!(classify("primitive_type", true), Some("type"));
+    }
+
+    #[test]
+    fn skips_hidden_supertype_nodes() {
+        assert_eq!(classify("_expression", true), None);
+    }
+
+    #[test]
+    fn skips_unrecognized_named_nodes() {
+        assert_eq!(classify("identifier", true), None);
+        assert_eq!(classify("binary_expression", true), None);
+    }
+
+    #[test]
+    fn anonymous_word_tokens_become_keywords() {
+        assert_eq!(classify("if", false), Some("keyword"));
+        assert_eq!(classify("return", false), Some("keyword"));
+        assert_eq!(classify("class", false), Some("keyword"));
+    }
+
+    #[test]
+    fn anonymous_punctuation_is_ignored() {
+        assert_eq!(classify("{", false), None);
+        assert_eq!(classify("=>", false), None);
+        assert_eq!(classify(";", false), None);
+        assert_eq!(classify("+=", false), None);
+    }
+
+    #[test]
+    fn single_char_anonymous_tokens_are_ignored() {
+        // Keeps the word-heuristic conservative — avoids misclassifying
+        // single-letter punctuation-like anonymous tokens as keywords.
+        assert_eq!(classify("_", false), None);
+    }
+
+    #[test]
+    fn generate_lang_config_reads_node_types_json() {
+        let tmp = tempdir().unwrap();
+        let src_dir = tmp.path().join("src");
+        std::fs::create_dir_all(&src_dir).unwrap();
+        let node_types = r#"[
+            {"type": "if", "named": false},
+            {"type": "comment", "named": true},
+            {"type": "string", "named": true},
+            {"type": "identifier", "named": true},
+            {"type": "_expression", "named": true}
+        ]"#;
+        std::fs::write(src_dir.join("node-types.json"), node_types).unwrap();
+
+        let result =
+            generate_lang_config(tmp.path(), "testlang").expect("should generate a config");
+
+        assert!(result.contains("\"if\" = \"keyword\""));
+        assert!(result.contains("\"comment\" = \"comment\""));
+        assert!(result.contains("\"string\" = \"string\""));
+        assert!(!result.contains("\"identifier\""));
+        assert!(!result.contains("_expression"));
+        assert!(result.contains("stop_at"));
+    }
+
+    #[test]
+    fn generate_lang_config_returns_none_when_file_missing() {
+        let tmp = tempdir().unwrap();
+        assert!(generate_lang_config(tmp.path(), "nope").is_none());
+    }
+
+    #[test]
+    fn generate_lang_config_returns_none_when_nothing_classifiable() {
+        let tmp = tempdir().unwrap();
+        let src_dir = tmp.path().join("src");
+        std::fs::create_dir_all(&src_dir).unwrap();
+        // Only punctuation and unrecognized named nodes — nothing to map.
+        let node_types = r#"[
+            {"type": "{", "named": false},
+            {"type": "identifier", "named": true}
+        ]"#;
+        std::fs::write(src_dir.join("node-types.json"), node_types).unwrap();
+
+        assert!(generate_lang_config(tmp.path(), "nope").is_none());
+    }
+
+    #[test]
+    fn stop_at_excludes_template_strings_but_includes_comment() {
+        let tmp = tempdir().unwrap();
+        let src_dir = tmp.path().join("src");
+        std::fs::create_dir_all(&src_dir).unwrap();
+        let node_types = r#"[
+            {"type": "template_string", "named": true},
+            {"type": "comment", "named": true}
+        ]"#;
+        std::fs::write(src_dir.join("node-types.json"), node_types).unwrap();
+
+        let result = generate_lang_config(tmp.path(), "testlang").unwrap();
+        assert!(result.contains("\"template_string\" = \"string\""));
+
+        let stop_at_section = result.split("[node_kinds]").next().unwrap();
+        assert!(
+            !stop_at_section.contains("template_string"),
+            "template strings should be walked, not stopped at, to allow interpolation"
+        );
+        assert!(stop_at_section.contains("comment"));
+    }
+}

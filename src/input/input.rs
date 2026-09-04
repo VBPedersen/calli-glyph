@@ -10,9 +10,6 @@ use crossterm::event::{
 };
 
 /// Reads the crossterm events and updates the state of [`App`].
-///
-/// If your application needs to perform work in between handling events, you can use the
-/// [`event::read`] function to read a event.
 pub(crate) fn handle_input(app: &mut App) -> Result<()> {
     match event::read()? {
         // it's important to check KeyEventKind::Press to avoid handling key release events

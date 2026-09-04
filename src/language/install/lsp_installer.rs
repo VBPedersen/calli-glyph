@@ -17,7 +17,7 @@
 //! `PATHEXT` or know how to run `.cmd`/`.bat` files, so it fails with
 //! "program not found" even when `npm` works fine when you type it
 //! yourself. `run_command` below routes through `cmd /C` on Windows so
-//! PATHEXT resolution happens the same way it does in your shell; `which`
+//! PATHEXT resolution happens the same way it does in the shell; `which`
 //! is likewise PATHEXT-aware when searching directories directly.
 
 use super::job::{InstallEvent, InstallOutcome};
@@ -277,5 +277,98 @@ fn extra_bin_dirs(pm: PackageManager) -> Vec<PathBuf> {
             }
             vec![]
         }
+    }
+}
+
+//████████╗███████╗███████╗████████╗███████╗
+//╚══██╔══╝██╔════╝██╔════╝╚══██╔══╝██╔════╝
+//   ██║   █████╗  ███████╗   ██║   ███████╗
+//   ██║   ██╔══╝  ╚════██║   ██║   ╚════██║
+//   ██║   ███████╗███████║   ██║   ███████║
+//   ╚═╝   ╚══════╝╚══════╝   ╚═╝   ╚══════╝
+
+// NOTE: `try_install` itself (which actually spawns package managers) isn't
+// unit tested here for the same reason as grammar_installer's network path —
+// it needs real npm/pip/cargo/go installs to exercise meaningfully, which
+// belongs in a manual/CI-with-network-and-toolchains test, not a fast unit
+// test. What's covered below is the PATH-resolution logic, which is the part
+// that was actually broken (twice) before this file existed in its current
+// form.
+
+#[cfg(test)]
+mod unit_lsp_installer_tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    #[cfg(not(windows))]
+    fn candidate_filenames_is_just_the_bare_name_on_unix() {
+        assert_eq!(candidate_filenames("npm"), vec!["npm".to_string()]);
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn candidate_filenames_includes_common_windows_extensions() {
+        let names = candidate_filenames("npm");
+        assert!(names.iter().any(|n| n.eq_ignore_ascii_case("npm.cmd")));
+        assert!(names.iter().any(|n| n.eq_ignore_ascii_case("npm.exe")));
+        assert!(names.contains(&"npm".to_string()));
+    }
+
+    #[test]
+    fn find_in_dir_locates_a_matching_file() {
+        let dir = tempdir().unwrap();
+        std::fs::write(dir.path().join(test_bin_filename("mytool")), "").unwrap();
+        assert!(find_in_dir(dir.path(), "mytool").is_some());
+    }
+
+    #[test]
+    fn find_in_dir_returns_none_when_absent() {
+        let dir = tempdir().unwrap();
+        assert!(find_in_dir(dir.path(), "nonexistent-tool-xyz").is_none());
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn find_in_dir_locates_cmd_shims_not_just_exe() {
+        // This is the exact bug that motivated this file: npm ships as a
+        // .cmd shim on Windows, and a naive "<name>.exe" check never finds it.
+        let dir = tempdir().unwrap();
+        std::fs::write(dir.path().join("npm.cmd"), "").unwrap();
+        assert!(find_in_dir(dir.path(), "npm").is_some());
+    }
+
+    // `which()` reads the process-wide PATH env var, so mutating it in a
+    // test is inherently a little dangerous under cargo's default parallel
+    // test execution — this lock only protects against other tests in this
+    // same file doing the same thing, not unrelated tests elsewhere in the
+    // crate that happen to spawn a process concurrently. Kept deliberately
+    // narrow in scope (set → check → restore) to minimize the window.
+    static PATH_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    #[test]
+    fn which_finds_a_binary_placed_on_a_custom_path() {
+        let _guard = PATH_TEST_LOCK.lock().unwrap();
+        let dir = tempdir().unwrap();
+        std::fs::write(dir.path().join(test_bin_filename("uniquetool")), "").unwrap();
+
+        let prev = std::env::var_os("PATH");
+        std::env::set_var("PATH", dir.path());
+        let found = which("uniquetool");
+        match prev {
+            Some(p) => std::env::set_var("PATH", p),
+            None => std::env::remove_var("PATH"),
+        }
+
+        assert!(found.is_some());
+    }
+
+    #[cfg(not(windows))]
+    fn test_bin_filename(name: &str) -> String {
+        name.to_string()
+    }
+    #[cfg(windows)]
+    fn test_bin_filename(name: &str) -> String {
+        format!("{}.exe", name)
     }
 }
