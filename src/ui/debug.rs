@@ -59,6 +59,10 @@ impl DebugView {
     }
 
     pub fn select_prev_snapshot(&mut self, max: usize) {
+        if max == 0 { // zero check
+            self.selected_snapshot = None;
+            return;
+        }
         self.selected_snapshot = Some(
             self.selected_snapshot
                 .map(|i| (i + max - 1) % max)

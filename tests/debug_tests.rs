@@ -684,77 +684,74 @@ mod debug_view_tests {
         view.scroll_down();
         assert_eq!(view.scroll_offset, 1);
     }
-    // TODO
-    // #[test]
-    // fn test_debug_view_select_next_snapshot() {
-    //     let mut view = DebugView::new();
-    //     assert_eq!(view.selected_snapshot, None);
-    //
-    //     view.select_next_snapshot(10);
-    //     assert_eq!(view.selected_snapshot, Some(0));
-    //
-    //     view.select_next_snapshot(10);
-    //     assert_eq!(view.selected_snapshot, Some(1));
-    // }
-    // TODO
-    // #[test]
-    // fn test_debug_view_select_next_snapshot_respects_max() {
-    //     let mut view = DebugView::new();
-    //     view.selected_snapshot = Some(9);
-    //
-    //     view.select_next_snapshot(9); // Max is 9
-    //     assert_eq!(view.selected_snapshot, Some(9)); // Shouldn't exceed
-    // }
-    // TODO
-    // #[test]
-    // fn test_debug_view_select_prev_snapshot() {
-    //     let mut view = DebugView::new();
-    //     view.selected_snapshot = Some(5);
-    //
-    //     view.select_prev_snapshot();
-    //     assert_eq!(view.selected_snapshot, Some(4));
-    //
-    //     view.select_prev_snapshot();
-    //     assert_eq!(view.selected_snapshot, Some(3));
-    // }
-    // TODO
-    // #[test]
-    // fn test_debug_view_select_prev_snapshot_at_zero() {
-    //     let mut view = DebugView::new();
-    //     view.selected_snapshot = Some(0);
-    //
-    //     view.select_prev_snapshot();
-    //     assert_eq!(view.selected_snapshot, None); // Goes to None
-    // }
-    //
-    // TODO
-    // #[test]
-    // fn test_debug_view_open_snapshot_viewer() {
-    //     let mut view = DebugView::new();
-    //     view.selected_snapshot = Some(5);
-    //
-    //     view.open_snapshot_viewer();
-    //     assert!(view.viewing_snapshot);
-    // }
-    // TODO
-    // #[test]
-    // fn test_debug_view_open_snapshot_viewer_without_selection() {
-    //     let mut view = DebugView::new();
-    //     view.selected_snapshot = None;
-    //
-    //     view.open_snapshot_viewer();
-    //     assert!(!view.viewing_snapshot); // Shouldn't open without selection
-    // }
+    #[test]
+    fn test_debug_view_select_next_snapshot() {
+        let mut view = DebugView::new();
+        assert_eq!(view.selected_snapshot, None);
 
-    // TODO
-    // #[test]
-    // fn test_debug_view_close_snapshot_viewer() {
-    //     let mut view = DebugView::new();
-    //     view.viewing_snapshot = true;
-    //
-    //     view.close_snapshot_viewer();
-    //     assert!(!view.viewing_snapshot);
-    // }
+        view.select_next_snapshot(10);
+        assert_eq!(view.selected_snapshot, Some(0));
+
+        view.select_next_snapshot(10);
+        assert_eq!(view.selected_snapshot, Some(1));
+    }
+
+    #[test]
+    fn test_debug_view_select_next_snapshot_respects_max_goes_back_to_first() {
+        let mut view = DebugView::new();
+        view.selected_snapshot = Some(9);
+
+        view.select_next_snapshot(9); // Max is 9
+        assert_eq!(view.selected_snapshot, Some(1)); // Should go back to first snapshot
+    }
+
+    #[test]
+    fn test_debug_view_select_prev_snapshot() {
+        let mut view = DebugView::new();
+        view.selected_snapshot = Some(5);
+
+        view.select_prev_snapshot(5);
+        assert_eq!(view.selected_snapshot, Some(4));
+
+        view.select_prev_snapshot(5);
+        assert_eq!(view.selected_snapshot, Some(3));
+    }
+
+    #[test]
+    fn test_debug_view_select_prev_snapshot_at_zero() {
+        let mut view = DebugView::new();
+        view.selected_snapshot = Some(0);
+
+        view.select_prev_snapshot(0);
+        assert_eq!(view.selected_snapshot, None); // Goes to None
+    }
+
+    #[test]
+    fn test_debug_view_open_snapshot_viewer() {
+        let mut view = DebugView::new();
+        view.selected_snapshot = Some(5);
+
+        view.open_snapshot_viewer();
+        assert!(view.viewing_snapshot);
+    }
+
+    #[test]
+    fn test_debug_view_open_snapshot_viewer_without_selection() {
+        let mut view = DebugView::new();
+        view.selected_snapshot = None;
+
+        view.open_snapshot_viewer();
+        assert!(!view.viewing_snapshot); // Shouldn't open without selection
+    }
+
+    #[test]
+    fn test_debug_view_close_snapshot_viewer() {
+        let mut view = DebugView::new();
+        view.viewing_snapshot = true;
+
+        view.close_snapshot_viewer();
+        assert!(!view.viewing_snapshot);
+    }
 
     #[test]
     fn test_debug_view_tab_change_resets_scroll() {
