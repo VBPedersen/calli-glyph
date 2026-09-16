@@ -100,7 +100,7 @@ jobs:
         id: rename
         shell: bash
         run: |
-          BINARY_NAME="calliglyph"
+          BINARY_NAME="cglyph"
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             mv target/release/$BINARY_NAME.exe target/release/${{ matrix.asset_name }}
           else
