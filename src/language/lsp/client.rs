@@ -460,7 +460,7 @@ impl LspClient {
     // ------------------------------
 
     /// Drain all pending messages from the background reader thread.
-    /// Call this once per tick in your main loop.
+    /// Call this once per tick in the main loop.
     /// Returns a list of events the rest of the app should act on.
     pub fn poll(&mut self) -> Vec<LspMessage> {
         let mut events = Vec::new();
@@ -718,8 +718,8 @@ mod tests {
 
     // A helper to create a "skeleton" client for testing parsing logic
     fn mock_client() -> LspClient {
-        let (tx, rx) = channel();
-        let (_child_tx, child_rx): (Sender<()>, Receiver<()>) = channel();
+        let (_tx, rx) = channel();
+        let (_child_tx, _child_rx): (Sender<()>, Receiver<()>) = channel();
 
         // Use 'true' or 'exit' so the process dies immediately
         let mut child = if cfg!(windows) {

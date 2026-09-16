@@ -28,5 +28,6 @@ pub mod theme;
 pub mod manager;
 
 pub mod grammar_loader;
+pub mod install;
 pub mod lang_configs;
 pub mod lsp;

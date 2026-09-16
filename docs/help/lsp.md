@@ -2,7 +2,7 @@
 id: lsp
 title: Language Server Protocol
 summary: Real-time diagnostics, completions, and hover docs powered by any LSP server
-tags: lsp, language server, diagnostics, errors, warnings, hints, completion, hover, rust-analyzer, pylsp, typescript, tsserver, config, :lsp, lsp_status, enabled, command, args, extensions, :lang
+tags: lsp, language server, diagnostics, errors, warnings, hints, completion, hover, rust-analyzer, pylsp, typescript, tsserver, config, :lsp, lsp_status, enabled, command, args, extensions, :lang, install, installer, :githubtoken
 ---
 # Language Server Protocol (LSP)
 
@@ -110,6 +110,17 @@ installed separately on your system — calli-glyph does not bundle them.
 Any server not listed here can be added manually using the config format above —
 as long as it speaks LSP 3.17 over stdio it will work.
 
+## Installing Servers Automatically
+
+Rather than installing a server yourself and writing its `[lsp.servers.<name>]`
+entry by hand, you can do both at once from the **Install** tab of the Language
+Panel (`:lang`, then press `4`) — see [Grammar & LSP Server Installer](install.md)
+for the full picture. It runs the appropriate package manager for you (`npm`,
+`pip`, `cargo`, or `go`), resolves the installed binary's absolute path even when
+it isn't on this process's `PATH` yet, and writes the config entry automatically.
+Servers with no reliable one-command install (`rust-analyzer` included) show
+manual instructions instead of attempting one.
+
 ## Workspace Root Detection
 
 The workspace root is determined automatically when a file is opened. calli-glyph
@@ -136,10 +147,10 @@ The panel is split into three distinct views, which you can cycle through using 
 
 1. **Diagnostics Tab**
    Lists all errors and warnings published by the language server for the current workspace. Each entry is styled by its severity:
-  - `● Error` — Critical compiler errors preventing valid builds.
-  - `◆ Warning` — Static code quality or logic warnings.
-  - `◉ Information` — Informative notes from the engine compiler.
-  - `· Hint` — Subtle styling or refactoring suggestions.
+- `● Error` — Critical compiler errors preventing valid builds.
+- `◆ Warning` — Static code quality or logic warnings.
+- `◉ Information` — Informative notes from the engine compiler.
+- `· Hint` — Subtle styling or refactoring suggestions.
 
 2. **LSP Tab**
    Displays the current standard I/O engine health status loop. Shows whether the communication pipeline is `Starting...`, fully `Ready`, or has encountered an execution failure.

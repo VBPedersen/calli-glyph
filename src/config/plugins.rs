@@ -17,6 +17,7 @@ impl Default for PluginsConfig {
             enabled: vec![
                 "test_plugin".to_string(),           //testplugin
                 "search_replace_plugin".to_string(), // search and replace plugin
+                "github_auth_plugin".to_string(), // github auth plugin for token setting and clearing for lang installer
             ],
             keybindings: HashMap::new(),
         }

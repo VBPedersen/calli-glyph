@@ -2,7 +2,7 @@
 id: syntax
 title: Syntax Highlighting
 summary: Tree-sitter powered highlighting configured entirely via TOML — no recompilation needed
-tags: syntax, highlighting, tree-sitter, grammar, token, theme, colour, color, language, rust, python, typescript, javascript, grammar_dir, node_kind, parent_rule, stop_at, extensions, .so, .dll, .dylib
+tags: syntax, highlighting, tree-sitter, grammar, token, theme, colour, color, language, rust, python, typescript, javascript, grammar_dir, node_kind, parent_rule, stop_at, extensions, .so, .dll, .dylib, install, installer, :lang, node-types.json
 ---
 # Syntax Highlighting
 
@@ -90,11 +90,30 @@ cl /LD /I src src\parser.c /Fe:tree_sitter_go.dll
 Rust, Python, and TypeScript grammars are bundled as fallbacks and do not need to
 be compiled manually unless you want to override them.
 
+### Installing a grammar automatically
+
+The steps above can be done for you from the **Install** tab of the Language
+Panel (`:lang`, then press `4`) — see [Grammar & LSP Server Installer](install.md)
+for the full picture. It clones and compiles the grammar the same way described
+above, and also generates a starter lang config (see *Lang Config Files* below)
+from the grammar's own `src/node-types.json`, so a freshly installed grammar
+highlights immediately rather than needing a hand-written config first. Manual
+compiling is still the right fallback when `git`/a C compiler isn't available, or
+for grammars that don't commit a generated `src/parser.c`.
+
 ## Lang Config Files
 
 A lang config TOML lives in `grammar_dir` alongside the `.so`, named
 `<grammar>.toml` (e.g. `rust.toml`). It tells the highlighter which tree-sitter
 node kinds map to which token types, and which nodes should stop the tree walk.
+
+If you installed the grammar via the Install tab (see
+[Grammar & LSP Server Installer](install.md)), a starter version of this file was
+already generated for you from the grammar's `src/node-types.json` — it covers
+comments, strings, numbers, booleans, keywords, and basic types, but not
+`[[parent_rules]]`, which need to be added by hand. The format below applies
+either way, whether you're refining a generated config or writing one from
+scratch.
 
 ### Full format
 
@@ -164,6 +183,11 @@ your own names and add matching entries to your theme file.
 Any token type not present in the theme falls back to the `[defaults]` style.
 
 ## Adding a New Language
+
+The fastest path is the Install tab (`:lang`, press `4`) — see
+[Grammar & LSP Server Installer](install.md). It handles steps 1 and 2 below
+automatically for any grammar in its catalog. The manual steps remain useful for
+grammars outside that catalog, or when you want full control from the start:
 
 1. **Compile the grammar** — see the *Grammar Libraries* section above.
 
