@@ -1,3 +1,4 @@
+use serde::ser::Error;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -88,7 +89,24 @@ impl Config {
         let mut config = if config_path.exists() {
             log_info!("[CONFIG] Loading config from {:?}", config_path);
             let content = fs::read_to_string(&config_path)?;
-            toml::from_str(&content)?
+
+            match toml::from_str::<Config>(&content) {
+                Ok(cfg) => cfg, // Evaluates to Config (not Result<Config, _>)
+                Err(e) => {
+                    let err_msg = e.to_string();
+                    if err_msg.contains("unknown field `theme`") {
+                        let msg = format!(
+                            "\n[calli-glyph v0.4.2 BREAKING CHANGE]\n\
+                        Your configuration file at {:?} contains a deprecated field: `syntax.theme`.\n\
+                        Themes have been consolidated into `[ui] theme = \"...\"`.\n\n\
+                        Please remove `theme = ...` under `[syntax]` in your config file to fix this error.\n",
+                            config_path
+                        );
+                        return Err(ConfigError::SerializeError(toml::ser::Error::custom(msg)));
+                    }
+                    return Err(ConfigError::from(e));
+                }
+            }
         } else {
             log_warn!(
                 "[CONFIG] Config file not found at {:?}. Using default.",

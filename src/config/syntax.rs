@@ -17,18 +17,6 @@ pub struct SyntaxConfig {
     /// Per-language settings, keyed by an arbitrary name (used as grammar filename addition)
     #[serde(default)]
     pub languages: HashMap<String, SyntaxLanguageConfig>,
-
-    /// TODO REMOVE WHEN POSSIBLE TO DEPRECATE FULLY
-    /// DEPRECATED: superseded by `UIConfig.theme`, which now points at a
-    /// single unified theme file covering syntax colors, UI colors, and
-    /// layout together (see `src/theme/`). Kept here — defaulted and
-    /// unread — purely so existing `config.toml` files with `[syntax]
-    /// theme = "..."` still deserialize; `SyntaxConfig` uses
-    /// `deny_unknown_fields`, so removing this field outright would break
-    /// them. Do not read this field for anything new.
-    /// Per language theme setting
-    #[serde(default = "default_theme_name")]
-    pub theme: String, // e.g. "dark", "monokai", "catppuccin"
 }
 
 /// Default impl for Syntax config, comes with rust, python and TypeScript setup be default
@@ -64,7 +52,6 @@ impl Default for SyntaxConfig {
             enabled: true,
             grammar_dir: Config::get_grammar_dir().map(|p| p.to_string_lossy().into_owned()),
             languages,
-            theme: default_theme_name(),
         }
     }
 }
@@ -83,9 +70,4 @@ impl SyntaxConfig {
             .find(|(_, cfg)| cfg.file_extensions.iter().any(|e| e == ext))
             .map(|(name, cfg)| (name.as_str(), cfg))
     }
-}
-
-/// Helper func to use a hardcoded default theme name
-fn default_theme_name() -> String {
-    "dark".to_string()
 }
