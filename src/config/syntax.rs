@@ -18,6 +18,14 @@ pub struct SyntaxConfig {
     #[serde(default)]
     pub languages: HashMap<String, SyntaxLanguageConfig>,
 
+    /// TODO REMOVE WHEN POSSIBLE TO DEPRECATE FULLY
+    /// DEPRECATED: superseded by `UIConfig.theme`, which now points at a
+    /// single unified theme file covering syntax colors, UI colors, and
+    /// layout together (see `src/theme/`). Kept here — defaulted and
+    /// unread — purely so existing `config.toml` files with `[syntax]
+    /// theme = "..."` still deserialize; `SyntaxConfig` uses
+    /// `deny_unknown_fields`, so removing this field outright would break
+    /// them. Do not read this field for anything new.
     /// Per language theme setting
     #[serde(default = "default_theme_name")]
     pub theme: String, // e.g. "dark", "monokai", "catppuccin"

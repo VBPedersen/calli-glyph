@@ -6,3 +6,4 @@ pub mod test_plugin;
 
 pub mod github_auth_plugin;
 pub mod search_replace_plugin;
+pub mod theme_picker_plugin;

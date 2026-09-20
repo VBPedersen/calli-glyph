@@ -1,0 +1,48 @@
+[meta]
+name = "Light"
+author = "calli-glyph"
+dark = false
+
+[syntax.tokens]
+keyword  = { fg = "#0000ff", bold = true }
+string   = { fg = "#a31515" }
+comment  = { fg = "#008000", italic = true }
+number   = { fg = "#098658" }
+type     = { fg = "#267f99" }
+function = { fg = "#795e26" }
+boolean  = { fg = "#0000ff" }
+variable = { fg = "#001080" }
+property = { fg = "#001080" }
+parameter = { fg = "#001080", italic = true }
+constant = { fg = "#0070c1" }
+operator = { fg = "#000000" }
+
+[syntax.defaults]
+fg = "#000000"
+
+[ui.colors]
+background         = "#ffffff"
+foreground         = "#000000"
+border             = "#d4d4d4"
+border_focused     = "#0078d4"
+selection_bg       = "#add6ff"
+cursor             = "#000000"
+status_bar_bg      = "#0078d4"
+status_bar_fg      = "#ffffff"
+error              = "#e51400"
+warning            = "#bf8803"
+info               = "#1a85ff"
+hint               = "#6c6c6c"
+success            = "#008000"
+line_number        = "#237893"
+line_number_current = "#0b216f"
+
+[ui.components]
+popup_border = "#0078d4"
+
+[layout]
+border_style = "plain"
+line_number_style = "absolute"
+status_bar_position = "bottom"
+popup_padding = 1
+scrollbar = true

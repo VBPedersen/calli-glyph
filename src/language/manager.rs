@@ -4,15 +4,19 @@ use crate::language::lsp::{
     CompletionItem, ConnectionState, Diagnostic, HoverResult, LspClient, LspMessage,
 };
 use crate::language::syntax::SyntaxTree;
-use crate::language::theme::Theme;
 use crate::language::{grammar_loader, lang_configs, lsp};
+use crate::theme::SyntaxTheme;
 use ratatui::style::Style;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 pub struct LanguageManager {
     pub syntax: Option<SyntaxTree>,
-    pub theme: Option<Theme>,
+    /// Only the syntax-highlighting half of a theme, `LanguageManager` shoudln't
+    /// know about UI colors or layout, so it never sees the
+    /// full `theme::Theme`. Populated from `ThemeManager::active().syntax`
+    /// by the caller of `activate_for_file`.
+    pub theme: Option<SyntaxTheme>,
     pub language_id: Option<String>,
     pub lsp: Option<LspClient>,
     pub current_uri: Option<String>,
@@ -37,11 +41,12 @@ impl LanguageManager {
 
     /// Actives the tree-sitter according to file type.
     /// Called when a file is opened or language config changes.
-    /// TODO use FALLBACK THEME if none provided
+    /// `theme` is the syntax half of whatever theme is currently active —
+    /// callers should pass `theme_manager.active().syntax.clone()`.
     pub fn activate_for_file(
         &mut self,
         path: &Path,
-        theme: Option<Theme>,
+        theme: Option<SyntaxTheme>,
         lsp_config: &LspConfig,
         syntax_config: &SyntaxConfig,
     ) {
@@ -420,45 +425,41 @@ mod tests {
     }
 
     fn make_manager_with_theme(source: &str) -> LanguageManager {
-        let theme = Theme {
-            name: "test".into(),
-            defaults: crate::language::theme::ThemeColor {
+        let theme = SyntaxTheme {
+            defaults: crate::theme::TokenStyle {
                 fg: Some("white".into()),
-                bold: None,
-                italic: None,
+                ..Default::default()
             },
             tokens: {
                 let mut m = std::collections::HashMap::new();
                 m.insert(
                     "keyword".into(),
-                    crate::language::theme::ThemeColor {
+                    crate::theme::TokenStyle {
                         fg: Some("#ff0000".into()),
                         bold: Some(true),
-                        italic: None,
+                        ..Default::default()
                     },
                 );
                 m.insert(
                     "string".into(),
-                    crate::language::theme::ThemeColor {
+                    crate::theme::TokenStyle {
                         fg: Some("#00ff00".into()),
-                        bold: None,
-                        italic: None,
+                        ..Default::default()
                     },
                 );
                 m.insert(
                     "comment".into(),
-                    crate::language::theme::ThemeColor {
+                    crate::theme::TokenStyle {
                         fg: Some("#888888".into()),
-                        bold: None,
                         italic: Some(true),
+                        ..Default::default()
                     },
                 );
                 m.insert(
                     "number".into(),
-                    crate::language::theme::ThemeColor {
+                    crate::theme::TokenStyle {
                         fg: Some("#0000ff".into()),
-                        bold: None,
-                        italic: None,
+                        ..Default::default()
                     },
                 );
                 m

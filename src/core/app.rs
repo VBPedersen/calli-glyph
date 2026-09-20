@@ -34,6 +34,8 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use crate::plugins::theme_picker_plugin::ThemePickerPlugin;
+use crate::theme::ThemeManager;
 
 pub struct App {
     /// Is the application running?
@@ -57,6 +59,7 @@ pub struct App {
     pub language: LanguageManager,
     pub install_manager: InstallManager,
     pub modal_stack: Vec<Box<dyn Modal>>,
+    pub theme_manager: ThemeManager,
 }
 
 pub type OpCallback = Box<dyn FnOnce(&mut App)>;
@@ -91,6 +94,10 @@ impl Default for App {
     fn default() -> Self {
         let config = Config::default();
         let temp_config = Arc::new(config.editor.clone());
+        let themes_dir = Config::get_config_base_dir()
+            .map(|p| p.join("themes"))
+            .unwrap_or_else(|_| PathBuf::from("themes"));
+        let theme_manager = ThemeManager::new(themes_dir, &config.ui.theme);
         let app = App {
             running: Default::default(),
             config,
@@ -117,6 +124,7 @@ impl Default for App {
             language: LanguageManager::new(),
             install_manager: InstallManager::new(),
             modal_stack: vec![],
+            theme_manager,
         };
 
         // Load default plugins
@@ -130,6 +138,10 @@ impl App {
     /// Construct a new instance of [`App`].
     pub fn new(config: Config, launch_config: AppLaunchConfig) -> Self {
         let editor_config_arc = Arc::new(config.editor.clone());
+        let themes_dir = Config::get_config_base_dir()
+            .map(|p| p.join("themes"))
+            .unwrap_or_else(|_| PathBuf::from("themes"));
+        let theme_manager = ThemeManager::new(themes_dir, &config.ui.theme);
         let mut app = App {
             running: Default::default(),
             config,
@@ -156,6 +168,7 @@ impl App {
             install_manager: InstallManager::new(),
             language: LanguageManager::new(),
             modal_stack: vec![],
+            theme_manager,
         };
 
         // Load default plugins
@@ -188,7 +201,7 @@ impl App {
 
         // Map of all plugins to load: plugin name and constructor
         let plugins_to_load: Vec<(&str, Box<dyn Plugin>)> = vec![
-            ("test_plugin", Box::new(TestPlugin::new())),
+            ("theme_picker_plugin", Box::new(ThemePickerPlugin::new())),
             (
                 "search_replace_plugin",
                 Box::new(SearchReplacePlugin::new()),
@@ -395,11 +408,11 @@ impl App {
             if path.extension().is_some() {
                 // Load the theme from the root themes directory,
                 // TODO for now uses dark theme, later should load from current theme from thememanager
-                let theme = Theme::load_theme("dark");
+                let syntax_theme = self.theme_manager.active().syntax.clone();
 
                 // Activate the language manager
                 self.language
-                    .activate_for_file(path, theme, &self.config.lsp, &self.config.syntax);
+                    .activate_for_file(path, Some(syntax_theme), &self.config.lsp, &self.config.syntax);
             }
         }
     }
@@ -720,9 +733,9 @@ impl App {
 
         // Activate language support for the new file
         if path.extension().is_some() {
-            let theme = Theme::load_theme("dark");
+            let syntax_theme = self.theme_manager.active().syntax.clone();
             self.language
-                .activate_for_file(path, theme, &self.config.lsp, &self.config.syntax);
+                .activate_for_file(path, Some(syntax_theme), &self.config.lsp, &self.config.syntax);
         }
 
         // Optionally jump the cursor to the requested line

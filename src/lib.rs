@@ -36,3 +36,4 @@ pub mod args;
 pub mod plugins;
 
 pub mod language;
+pub mod theme;

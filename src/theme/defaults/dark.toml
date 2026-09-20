@@ -1,0 +1,48 @@
+[meta]
+name = "Dark"
+author = "calli-glyph"
+dark = true
+
+[syntax.tokens]
+keyword  = { fg = "#569cd6", bold = true }
+string   = { fg = "#ce9178" }
+comment  = { fg = "#6a9955", italic = true }
+number   = { fg = "#b5cea8" }
+type     = { fg = "#4ec9b0" }
+function = { fg = "#dcdcaa" }
+boolean  = { fg = "#569cd6" }
+variable = { fg = "#9cdcfe" }
+property = { fg = "#9cdcfe" }
+parameter = { fg = "#9cdcfe", italic = true }
+constant = { fg = "#4fc1ff" }
+operator = { fg = "#d4d4d4" }
+
+[syntax.defaults]
+fg = "#d4d4d4"
+
+[ui.colors]
+background         = "#1e1e1e"
+foreground         = "#d4d4d4"
+border             = "#3c3c3c"
+border_focused     = "#569cd6"
+selection_bg       = "#264f78"
+cursor             = "#d4d4d4"
+status_bar_bg      = "#007acc"
+status_bar_fg      = "#ffffff"
+error              = "#f44747"
+warning            = "#cca700"
+info               = "#3794ff"
+hint               = "#808080"
+success            = "#89d185"
+line_number        = "#858585"
+line_number_current = "#c6c6c6"
+
+[ui.components]
+popup_border = "#569cd6"
+
+[layout]
+border_style = "plain"
+line_number_style = "absolute"
+status_bar_position = "bottom"
+popup_padding = 1
+scrollbar = true

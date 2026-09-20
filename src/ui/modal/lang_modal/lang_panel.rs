@@ -519,11 +519,7 @@ impl LangPanel {
         let syntax_loaded = app.language.syntax.is_some();
         let theme_loaded = app.language.theme.is_some();
         let theme_name = app
-            .language
-            .theme
-            .as_ref()
-            .map(|t| t.name.as_str())
-            .unwrap_or("—");
+            .theme_manager.active().meta.name.clone();
 
         let token_count = app
             .language

@@ -318,7 +318,7 @@ impl LspClient {
             "initialize",
             json!({
                 "processId": std::process::id(),
-                "clientInfo": { "name": "calli-glyph", "version": "0.1.0" },
+                "clientInfo": { "name": "calliglyph", "version": "0.1.0" },
                 "rootUri": root_uri,
                 "initializationOptions": init_options,
                 "capabilities": {
