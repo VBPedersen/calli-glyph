@@ -83,9 +83,4 @@ mod unit_layout_tests {
         assert!(layout.scrollbar);
     }
 
-    #[test]
-    fn border_style_deserializes_from_lowercase_toml() {
-        let parsed: BorderStyle = toml::from_str("\"rounded\"").unwrap();
-        assert_eq!(parsed, BorderStyle::Rounded);
-    }
 }

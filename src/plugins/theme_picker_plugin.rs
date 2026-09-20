@@ -64,6 +64,16 @@ impl ThemePickerPlugin {
     fn apply_theme(&self, app: &mut App) {
         if let Some(selected_name) = self.available_themes.get(self.current_theme_idx) {
             if app.theme_manager.set_active(selected_name).is_ok() {
+                // Update in-memory configuration
+                app.config.ui.theme = selected_name.clone();
+
+                // Save config to disk so it persists across restarts
+                if let Err(e) = app.config.save() {
+                    log_warn!("[ThemePicker] Failed to save config: {}", e);
+                } else {
+                    log_info!("[ThemePicker] Saved theme '{}' to config", selected_name);
+                }
+
                 // Refresh language manager syntax highlights if a file is currently active
                 if let Some(ref path) = app.file_path {
                     let syntax_theme = app.theme_manager.active().syntax.clone();
