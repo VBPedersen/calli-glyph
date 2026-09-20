@@ -518,8 +518,7 @@ impl LangPanel {
         let grammar_id = app.language.language_id.as_deref().unwrap_or("—");
         let syntax_loaded = app.language.syntax.is_some();
         let theme_loaded = app.language.theme.is_some();
-        let theme_name = app
-            .theme_manager.active().meta.name.clone();
+        let theme_name = app.theme_manager.active().meta.name.clone();
 
         let token_count = app
             .language

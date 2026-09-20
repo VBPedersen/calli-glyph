@@ -82,5 +82,4 @@ mod unit_layout_tests {
         assert_eq!(layout.popup_padding, 1);
         assert!(layout.scrollbar);
     }
-
 }

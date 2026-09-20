@@ -52,7 +52,8 @@ impl Theme {
     pub fn from_file(path: &std::path::Path) -> Result<Self, String> {
         let content = std::fs::read_to_string(path)
             .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
-        Self::from_toml_str(&content).map_err(|e| format!("Failed to parse {}: {}", path.display(), e))
+        Self::from_toml_str(&content)
+            .map_err(|e| format!("Failed to parse {}: {}", path.display(), e))
     }
 
     /// The embedded "dark" theme — used as the manager's last-resort
@@ -65,7 +66,6 @@ impl Theme {
     pub fn embedded_light() -> Self {
         Self::from_toml_str(EMBEDDED_LIGHT).expect("embedded light.toml must always parse")
     }
-
 
     /// The embedded "dracula" theme.
     pub fn embedded_dracula() -> Self {
@@ -90,7 +90,6 @@ mod unit_theme_tests {
         assert_eq!(theme.meta.name, "Light");
         assert!(!theme.meta.dark);
     }
-
 
     #[test]
     fn embedded_dracula_parses_and_has_a_name() {

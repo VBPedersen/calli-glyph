@@ -1,20 +1,21 @@
+use crate::core::app::App;
+use crate::errors::plugin_error::PluginError;
+use crate::plugins::plugin_registry::{
+    KeyContext, Plugin, PluginCommand, PluginKeybinding, PluginMetadata,
+};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, List, ListItem, ListState};
-use crate::core::app::App;
-use crate::errors::plugin_error::PluginError;
-use crate::plugins::plugin_registry::{KeyContext, Plugin, PluginCommand, PluginKeybinding, PluginMetadata};
+use ratatui::Frame;
 
 pub struct ThemePickerPlugin {
     available_themes: Vec<String>, // available themes seen as array of theme names
-    current_theme_idx: usize,     // current theme selected, as idx in available themes Vec
+    current_theme_idx: usize,      // current theme selected, as idx in available themes Vec
 }
 
 impl ThemePickerPlugin {
-
     pub fn new() -> Self {
         ThemePickerPlugin {
             available_themes: vec![],
@@ -40,7 +41,6 @@ impl ThemePickerPlugin {
             self.current_theme_idx = 0;
         }
     }
-
 
     /// selects next theme possible
     fn next_theme(&mut self) {
@@ -116,16 +116,11 @@ impl ThemePickerPlugin {
                 let mut style = Style::default().fg(fg_color);
 
                 if is_selected {
-                    style = style
-                        .fg(Color::Yellow)
-                        .add_modifier(Modifier::BOLD);
+                    style = style.fg(Color::Yellow).add_modifier(Modifier::BOLD);
                     prefix = if is_active { "➤ " } else { "> " };
                 }
 
-                let line = Line::from(vec![
-                    Span::styled(prefix, style),
-                    Span::styled(name, style),
-                ]);
+                let line = Line::from(vec![Span::styled(prefix, style), Span::styled(name, style)]);
 
                 ListItem::new(line)
             })
@@ -136,7 +131,9 @@ impl ThemePickerPlugin {
         // Center calculation for modal dialog
         let area = frame.area();
         let width = 45.min(area.width);
-        let height = (self.available_themes.len() as u16 + 4).clamp(6, 18).min(area.height);
+        let height = (self.available_themes.len() as u16 + 4)
+            .clamp(6, 18)
+            .min(area.height);
 
         let popup_area = Rect {
             x: (area.width.saturating_sub(width)) / 2,
@@ -152,7 +149,6 @@ impl ThemePickerPlugin {
         frame.render_stateful_widget(list, popup_area, &mut state);
     }
 }
-
 
 impl Plugin for ThemePickerPlugin {
     fn name(&self) -> &str {

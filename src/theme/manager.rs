@@ -107,7 +107,11 @@ fn ensure_default_themes_written(dir: &Path) {
 fn write_if_missing(path: &Path, content: &str) {
     if !path.exists() {
         if let Err(e) = std::fs::write(path, content) {
-            log_warn!("[Theme] Failed to write default theme {}: {}", path.display(), e);
+            log_warn!(
+                "[Theme] Failed to write default theme {}: {}",
+                path.display(),
+                e
+            );
         }
     }
 }
@@ -165,7 +169,11 @@ mod unit_manager_tests {
         let dir = tempdir().unwrap();
         let themes_dir = dir.path().join("themes");
         std::fs::create_dir_all(&themes_dir).unwrap();
-        std::fs::write(themes_dir.join("dark.toml"), "[meta]\nname = \"Hand Edited\"\n").unwrap();
+        std::fs::write(
+            themes_dir.join("dark.toml"),
+            "[meta]\nname = \"Hand Edited\"\n",
+        )
+        .unwrap();
 
         let manager = ThemeManager::new(themes_dir, "dark");
         assert_eq!(manager.active().meta.name, "Hand Edited");
@@ -187,7 +195,7 @@ mod unit_manager_tests {
             themes_dir.join("custom.toml"),
             "[meta]\nname = \"Custom\"\n",
         )
-            .unwrap();
+        .unwrap();
 
         let manager = ThemeManager::new(themes_dir, "dark");
         assert!(manager.names().contains(&"custom"));
@@ -226,7 +234,7 @@ mod unit_manager_tests {
             themes_dir.join("latecomer.toml"),
             "[meta]\nname = \"Latecomer\"\n",
         )
-            .unwrap();
+        .unwrap();
         manager.rescan();
 
         assert!(manager.names().contains(&"latecomer"));

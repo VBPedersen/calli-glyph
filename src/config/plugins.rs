@@ -15,7 +15,7 @@ impl Default for PluginsConfig {
     fn default() -> Self {
         Self {
             enabled: vec![
-                "theme_picker_plugin".to_string(), // theme picker plugin
+                "theme_picker_plugin".to_string(),   // theme picker plugin
                 "search_replace_plugin".to_string(), // search and replace plugin
                 "github_auth_plugin".to_string(), // github auth plugin for token setting and clearing for lang installer
             ],

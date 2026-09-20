@@ -16,6 +16,8 @@ use crate::language::theme::Theme;
 use crate::plugins::github_auth_plugin::GithubAuthPlugin;
 use crate::plugins::plugin_registry::{Plugin, PluginManager};
 use crate::plugins::search_replace_plugin::SearchReplacePlugin;
+use crate::plugins::theme_picker_plugin::ThemePickerPlugin;
+use crate::theme::ThemeManager;
 use crate::ui::debug::DebugView;
 use crate::ui::layout::UILayout;
 use crate::ui::modal::Modal;
@@ -34,8 +36,6 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use crate::plugins::theme_picker_plugin::ThemePickerPlugin;
-use crate::theme::ThemeManager;
 
 pub struct App {
     /// Is the application running?
@@ -411,8 +411,12 @@ impl App {
                 let syntax_theme = self.theme_manager.active().syntax.clone();
 
                 // Activate the language manager
-                self.language
-                    .activate_for_file(path, Some(syntax_theme), &self.config.lsp, &self.config.syntax);
+                self.language.activate_for_file(
+                    path,
+                    Some(syntax_theme),
+                    &self.config.lsp,
+                    &self.config.syntax,
+                );
             }
         }
     }
@@ -734,8 +738,12 @@ impl App {
         // Activate language support for the new file
         if path.extension().is_some() {
             let syntax_theme = self.theme_manager.active().syntax.clone();
-            self.language
-                .activate_for_file(path, Some(syntax_theme), &self.config.lsp, &self.config.syntax);
+            self.language.activate_for_file(
+                path,
+                Some(syntax_theme),
+                &self.config.lsp,
+                &self.config.syntax,
+            );
         }
 
         // Optionally jump the cursor to the requested line
