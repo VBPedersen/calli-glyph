@@ -1,6 +1,8 @@
 use super::popup::{Popup, PopupResult, PopupType};
+use crate::core::app::App;
 use crate::errors::error::AppError;
 use crate::input::actions::InputAction;
+use crate::language::lsp::DiagnosticSeverity;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::{Color, Line, Span, Style, Text};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
@@ -21,13 +23,18 @@ impl ErrorPopup {
 }
 
 impl Popup for ErrorPopup {
-    fn render(&mut self, frame: &mut Frame, area: Rect) {
-        let button_style = Style::default().bg(Color::White).fg(Color::Black);
+    fn render(&mut self, frame: &mut Frame, area: Rect, app: &App) {
+        let ui = &app.theme_manager.active().ui;
+
+        let button_style = Style::default()
+            .bg(ui.severity_color(DiagnosticSeverity::Error))
+            .fg(ui.popup_bg());
 
         let popup_block = Block::default()
             .title("Error?")
             .borders(Borders::ALL)
-            .style(Style::default().fg(Color::White).bg(Color::Black));
+            .border_style(Style::default().fg(ui.severity_color(DiagnosticSeverity::Error)))
+            .style(Style::default().fg(ui.popup_fg()).bg(ui.popup_bg()));
 
         let popup = Paragraph::new(Text::from(vec![
             Line::from(Span::raw(&self.message)),
@@ -35,7 +42,7 @@ impl Popup for ErrorPopup {
             Line::from(Span::styled(" OK ", button_style)),
         ]))
         .block(popup_block)
-        .style(Style::default().fg(Color::White).bg(Color::Black))
+        .style(Style::default().fg(ui.popup_fg()).bg(ui.popup_bg()))
         .alignment(Alignment::Center)
         .wrap(Wrap { trim: true });
 

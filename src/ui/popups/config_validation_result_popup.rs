@@ -1,8 +1,10 @@
 use crate::config::ValidationResult;
+use crate::core::app::App;
 use crate::input::actions::{Direction, InputAction, PopupAction};
+use crate::language::lsp::DiagnosticSeverity;
 use crate::ui::popups::popup::{Popup, PopupResult, PopupType};
 use ratatui::layout::{Constraint, Layout};
-use ratatui::widgets::Wrap;
+use ratatui::widgets::{Clear, Wrap};
 use ratatui::{
     layout::Rect,
     style::{Color, Modifier, Style},
@@ -35,18 +37,24 @@ impl ValidationResultPopup {
 }
 
 impl Popup for ValidationResultPopup {
-    fn render(&mut self, frame: &mut Frame, area: Rect) {
+    fn render(&mut self, frame: &mut Frame, area: Rect, app: &App) {
+        let ui = &app.theme_manager.active().ui;
+
         let border_color = if self.result.is_valid() {
-            Color::Green
+            ui.success()
         } else {
-            Color::Red
+            ui.severity_color(DiagnosticSeverity::Error)
         };
+
+        // Render the popup in the centered `area`
+        frame.render_widget(Clear, area); // Clears the popup area to avoid overlap
 
         // popup border and title
         let block = Block::default()
             .title("Config Validation Results")
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(border_color));
+            .border_style(Style::default().fg(border_color))
+            .style(Style::default().fg(ui.popup_fg()).bg(ui.popup_bg()));
 
         let inner_area = block.inner(area);
         frame.render_widget(block, area); // Render block
@@ -61,18 +69,15 @@ impl Popup for ValidationResultPopup {
             .split(inner_area);
 
         // Summary
-        let summary_style = if self.result.valid {
-            Style::default()
-                .fg(Color::Green)
-                .add_modifier(Modifier::BOLD)
-        } else {
-            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
-        };
+        let summary_style = Style::default()
+            .fg(border_color)
+            .add_modifier(Modifier::BOLD);
 
         let summary = Paragraph::new(vec![
             Line::from(Span::styled(self.result.summary(), summary_style)),
             Line::from(""),
-        ]);
+        ])
+        .style(Style::default().bg(ui.popup_bg()));
         frame.render_widget(summary, chunks[0]);
 
         // Details
@@ -81,15 +86,20 @@ impl Popup for ValidationResultPopup {
         if !self.result.errors.is_empty() {
             items.push(Line::from(Span::styled(
                 "ERRORS:",
-                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(ui.severity_color(DiagnosticSeverity::Error))
+                    .add_modifier(Modifier::BOLD),
             )));
             for (i, error) in self.result.errors.iter().enumerate() {
                 items.push(Line::from(vec![
                     Span::styled(
                         format!("  {}. ", i + 1),
-                        Style::default().fg(Color::DarkGray),
+                        Style::default().fg(ui.hint_text()),
                     ),
-                    Span::styled(error, Style::default().fg(Color::Red)),
+                    Span::styled(
+                        error,
+                        Style::default().fg(ui.severity_color(DiagnosticSeverity::Error)),
+                    ),
                 ]));
             }
             items.push(Line::from(""));
@@ -99,16 +109,19 @@ impl Popup for ValidationResultPopup {
             items.push(Line::from(Span::styled(
                 "WARNINGS:",
                 Style::default()
-                    .fg(Color::Yellow)
+                    .fg(ui.severity_color(DiagnosticSeverity::Warning))
                     .add_modifier(Modifier::BOLD),
             )));
             for (i, warning) in self.result.warnings.iter().enumerate() {
                 items.push(Line::from(vec![
                     Span::styled(
                         format!("  {}. ", i + 1),
-                        Style::default().fg(Color::DarkGray),
+                        Style::default().fg(ui.hint_text()),
                     ),
-                    Span::styled(warning, Style::default().fg(Color::Yellow)),
+                    Span::styled(
+                        warning,
+                        Style::default().fg(ui.severity_color(DiagnosticSeverity::Warning)),
+                    ),
                 ]));
             }
         }
@@ -116,13 +129,14 @@ impl Popup for ValidationResultPopup {
         // Render details with scroll offset and wrap
         let paragraph = Paragraph::new(items)
             .block(Block::default().borders(Borders::NONE))
+            .style(Style::default().bg(ui.popup_bg()).fg(ui.popup_fg()))
             .wrap(Wrap { trim: true })
             .scroll((self.scroll_offset as u16, 0));
         frame.render_widget(paragraph, chunks[1]);
 
         // Footer
         let help = Paragraph::new("↑↓: Scroll | Enter/Esc: Close")
-            .style(Style::default().fg(Color::DarkGray));
+            .style(Style::default().fg(ui.hint_text()));
         frame.render_widget(help, chunks[2]);
     }
 

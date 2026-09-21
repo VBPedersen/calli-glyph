@@ -1,3 +1,4 @@
+use crate::core::app::App;
 use crate::core::help_registry::{HelpPage, HelpRegistry};
 use crate::input::actions::{InputAction, PopupAction};
 use crate::ui::popups::popup::{Popup, PopupResult, PopupType};
@@ -343,27 +344,29 @@ impl HelpPopup {
 }
 
 impl Popup for HelpPopup {
-    fn render(&mut self, frame: &mut Frame, area: Rect) {
+    fn render(&mut self, frame: &mut Frame, area: Rect, app: &App) {
         use ratatui::layout::Direction;
+
+        let ui = &app.theme_manager.active().ui;
 
         frame.render_widget(Clear, area);
         let outer_block = Block::default()
             .title(Span::styled(
                 " 󰋗 Help ",
                 Style::default()
-                    .fg(Color::Cyan)
+                    .fg(ui.hint_text())
                     .add_modifier(Modifier::BOLD),
             ))
             .title_bottom(
                 Line::styled(
                     " Tab swap focus ↑↓ navigate   / search   esc close ",
-                    Style::default().fg(Color::DarkGray),
+                    Style::default().fg(ui.hint_text()),
                 )
                 .right_aligned(),
             )
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
-            .border_style(Style::new().fg(Color::Blue));
+            .border_style(Style::new().fg(ui.border()));
 
         let inner_block = outer_block.inner(area);
         frame.render_widget(outer_block, area);

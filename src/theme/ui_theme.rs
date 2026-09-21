@@ -48,6 +48,35 @@ pub struct UiColors {
     pub success: String,
     pub line_number: String,
     pub line_number_current: String,
+    pub current_line_bg: String,
+    pub command_line_bg: String,
+    pub command_line_fg: String,
+    pub list_highlight_bg: String,
+    pub list_highlight_fg: String,
+
+    /// Debug-log severity colors. Deliberately separate from
+    /// `error`/`warning`/`info`/`hint` above: those are LSP diagnostic
+    /// severities, these are internal log levels, and the original
+    /// hardcoded UI already colored them differently (log Info was Blue,
+    /// diagnostic Information was Cyan) — collapsing the two would lose a
+    /// real, intentional visual distinction.
+    pub log_error: String,
+    pub log_warning: String,
+    pub log_info: String,
+    pub log_debug: String,
+    pub log_trace: String,
+
+    /// Generic categorical accents — used where a color's only job is to
+    /// visually distinguish one category from another (undo vs. redo,
+    /// clipboard entries, snapshot triggers), not to carry semantic
+    /// weight the way `error`/`warning` do. Themes can still recolor
+    /// these; they just aren't tied to a specific meaning.
+    pub accent_red: String,
+    pub accent_blue: String,
+    pub accent_cyan: String,
+    pub accent_green: String,
+    pub accent_yellow: String,
+    pub accent_magenta: String,
 }
 
 impl Default for UiColors {
@@ -55,6 +84,7 @@ impl Default for UiColors {
     /// invisible-on-invisible if a theme file omits a field, matches the
     /// same degrade gracefully idea behind `parse_color`'s Reset
     /// fallback.
+
     fn default() -> Self {
         Self {
             background: "#1e1e1e".to_string(),
@@ -73,6 +103,22 @@ impl Default for UiColors {
             success: "#89d185".to_string(),
             line_number: "#858585".to_string(),
             line_number_current: "#c6c6c6".to_string(),
+            current_line_bg: "#4d4d4d".to_string(),
+            command_line_bg: "#007acc".to_string(),
+            command_line_fg: "#ffffff".to_string(),
+            list_highlight_bg: "#3c3c3c".to_string(),
+            list_highlight_fg: "#ffffff".to_string(),
+            log_error: "#f44747".to_string(),
+            log_warning: "#cca700".to_string(),
+            log_info: "#3794ff".to_string(),
+            log_debug: "#808080".to_string(),
+            log_trace: "#5a5a5a".to_string(),
+            accent_red: "#f44747".to_string(),
+            accent_blue: "#3794ff".to_string(),
+            accent_cyan: "#4ec9b0".to_string(),
+            accent_green: "#89d185".to_string(),
+            accent_yellow: "#cca700".to_string(),
+            accent_magenta: "#c586c0".to_string(),
         }
     }
 }
@@ -109,6 +155,53 @@ impl UiTheme {
     }
     pub fn line_number_current(&self) -> Color {
         parse_color(&self.colors.line_number_current)
+    }
+    pub fn current_line_bg(&self) -> Color {
+        parse_color(&self.colors.current_line_bg)
+    }
+    pub fn list_highlight_style(&self) -> Style {
+        Style::default()
+            .bg(parse_color(&self.colors.list_highlight_bg))
+            .fg(parse_color(&self.colors.list_highlight_fg))
+            .add_modifier(ratatui::style::Modifier::BOLD)
+    }
+    pub fn command_line_style(&self) -> Style {
+        Style::default()
+            .bg(parse_color(&self.colors.command_line_bg))
+            .fg(parse_color(&self.colors.command_line_fg))
+    }
+
+    pub fn accent_red(&self) -> Color {
+        parse_color(&self.colors.accent_red)
+    }
+    pub fn accent_blue(&self) -> Color {
+        parse_color(&self.colors.accent_blue)
+    }
+    pub fn accent_cyan(&self) -> Color {
+        parse_color(&self.colors.accent_cyan)
+    }
+    pub fn accent_green(&self) -> Color {
+        parse_color(&self.colors.accent_green)
+    }
+    pub fn accent_yellow(&self) -> Color {
+        parse_color(&self.colors.accent_yellow)
+    }
+    pub fn accent_magenta(&self) -> Color {
+        parse_color(&self.colors.accent_magenta)
+    }
+
+    /// Color for a debug-log severity level. See the doc comment on
+    /// `UiColors::log_error` etc. for why this is distinct from
+    /// `severity_color` (LSP diagnostics).
+    pub fn log_level_color(&self, level: crate::core::debug::LogLevel) -> Color {
+        use crate::core::debug::LogLevel;
+        match level {
+            LogLevel::Error => parse_color(&self.colors.log_error),
+            LogLevel::Warn => parse_color(&self.colors.log_warning),
+            LogLevel::Info => parse_color(&self.colors.log_info),
+            LogLevel::Debug => parse_color(&self.colors.log_debug),
+            LogLevel::Trace => parse_color(&self.colors.log_trace),
+        }
     }
 
     /// Style for the current text selection highlight.
@@ -151,6 +244,17 @@ impl UiTheme {
             .as_deref()
             .map(parse_color)
             .unwrap_or_else(|| self.foreground())
+    }
+
+    /// One place that decides what color a diagnostic severity renders as
+    /// — used by both gutter icons and the diagnostics panel, so they can
+    /// never disagree with each other.
+    pub fn hint_text(&self) -> Color {
+        parse_color(&self.colors.hint)
+    }
+
+    pub fn success(&self) -> Color {
+        parse_color(&self.colors.success)
     }
 
     /// One place that decides what color a diagnostic severity renders as

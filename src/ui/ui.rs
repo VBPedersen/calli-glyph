@@ -2,6 +2,7 @@ use crate::config::EditorConfig;
 use crate::core::app::{ActiveArea, App};
 use crate::core::cursor::CursorPosition;
 use crate::language::lsp::{Diagnostic, DiagnosticSeverity};
+use crate::theme::UiTheme;
 use crate::ui::debug;
 use ratatui::layout::{Alignment, Position, Rect};
 use ratatui::style::{Color, Modifier, Style};
@@ -43,6 +44,9 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
 
 fn render_editor_ui(frame: &mut Frame, app: &mut App) {
     app.terminal_height = frame.area().height as i16;
+
+    // Theme is cloned once up front
+    let theme = app.theme_manager.active().ui.clone();
 
     // just array of constraints to use in layout,
     // mutable, so can step by step add to constraints
@@ -133,6 +137,7 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
         content_area.width as usize,
         app,
         &syntax_highlights,
+        &theme,
     );
 
     let command_input: String = app.command_line.input.to_string();
@@ -158,6 +163,7 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
                 app.editor.text_selection_end,
                 app.content_modified,
                 app.language.diagnostics.clone(),
+                &theme,
             ),
             status_area,
         );
@@ -173,6 +179,7 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
                 app.editor.cursor.y,
                 &app.config.editor,
                 &app.language,
+                &theme,
             ),
             ln_area,
         );
@@ -187,17 +194,20 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
             &app.config.editor,
             content_area.height,
             app.editor.editor_content.len(),
+            &theme,
         ),
         content_area,
     );
     // Render command line
-    frame.render_widget(command_line(command_input), command_area);
+    frame.render_widget(command_line(command_input, &theme), command_area);
 
-    // Render popup if active
-    if let Some(popup) = &mut app.popup {
+    // Render popup if active. `take()` to use "extract, render,
+    // put back" pattern.
+    if let Some(mut popup) = app.popup.take() {
         let (w, h) = popup.size();
         let popup_area = centered_rect(w, h, frame.area());
-        popup.render(frame, popup_area);
+        popup.render(frame, popup_area, app);
+        app.popup = Some(popup);
     }
 
     //set cursor with position if it should be visible (determined by app logic)
@@ -246,6 +256,7 @@ pub fn centered_rect(percent_width: u16, percent_height: u16, area: Rect) -> Rec
 }
 
 //COMPONENTS
+#[allow(clippy::too_many_arguments)]
 fn info_bar<'a>(
     file_name: String,
     cursor_x: i16,
@@ -256,6 +267,7 @@ fn info_bar<'a>(
     selection_end: Option<CursorPosition>,
     is_content_modified: bool,
     diagnostics: Vec<Diagnostic>,
+    theme: &UiTheme,
 ) -> Paragraph<'a> {
     let modified_indicator = if is_content_modified { "[+]" } else { "" };
 
@@ -282,35 +294,39 @@ fn info_bar<'a>(
         Span::styled(
             format!(" ●{} ◆{}", errors, warnings),
             if errors > 0 {
-                Style::default().fg(Color::Red)
+                Style::default().fg(theme.severity_color(DiagnosticSeverity::Error))
             } else if warnings > 0 {
-                Style::default().fg(Color::Yellow)
+                Style::default().fg(theme.severity_color(DiagnosticSeverity::Warning))
             } else {
-                Style::default().fg(Color::DarkGray)
+                Style::default().fg(theme.hint_text())
             },
         ),
-        Span::styled(modified_indicator, Style::default().fg(Color::White)),
-        Span::styled(file_name, Style::default().fg(Color::LightCyan)),
+        Span::styled(modified_indicator, Style::default().fg(theme.foreground())),
+        Span::styled(file_name, Style::default().fg(theme.accent_cyan())),
         Span::raw(" - "), // Separator
         Span::styled(
             format!(
                 "Cursor (X{}:Y{}) (VisX: {}), ScrollOff({})",
                 cursor_x, cursor_y, visual_x, scroll_offset
             ),
-            Style::default().fg(Color::Magenta),
+            Style::default().fg(theme.accent_magenta()),
         ),
-        Span::styled(selection_cursor_info, Style::default().fg(Color::Yellow)),
+        Span::styled(
+            selection_cursor_info,
+            Style::default().fg(theme.severity_color(DiagnosticSeverity::Warning)),
+        ),
     ]);
 
     Paragraph::new("").block(
         Block::default()
             .title(line)
             .title_alignment(Alignment::Center)
-            .style(Style::default().fg(Color::LightCyan).bg(Color::DarkGray)),
+            .style(theme.status_bar_style()),
     )
 }
 
 ///generates a side bar for line nr display as well as displaying line overflow if existing
+#[allow(clippy::too_many_arguments)]
 fn editor_side_line<'a>(
     editor_content: Text,
     scroll_offset: u16,
@@ -318,15 +334,13 @@ fn editor_side_line<'a>(
     cursor_y: i16,
     config: &EditorConfig,
     language: &crate::language::manager::LanguageManager,
+    theme: &UiTheme,
 ) -> Paragraph<'a> {
     let mut line_nrs: Text = Text::from(vec![]);
 
-    let overflow_marker_style = Style::default().fg(Color::Cyan);
-    let current_line_style = Style::default()
-        .bg(Color::Yellow)
-        .fg(Color::Black)
-        .add_modifier(Modifier::BOLD);
-    let normal_line_style = Style::default().fg(Color::Gray);
+    let overflow_marker_style = Style::default().fg(theme.accent_cyan());
+    let current_line_style = theme.list_highlight_style();
+    let normal_line_style = Style::default().fg(theme.line_number());
 
     for (nr, s) in editor_content.iter().enumerate() {
         let line_index = nr;
@@ -348,20 +362,31 @@ fn editor_side_line<'a>(
         {
             (
                 "● ",
-                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(theme.severity_color(DiagnosticSeverity::Error))
+                    .add_modifier(Modifier::BOLD),
             )
         } else if diags
             .iter()
             .any(|d| d.severity == DiagnosticSeverity::Warning)
         {
-            ("◆ ", Style::default().fg(Color::Yellow))
+            (
+                "◆ ",
+                Style::default().fg(theme.severity_color(DiagnosticSeverity::Warning)),
+            )
         } else if diags
             .iter()
             .any(|d| d.severity == DiagnosticSeverity::Information)
         {
-            ("◉ ", Style::default().fg(Color::Cyan))
+            (
+                "◉ ",
+                Style::default().fg(theme.severity_color(DiagnosticSeverity::Information)),
+            )
         } else if diags.iter().any(|d| d.severity == DiagnosticSeverity::Hint) {
-            ("· ", Style::default().fg(Color::DarkGray))
+            (
+                "· ",
+                Style::default().fg(theme.severity_color(DiagnosticSeverity::Hint)),
+            )
         } else {
             ("", Style::default())
         };
@@ -402,7 +427,11 @@ fn editor_side_line<'a>(
     }
 
     Paragraph::new(line_nrs)
-        .style(Style::default().bg(Color::DarkGray).fg(Color::White))
+        .style(
+            Style::default()
+                .bg(theme.background())
+                .fg(theme.foreground()),
+        )
         .block(Block::default())
         .scroll((scroll_offset, 0))
 }
@@ -414,6 +443,7 @@ fn editor<'a>(
     config: &EditorConfig,
     viewport_height: u16,
     content_length: usize,
+    theme: &UiTheme,
 ) -> Paragraph<'a> {
     // Apply current line highlighting if enabled
     let mut lines_vec = if config.highlight_current_line {
@@ -425,7 +455,7 @@ fn editor<'a>(
                     .spans
                     .iter()
                     .map(|span| {
-                        Span::styled(span.content.clone(), span.style.bg(Color::Rgb(77, 77, 77)))
+                        Span::styled(span.content.clone(), span.style.bg(theme.current_line_bg()))
                     })
                     .collect();
                 lines.push(Line::from(highlighted_spans));
@@ -448,7 +478,7 @@ fn editor<'a>(
         for _ in 0..empty_lines_needed {
             lines_vec.push(Line::from(Span::styled(
                 "~",
-                Style::default().fg(Color::Blue),
+                Style::default().fg(theme.accent_blue()),
             )));
         }
     } else if visible_lines_start >= content_length {
@@ -456,7 +486,7 @@ fn editor<'a>(
         for _ in 0..viewport_height {
             lines_vec.push(Line::from(Span::styled(
                 "~",
-                Style::default().fg(Color::Blue),
+                Style::default().fg(theme.accent_blue()),
             )));
         }
     }
@@ -464,14 +494,14 @@ fn editor<'a>(
     let styled_content = Text::from(lines_vec);
 
     Paragraph::new(styled_content)
-        .style(Style::default().fg(Color::White))
+        .style(Style::default().fg(theme.foreground()))
         .block(Block::default())
         .scroll((scroll_offset, 0))
 }
 
-fn command_line<'a>(command_input: String) -> Paragraph<'a> {
+fn command_line<'a>(command_input: String, theme: &UiTheme) -> Paragraph<'a> {
     Paragraph::new(command_input)
-        .style(Style::default().fg(Color::White).bg(Color::Cyan))
+        .style(theme.command_line_style())
         .block(
             Block::default(), //.borders(Borders::ALL)
                               //.title("")
@@ -490,6 +520,7 @@ fn handle_editor_content<'a>(
     editor_width: usize,
     app: &mut App,
     syntax_highlights: &[Vec<(std::ops::Range<usize>, Style)>],
+    theme: &UiTheme,
 ) -> Text<'a> {
     let editor_vec: Vec<String> = vec
         .into_iter()
@@ -508,7 +539,7 @@ fn handle_editor_content<'a>(
 
     if selection_start.is_some() {
         // Selection active, skip syntax higlight, selection takes priority
-        editor_text = highlight_text(editor_vec.clone(), selection_start, selection_end);
+        editor_text = highlight_text(editor_vec.clone(), selection_start, selection_end, theme);
     } else {
         for (i, s) in editor_vec.into_iter().enumerate() {
             let visual_x = app.editor.visual_cursor_x;
@@ -585,6 +616,7 @@ fn highlight_text<'a>(
     text: Vec<String>,
     start: Option<CursorPosition>,
     end: Option<CursorPosition>,
+    theme: &UiTheme,
 ) -> Text<'a> {
     let mut highlighted_lines = Vec::new();
 
@@ -615,10 +647,7 @@ fn highlight_text<'a>(
 
             spans.push(Span::raw(line[..start_col].to_string())); // Before selectiona
 
-            let selected_style = Style::default()
-                .bg(Color::White)
-                .fg(Color::Black)
-                .add_modifier(Modifier::BOLD);
+            let selected_style = theme.selection_style().add_modifier(Modifier::BOLD);
 
             if line.is_empty() && i > start.y && i <= end.y {
                 // add highlights for empty lines with added visual placeholder " "

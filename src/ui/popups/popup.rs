@@ -1,10 +1,12 @@
+use crate::core::app::App;
 use crate::input::actions::InputAction;
 use ratatui::layout::Rect;
 use ratatui::Frame;
 use std::fmt::{Debug, Formatter};
 
 pub trait Popup {
-    fn render(&mut self, frame: &mut Frame, area: Rect);
+    /// Renders the popup.
+    fn render(&mut self, frame: &mut Frame, area: Rect, app: &App);
     fn get_popup_type(&self) -> PopupType;
     ///function to handle input action on popup,
     /// responsible for dispatching action to correct internal method.

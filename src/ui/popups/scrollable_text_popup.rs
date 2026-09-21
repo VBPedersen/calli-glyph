@@ -1,3 +1,4 @@
+use crate::core::app::App;
 use crate::input::actions::{Direction, InputAction, PopupAction};
 use crate::ui::popups::popup::{Popup, PopupResult, PopupType};
 use ratatui::layout::Direction::Vertical;
@@ -32,9 +33,11 @@ impl<'a> ScrollableTextPopup<'a> {
 }
 
 impl Popup for ScrollableTextPopup<'_> {
-    fn render(&mut self, frame: &mut Frame, area: Rect) {
+    fn render(&mut self, frame: &mut Frame, area: Rect, app: &App) {
         // Clear area to show popup over
         frame.render_widget(Clear, area);
+
+        let ui = &app.theme_manager.active().ui;
 
         let border_color = Color::White;
 
@@ -42,7 +45,8 @@ impl Popup for ScrollableTextPopup<'_> {
         let block = Block::default()
             .title(self.title.clone())
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(border_color));
+            .border_style(Style::default().fg(ui.popup_border()))
+            .style(Style::default().fg(ui.popup_fg()).bg(ui.popup_bg()));
 
         let inner_area = block.inner(area);
         frame.render_widget(block, area); // Render block
@@ -57,13 +61,14 @@ impl Popup for ScrollableTextPopup<'_> {
             .text
             .clone()
             .block(Block::default().borders(Borders::NONE))
+            .style(Style::default().fg(ui.popup_fg()).bg(ui.popup_bg()))
             .wrap(Wrap { trim: true })
             .scroll((self.scroll_offset as u16, 0));
         frame.render_widget(paragraph, chunks[0]);
 
         // Footer
         let help = Paragraph::new("↑↓: Scroll | Enter/Esc: Close")
-            .style(Style::default().fg(Color::DarkGray));
+            .style(Style::default().fg(ui.hint_text()));
         frame.render_widget(help, chunks[1]);
     }
 

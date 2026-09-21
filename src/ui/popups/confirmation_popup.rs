@@ -1,4 +1,5 @@
 use super::popup::{Popup, PopupResult, PopupType};
+use crate::core::app::App;
 use crate::input::actions::InputAction;
 use crate::input::actions::{Direction, PopupAction};
 use ratatui::layout::{Alignment, Rect};
@@ -22,9 +23,11 @@ impl ConfirmationPopup {
     }
 }
 impl Popup for ConfirmationPopup {
-    fn render(&mut self, frame: &mut Frame, area: Rect) {
-        let selected_style = Style::default().bg(Color::White).fg(Color::Black);
-        let non_selected_style = Style::default().bg(Color::Black).fg(Color::White);
+    fn render(&mut self, frame: &mut Frame, area: Rect, app: &App) {
+        let ui = &app.theme_manager.active().ui; // ui theme
+
+        let selected_style = Style::default().bg(ui.foreground()).fg(ui.background());
+        let non_selected_style = Style::default().bg(ui.popup_bg()).fg(ui.popup_fg());
 
         // Highlight correct option
         let yes_style = if self.selected_option {
@@ -41,7 +44,8 @@ impl Popup for ConfirmationPopup {
         let popup_block = Block::default()
             .title("Confirm?")
             .borders(Borders::ALL)
-            .style(Style::default().fg(Color::White).bg(Color::Black));
+            .border_style(Style::default().fg(ui.popup_border()))
+            .style(Style::default().fg(ui.popup_fg()).bg(ui.popup_bg()));
 
         let popup = Paragraph::new(Text::from(vec![
             Line::from(Span::raw(&self.message)),
@@ -53,7 +57,7 @@ impl Popup for ConfirmationPopup {
             ]),
         ]))
         .block(popup_block)
-        .style(Style::default().fg(Color::White).bg(Color::Black))
+        .style(Style::default().fg(ui.popup_fg()).bg(ui.popup_bg()))
         .alignment(Alignment::Center);
 
         // Render the popup in the centered `area`
