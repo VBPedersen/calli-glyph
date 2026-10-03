@@ -70,4 +70,98 @@ mod unit_color_tests {
         assert_eq!(parse_color("#zzzzzz"), Color::Reset);
         assert_eq!(parse_color("#fff"), Color::Reset); // 3-digit hex not supported
     }
+
+    #[test]
+    fn empty_string_falls_back_to_reset() {
+        assert_eq!(parse_color(""), Color::Reset);
+    }
+
+    #[test]
+    fn hash_alone_falls_back_to_reset() {
+        assert_eq!(parse_color("#"), Color::Reset);
+    }
+
+    #[test]
+    fn hex_too_long_falls_back_to_reset() {
+        assert_eq!(parse_color("#ff880000"), Color::Reset);
+    }
+
+    #[test]
+    fn hex_too_short_falls_back_to_reset() {
+        assert_eq!(parse_color("#ff"), Color::Reset);
+    }
+
+    #[test]
+    fn hex_with_non_hex_chars_falls_back_to_reset() {
+        assert_eq!(parse_color("#gg0000"), Color::Reset);
+        assert_eq!(parse_color("#12345g"), Color::Reset);
+    }
+
+    #[test]
+    fn hex_is_case_insensitive() {
+        assert_eq!(parse_color("#AABBCC"), parse_color("#aabbcc"));
+        assert_eq!(parse_color("#AaBbCc"), Color::Rgb(0xaa, 0xbb, 0xcc));
+    }
+
+    #[test]
+    fn hex_boundary_values() {
+        assert_eq!(parse_color("#000000"), Color::Rgb(0, 0, 0));
+        assert_eq!(parse_color("#ffffff"), Color::Rgb(255, 255, 255));
+    }
+
+    #[test]
+    fn named_color_with_leading_or_trailing_whitespace_is_not_trimmed() {
+        // Deliberately documents current (strict) behavior: color names
+        // aren't trimmed, so stray whitespace in a theme file's color
+        // value degrades to Reset rather than silently "working" — a
+        // signal worth surfacing to whoever wrote the theme file, not
+        // masking.
+        assert_eq!(parse_color(" red"), Color::Reset);
+        assert_eq!(parse_color("red "), Color::Reset);
+    }
+
+    #[test]
+    fn all_documented_named_colors_parse_to_something_other_than_reset() {
+        let names = [
+            "red",
+            "blue",
+            "yellow",
+            "green",
+            "cyan",
+            "black",
+            "gray",
+            "grey",
+            "darkgray",
+            "darkgrey",
+            "magenta",
+            "white",
+            "lightred",
+            "lightblue",
+            "lightyellow",
+            "lightgreen",
+            "lightcyan",
+            "lightmagenta",
+        ];
+        for name in names {
+            assert_ne!(
+                parse_color(name),
+                Color::Reset,
+                "expected '{name}' to be a recognized color name"
+            );
+        }
+    }
+
+    #[test]
+    fn light_color_variants_are_distinct_from_their_base_color() {
+        assert_ne!(parse_color("red"), parse_color("lightred"));
+        assert_ne!(parse_color("blue"), parse_color("lightblue"));
+        assert_ne!(parse_color("green"), parse_color("lightgreen"));
+    }
+
+    #[test]
+    fn underscored_and_concatenated_gray_variants_agree() {
+        assert_eq!(parse_color("dark_gray"), parse_color("darkgray"));
+        assert_eq!(parse_color("dark_grey"), parse_color("darkgrey"));
+        assert_eq!(parse_color("darkgray"), parse_color("darkgrey")); // english variants agree
+    }
 }

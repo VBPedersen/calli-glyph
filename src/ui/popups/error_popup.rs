@@ -4,7 +4,7 @@ use crate::errors::error::AppError;
 use crate::input::actions::InputAction;
 use crate::language::lsp::DiagnosticSeverity;
 use ratatui::layout::{Alignment, Rect};
-use ratatui::prelude::{Color, Line, Span, Style, Text};
+use ratatui::prelude::{Line, Span, Style, Text};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 use ratatui::Frame;
 

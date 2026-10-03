@@ -3,7 +3,7 @@ use crate::core::app::App;
 use crate::input::actions::InputAction;
 use crate::input::actions::{Direction, PopupAction};
 use ratatui::layout::{Alignment, Rect};
-use ratatui::prelude::{Color, Style};
+use ratatui::prelude::Style;
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use ratatui::Frame;

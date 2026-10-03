@@ -39,8 +39,6 @@ impl Popup for ScrollableTextPopup<'_> {
 
         let ui = &app.theme_manager.active().ui;
 
-        let border_color = Color::White;
-
         // popup border and title
         let block = Block::default()
             .title(self.title.clone())

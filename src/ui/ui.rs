@@ -5,7 +5,7 @@ use crate::language::lsp::{Diagnostic, DiagnosticSeverity};
 use crate::theme::UiTheme;
 use crate::ui::debug;
 use ratatui::layout::{Alignment, Position, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::Paragraph;
 use ratatui::{

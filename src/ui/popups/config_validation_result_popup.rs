@@ -7,7 +7,7 @@ use ratatui::layout::{Constraint, Layout};
 use ratatui::widgets::{Clear, Wrap};
 use ratatui::{
     layout::Rect,
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
     Frame,

@@ -84,7 +84,6 @@ impl Default for UiColors {
     /// invisible-on-invisible if a theme file omits a field, matches the
     /// same degrade gracefully idea behind `parse_color`'s Reset
     /// fallback.
-
     fn default() -> Self {
         Self {
             background: "#1e1e1e".to_string(),
@@ -98,7 +97,7 @@ impl Default for UiColors {
             status_bar_fg: "#ffffff".to_string(),
             error: "#f44747".to_string(),
             warning: "#cca700".to_string(),
-            info: "#3794ff".to_string(),
+            info: "#4ec9b0".to_string(),
             hint: "#808080".to_string(),
             success: "#89d185".to_string(),
             line_number: "#858585".to_string(),
@@ -307,5 +306,194 @@ mod unit_ui_theme_tests {
         let style = ui.selection_style();
         assert_eq!(style.bg, Some(Color::Rgb(0x11, 0x22, 0x33)));
         assert_eq!(style.fg, Some(Color::Rgb(255, 255, 255)));
+    }
+
+    #[test]
+    fn selection_style_without_fg_leaves_fg_unset() {
+        let mut ui = UiTheme::default();
+        ui.colors.selection_fg = None;
+        let style = ui.selection_style();
+        assert_eq!(style.fg, None);
+        assert!(style.bg.is_some());
+    }
+
+    #[test]
+    fn every_severity_maps_to_a_distinct_color_by_default() {
+        use crate::language::lsp::DiagnosticSeverity;
+        let ui = UiTheme::default();
+        let colors = [
+            ui.severity_color(DiagnosticSeverity::Error),
+            ui.severity_color(DiagnosticSeverity::Warning),
+            ui.severity_color(DiagnosticSeverity::Information),
+            ui.severity_color(DiagnosticSeverity::Hint),
+        ];
+        for i in 0..colors.len() {
+            for j in (i + 1)..colors.len() {
+                assert_ne!(
+                    colors[i], colors[j],
+                    "severities {} and {} share a color in the default theme",
+                    i, j
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn every_log_level_maps_to_a_distinct_color_by_default() {
+        use crate::core::debug::LogLevel;
+        let ui = UiTheme::default();
+        let colors = [
+            ui.log_level_color(LogLevel::Error),
+            ui.log_level_color(LogLevel::Warn),
+            ui.log_level_color(LogLevel::Info),
+            ui.log_level_color(LogLevel::Debug),
+            ui.log_level_color(LogLevel::Trace),
+        ];
+        for i in 0..colors.len() {
+            for j in (i + 1)..colors.len() {
+                assert_ne!(
+                    colors[i], colors[j],
+                    "log levels {} and {} share a color in the default theme",
+                    i, j
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn log_info_and_diagnostic_information_are_intentionally_different() {
+        // The whole reason log_* colors exist separately from
+        // error/warning/info/hint: they're conceptually different things
+        // (internal debug logs vs. LSP diagnostics) and the original UI
+        // colored them differently (log Info was Blue, diagnostic
+        // Information was Cyan). This pins that distinction so a future
+        // "simplification" doesn't quietly collapse it.
+        use crate::core::debug::LogLevel;
+        use crate::language::lsp::DiagnosticSeverity;
+        let ui = UiTheme::default();
+        assert_ne!(
+            ui.log_level_color(LogLevel::Info),
+            ui.severity_color(DiagnosticSeverity::Information)
+        );
+    }
+
+    #[test]
+    fn all_accent_colors_are_distinct_by_default() {
+        let ui = UiTheme::default();
+        let accents = [
+            ui.accent_red(),
+            ui.accent_blue(),
+            ui.accent_cyan(),
+            ui.accent_green(),
+            ui.accent_yellow(),
+            ui.accent_magenta(),
+        ];
+        for i in 0..accents.len() {
+            for j in (i + 1)..accents.len() {
+                assert_ne!(accents[i], accents[j]);
+            }
+        }
+    }
+
+    #[test]
+    fn all_component_overrides_fall_back_when_unset() {
+        let ui = UiTheme::default();
+        assert_eq!(ui.popup_bg(), ui.background());
+        assert_eq!(ui.popup_border(), ui.border_focused());
+        assert_eq!(ui.popup_fg(), ui.foreground());
+    }
+
+    #[test]
+    fn all_component_overrides_win_when_set() {
+        let mut ui = UiTheme::default();
+        ui.components.popup_bg = Some("#111111".to_string());
+        ui.components.popup_border = Some("#222222".to_string());
+        ui.components.popup_fg = Some("#333333".to_string());
+
+        assert_eq!(ui.popup_bg(), Color::Rgb(0x11, 0x11, 0x11));
+        assert_eq!(ui.popup_border(), Color::Rgb(0x22, 0x22, 0x22));
+        assert_eq!(ui.popup_fg(), Color::Rgb(0x33, 0x33, 0x33));
+    }
+
+    #[test]
+    fn status_bar_style_uses_both_bg_and_fg() {
+        let mut ui = UiTheme::default();
+        ui.colors.status_bar_bg = "#010101".to_string();
+        ui.colors.status_bar_fg = "#fefefe".to_string();
+        let style = ui.status_bar_style();
+        assert_eq!(style.bg, Some(Color::Rgb(1, 1, 1)));
+        assert_eq!(style.fg, Some(Color::Rgb(254, 254, 254)));
+    }
+
+    #[test]
+    fn command_line_style_uses_both_bg_and_fg() {
+        let mut ui = UiTheme::default();
+        ui.colors.command_line_bg = "#020202".to_string();
+        ui.colors.command_line_fg = "#fdfdfd".to_string();
+        let style = ui.command_line_style();
+        assert_eq!(style.bg, Some(Color::Rgb(2, 2, 2)));
+        assert_eq!(style.fg, Some(Color::Rgb(253, 253, 253)));
+    }
+
+    #[test]
+    fn list_highlight_style_is_bold() {
+        let ui = UiTheme::default();
+        let style = ui.list_highlight_style();
+        assert!(style.add_modifier.contains(ratatui::style::Modifier::BOLD));
+        assert!(style.bg.is_some());
+        assert!(style.fg.is_some());
+    }
+
+    #[test]
+    fn simple_color_accessors_all_resolve_to_something_other_than_reset() {
+        let ui = UiTheme::default();
+        assert_ne!(ui.background(), Color::Reset);
+        assert_ne!(ui.foreground(), Color::Reset);
+        assert_ne!(ui.border(), Color::Reset);
+        assert_ne!(ui.border_focused(), Color::Reset);
+        assert_ne!(ui.cursor(), Color::Reset);
+        assert_ne!(ui.line_number(), Color::Reset);
+        assert_ne!(ui.line_number_current(), Color::Reset);
+        assert_ne!(ui.current_line_bg(), Color::Reset);
+        assert_ne!(ui.hint_text(), Color::Reset);
+        assert_ne!(ui.success(), Color::Reset);
+    }
+
+    #[test]
+    fn malformed_hex_in_a_color_field_degrades_to_reset_not_a_panic() {
+        let mut ui = UiTheme::default();
+        ui.colors.foreground = "not-a-hex-value".to_string();
+        // The whole point of parse_color's Reset fallback is that a typo'd
+        // theme file degrades gracefully instead of crashing the editor.
+        assert_eq!(ui.foreground(), Color::Reset);
+    }
+
+    #[test]
+    fn deserializes_from_partial_toml_filling_remaining_colors_with_defaults() {
+        let ui: UiTheme = toml::from_str(
+            r##"
+            [colors]
+            background = "#000000"
+            "##,
+        )
+        .unwrap();
+        assert_eq!(ui.background(), Color::Rgb(0, 0, 0));
+        // Untouched fields should still carry the UiColors::default() value
+        assert_eq!(ui.colors.foreground, UiColors::default().foreground);
+    }
+
+    #[test]
+    fn deserializes_from_completely_empty_toml() {
+        let ui: UiTheme = toml::from_str("").unwrap();
+        assert_eq!(ui.colors.background, UiColors::default().background);
+    }
+
+    #[test]
+    fn clone_is_independent_for_component_overrides() {
+        let original = UiTheme::default();
+        let mut cloned = original.clone();
+        cloned.components.popup_bg = Some("#abcdef".to_string());
+        assert!(original.components.popup_bg.is_none());
+        assert!(cloned.components.popup_bg.is_some());
     }
 }

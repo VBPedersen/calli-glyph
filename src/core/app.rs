@@ -12,7 +12,6 @@ use crate::input::input::handle_input;
 use crate::language::install::InstallManager;
 use crate::language::lsp::LspMessage;
 use crate::language::manager::LanguageManager;
-use crate::language::theme::Theme;
 use crate::plugins::github_auth_plugin::GithubAuthPlugin;
 use crate::plugins::plugin_registry::{Plugin, PluginManager};
 use crate::plugins::search_replace_plugin::SearchReplacePlugin;
@@ -197,8 +196,6 @@ impl App {
 
     /// Manually loads all default plugins, e.g. those made by [GOD]
     fn load_plugins_from_config(&mut self) {
-        use crate::plugins::test_plugin::TestPlugin;
-
         // Map of all plugins to load: plugin name and constructor
         let plugins_to_load: Vec<(&str, Box<dyn Plugin>)> = vec![
             ("theme_picker_plugin", Box::new(ThemePickerPlugin::new())),
