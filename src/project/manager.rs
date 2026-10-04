@@ -2,11 +2,11 @@
 //! project root, and dispatches "open the picker" to either the built-in
 //! `FileBrowserModal` or a configured external command.
 
-use super::browser::FileBrowserModal;
-use super::external_picker;
+use super::{external_picker, root_detect};
 use crate::config::project::PickerMode;
 use crate::core::app::App;
-use std::path::PathBuf;
+use crate::ui::modal::browser::FileBrowserModal;
+use std::path::{Path, PathBuf};
 
 /// Holds project-level state.
 /// TODO for now minimal: just the root, but home for later project view functionality
@@ -23,6 +23,14 @@ impl ProjectManager {
 
     pub fn set_root(&mut self, root: PathBuf) {
         self.root = Some(root);
+    }
+
+    /// Sets the root by auto-detecting it from `start` (a file or
+    /// directory). Walks up looking for `.git`/`.hg`/`.svn`, same as LSP
+    /// workspace-root detection. For implicit inference (e.g. at launch),
+    /// not for explicit user commands: see `set_root` for that case.
+    pub fn set_root_from_path(&mut self, start: &Path) {
+        self.root = Some(root_detect::find_project_root(start));
     }
 }
 
@@ -105,5 +113,32 @@ mod unit_manager_tests {
     fn default_matches_new() {
         let manager = ProjectManager::default();
         assert!(manager.root.is_none());
+    }
+
+
+    #[test]
+    fn set_root_from_path_walks_up_to_find_git_marker() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join(".git")).unwrap();
+        let nested = dir.path().join("src");
+        std::fs::create_dir(&nested).unwrap();
+
+        let mut manager = ProjectManager::new();
+        manager.set_root_from_path(&nested);
+        assert_eq!(manager.root, Some(dir.path().to_path_buf()));
+    }
+
+    #[test]
+    fn set_root_is_literal_and_does_not_walk_up() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join(".git")).unwrap();
+        let nested = dir.path().join("src");
+        std::fs::create_dir(&nested).unwrap();
+
+        let mut manager = ProjectManager::new();
+        manager.set_root(nested.clone());
+        // Unlike set_root_from_path, this should NOT walk up to the .git
+        // ancestor — the caller named this exact directory on purpose.
+        assert_eq!(manager.root, Some(nested));
     }
 }

@@ -146,6 +146,17 @@ impl App {
     /// Construct a new instance of [`App`].
     pub fn new(config: Config, launch_config: AppLaunchConfig) -> Self {
         let editor_config_arc = Arc::new(config.editor.clone());
+
+        // A directory passed at launch (`cglyph some/folder`) is a
+        // project root, not a file to open: File::open + read_to_string
+        // on a directory fails, and the existing error path there is a
+        // hard panic. Split that case off before it ever reaches file_path.
+        let (file_path, explicit_root) = match launch_config.file_path {
+            Some(path) if path.is_dir() => (None, Some(path)),
+            other => (other, None),
+        };
+
+
         let themes_dir = Config::get_config_base_dir()
             .map(|p| p.join("themes"))
             .unwrap_or_else(|_| PathBuf::from("themes"));
@@ -158,7 +169,7 @@ impl App {
             command_line: CommandLine::new(),
             cursor_visible: true,
             terminal_height: 0,
-            file_path: launch_config.file_path,
+            file_path,
             popup: None,
             popup_result: PopupResult::None,
             pending_states: VecDeque::new(),
@@ -180,6 +191,20 @@ impl App {
             project_manager: ProjectManager::new(),
             force_full_redraw: false,
         };
+
+        // Explicit directory launch: no walk-up.
+        // Otherwise, auto-detect from whatever file
+        // (if any) was opened, same algorithm LSP's workspace-root uses.
+        match explicit_root {
+            Some(dir) => app.project_manager.set_root(dir),
+            None => {
+                let start = app
+                    .file_path
+                    .clone()
+                    .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+                app.project_manager.set_root_from_path(&start);
+            }
+        }
 
         // Load default plugins
         app.load_plugins_from_config();

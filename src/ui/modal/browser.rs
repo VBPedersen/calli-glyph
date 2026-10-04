@@ -4,7 +4,7 @@
 //! "builtin"` (the default), and is always available as a fallback even
 //! when an external picker is configured, in case it isn't installed.
 
-use super::tree::{FileNode, VisibleRow};
+use crate::project::tree::{FileNode, VisibleRow};
 use crate::core::app::App;
 use crate::input::actions::{InputAction, ModalAction};
 use crate::ui::modal::{Modal, ModalResponse};
@@ -61,6 +61,16 @@ impl FileBrowserModal {
         self.keep_cursor_in_view();
     }
 
+    fn jump_to_top(&mut self) {
+        self.cursor = 0;
+        self.scroll = 0;
+    }
+
+    fn jump_to_bottom(&mut self) {
+        self.cursor = self.rows.len().saturating_sub(1);
+        self.keep_cursor_in_view();
+    }
+
     fn keep_cursor_in_view(&mut self) {
         if self.cursor < self.scroll {
             self.scroll = self.cursor;
@@ -109,6 +119,27 @@ impl FileBrowserModal {
         }
     }
 
+    /// "Enter" the selected directory: re-roots the *browser's own view*
+    /// at that directory (so you're now browsing from inside it, same as
+    /// closing and reopening with that path), and also updates
+    /// `app.project_manager.root` to match. So the new root sticks for
+    /// `:explore` next time, not just for this one browser session.
+    /// No-op on a file.
+    fn enter_as_root(&mut self, app: &mut App) {
+        let Some(row) = self.selected().cloned() else {
+            return;
+        };
+        if !row.is_dir {
+            return;
+        }
+
+        self.root = FileNode::new_root(row.path.clone());
+        self.cursor = 0;
+        self.scroll = 0;
+        self.rebuild_rows();
+        app.project_manager.set_root(row.path);
+    }
+
     /// Enter on a directory toggles expand; on a file, opens it and
     /// closes the browser.
     fn confirm_selected(&mut self, app: &mut App) -> ModalResponse {
@@ -142,14 +173,9 @@ impl Modal for FileBrowserModal {
             ModalAction::Confirm => return self.confirm_selected(app),
             ModalAction::Action('l') => self.expand_selected(),
             ModalAction::Action('h') => self.collapse_selected(),
-            ModalAction::Action('g') => {
-                self.cursor = 0;
-                self.scroll = 0;
-            }
-            ModalAction::Action('G') => {
-                self.cursor = self.rows.len().saturating_sub(1);
-                self.keep_cursor_in_view();
-            }
+            ModalAction::Action('r') => self.enter_as_root(app),
+            ModalAction::Action('g') => self.jump_to_top(),
+            ModalAction::Action('b') => self.jump_to_bottom(),
             _ => {}
         }
         ModalResponse::Consumed
@@ -176,7 +202,7 @@ impl Modal for FileBrowserModal {
         self.render_rows(frame, ui, chunks[0]);
 
         let hint = Paragraph::new(
-            "↑↓/jk: move  l/→: expand  h/←: collapse/up  Enter: open  g/G: top/bottom  Esc: close",
+            "↑↓/jk: move  l/→: expand  h/←: collapse/up  r: enter as root  Enter: open  g/b: top/bottom  Esc: close",
         )
         .style(Style::default().fg(ui.hint_text()));
         frame.render_widget(hint, chunks[1]);
@@ -239,15 +265,39 @@ impl FileBrowserModal {
     }
 }
 
+
+
 #[cfg(test)]
 mod unit_browser_tests {
     use super::*;
+    use std::sync::Mutex;
     use tempfile::tempdir;
 
     fn make_tree(dir: &std::path::Path) {
         std::fs::create_dir(dir.join("src")).unwrap();
         std::fs::write(dir.join("src").join("main.rs"), "").unwrap();
         std::fs::write(dir.join("Cargo.toml"), "").unwrap();
+    }
+
+    // Same disk-isolation pattern as the plugin tests elsewhere in this
+    // codebase — enter_as_root touches app.project_manager via a real App.
+    static CONFIG_DIR_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    fn with_isolated_config_dir<F: FnOnce()>(f: F) {
+        let _guard = CONFIG_DIR_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let dir = tempdir().unwrap();
+        let prev = std::env::var("XDG_CONFIG_HOME").ok();
+        std::env::set_var("XDG_CONFIG_HOME", dir.path());
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
+        match prev {
+            Some(v) => std::env::set_var("XDG_CONFIG_HOME", v),
+            None => std::env::remove_var("XDG_CONFIG_HOME"),
+        }
+        if let Err(payload) = result {
+            std::panic::resume_unwind(payload);
+        }
     }
 
     #[test]
@@ -290,12 +340,67 @@ mod unit_browser_tests {
     }
 
     #[test]
+    fn jump_to_top_resets_cursor_and_scroll() {
+        let dir = tempdir().unwrap();
+        make_tree(dir.path());
+        let mut modal = FileBrowserModal::new(dir.path().to_path_buf());
+        modal.move_down();
+        modal.move_down();
+        modal.jump_to_top();
+        assert_eq!(modal.cursor, 0);
+        assert_eq!(modal.scroll, 0);
+    }
+
+    #[test]
+    fn jump_to_bottom_moves_cursor_to_last_row() {
+        let dir = tempdir().unwrap();
+        make_tree(dir.path());
+        let mut modal = FileBrowserModal::new(dir.path().to_path_buf());
+        let row_count = modal.rows.len();
+        modal.jump_to_bottom();
+        assert_eq!(modal.cursor, row_count - 1);
+    }
+
+    #[test]
+    fn jump_to_bottom_from_already_at_bottom_is_a_no_op() {
+        let dir = tempdir().unwrap();
+        make_tree(dir.path());
+        let mut modal = FileBrowserModal::new(dir.path().to_path_buf());
+        modal.jump_to_bottom();
+        let after_first = modal.cursor;
+        modal.jump_to_bottom();
+        assert_eq!(modal.cursor, after_first);
+    }
+
+    #[test]
+    fn jump_to_bottom_reflects_newly_expanded_rows() {
+        let dir = tempdir().unwrap();
+        make_tree(dir.path());
+        let mut modal = FileBrowserModal::new(dir.path().to_path_buf());
+        let before_expand_bottom = {
+            modal.jump_to_bottom();
+            modal.cursor
+        };
+
+        modal.cursor = 1; // "src"
+        modal.expand_selected();
+        modal.jump_to_bottom();
+
+        // Depth-first flatten order after expanding "src" is:
+        // root, src, main.rs (src's child), Cargo.toml (root's other
+        // child, a sibling of src, so it still sorts after src's whole
+        // subtree) — so the bottom row is Cargo.toml, not main.rs.
+        assert!(modal.cursor > before_expand_bottom, "expanding should reveal more rows below");
+        assert_eq!(modal.rows[modal.cursor].name, "Cargo.toml");
+        assert!(modal.rows.iter().any(|r| r.name == "main.rs"), "main.rs should be visible somewhere");
+    }
+
+    #[test]
     fn expand_selected_on_collapsed_dir_reveals_its_children() {
         let dir = tempdir().unwrap();
         make_tree(dir.path());
         let mut modal = FileBrowserModal::new(dir.path().to_path_buf());
 
-        // Root's children: Cargo.toml, src (dirs sort first -> src is row 1)
         modal.cursor = 1;
         assert_eq!(modal.rows[1].name, "src");
         assert!(!modal.rows[1].expanded);
@@ -310,11 +415,7 @@ mod unit_browser_tests {
         make_tree(dir.path());
         let mut modal = FileBrowserModal::new(dir.path().to_path_buf());
 
-        let file_row_idx = modal
-            .rows
-            .iter()
-            .position(|r| r.name == "Cargo.toml")
-            .unwrap();
+        let file_row_idx = modal.rows.iter().position(|r| r.name == "Cargo.toml").unwrap();
         modal.cursor = file_row_idx;
         let row_count_before = modal.rows.len();
         modal.expand_selected();
@@ -354,10 +455,67 @@ mod unit_browser_tests {
         make_tree(dir.path());
         let mut modal = FileBrowserModal::new(dir.path().to_path_buf());
         modal.cursor = 1;
-        modal.expand_selected(); // now more rows exist
-        modal.cursor = modal.rows.len() - 1; // sit on the last (deepest) row
+        modal.expand_selected();
+        modal.cursor = modal.rows.len() - 1;
 
-        modal.collapse_selected(); // rows shrink back down
+        modal.collapse_selected();
         assert!(modal.cursor < modal.rows.len());
+    }
+
+    #[test]
+    fn enter_as_root_on_file_does_nothing() {
+        with_isolated_config_dir(|| {
+            let dir = tempdir().unwrap();
+            make_tree(dir.path());
+            let mut modal = FileBrowserModal::new(dir.path().to_path_buf());
+            let mut app = App::default();
+
+            let file_idx = modal.rows.iter().position(|r| r.name == "Cargo.toml").unwrap();
+            modal.cursor = file_idx;
+            let root_path_before = modal.root.path.clone();
+
+            modal.enter_as_root(&mut app);
+
+            assert_eq!(modal.root.path, root_path_before);
+            assert!(app.project_manager.root.is_none());
+        });
+    }
+
+    #[test]
+    fn enter_as_root_on_directory_reroots_the_browser_view() {
+        with_isolated_config_dir(|| {
+            let dir = tempdir().unwrap();
+            make_tree(dir.path());
+            let mut modal = FileBrowserModal::new(dir.path().to_path_buf());
+            let mut app = App::default();
+
+            modal.cursor = 1; // "src"
+            let src_path = dir.path().join("src");
+
+            modal.enter_as_root(&mut app);
+
+            assert_eq!(modal.root.path, src_path);
+            assert_eq!(modal.cursor, 0);
+            // The browser's new root should show main.rs directly (it's
+            // now inside src/, not nested under a "src" row anymore).
+            assert!(modal.rows.iter().any(|r| r.name == "main.rs"));
+        });
+    }
+
+    #[test]
+    fn enter_as_root_on_directory_updates_project_manager_root() {
+        with_isolated_config_dir(|| {
+            let dir = tempdir().unwrap();
+            make_tree(dir.path());
+            let mut modal = FileBrowserModal::new(dir.path().to_path_buf());
+            let mut app = App::default();
+
+            modal.cursor = 1; // "src"
+            let src_path = dir.path().join("src");
+
+            modal.enter_as_root(&mut app);
+
+            assert_eq!(app.project_manager.root, Some(src_path));
+        });
     }
 }
