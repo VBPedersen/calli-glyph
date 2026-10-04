@@ -16,6 +16,8 @@
 //! * [`config`]:  Management of settings and persistent data.
 //! * [`errors`]:  Management of custom error structs.
 //! * [`language`]: Management of language related logic, i.e. tree-sitter and LSP logic
+//! * [`theme`]: Management of theme for use in UI.
+//! * [`project`]: Management of project related logic, e.g. file picker and project overview.
 
 //expose modules
 #[macro_use]
@@ -37,3 +39,5 @@ pub mod plugins;
 
 pub mod language;
 pub mod theme;
+
+pub mod project;

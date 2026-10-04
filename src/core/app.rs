@@ -14,8 +14,10 @@ use crate::language::lsp::LspMessage;
 use crate::language::manager::LanguageManager;
 use crate::plugins::github_auth_plugin::GithubAuthPlugin;
 use crate::plugins::plugin_registry::{Plugin, PluginManager};
+use crate::plugins::project_explorer_plugin::ProjectExplorerPlugin;
 use crate::plugins::search_replace_plugin::SearchReplacePlugin;
 use crate::plugins::theme_picker_plugin::ThemePickerPlugin;
+use crate::project::ProjectManager;
 use crate::theme::ThemeManager;
 use crate::ui::debug::DebugView;
 use crate::ui::layout::UILayout;
@@ -59,6 +61,11 @@ pub struct App {
     pub install_manager: InstallManager,
     pub modal_stack: Vec<Box<dyn Modal>>,
     pub theme_manager: ThemeManager,
+    pub project_manager: ProjectManager,
+    /// Set true after resuming from a suspended terminal (external picker).
+    /// ratatui's diff buffer doesn't know the physical screen changed while
+    /// suspended, so the next draw needs a forced full redraw.
+    pub force_full_redraw: bool,
 }
 
 pub type OpCallback = Box<dyn FnOnce(&mut App)>;
@@ -124,6 +131,8 @@ impl Default for App {
             install_manager: InstallManager::new(),
             modal_stack: vec![],
             theme_manager,
+            project_manager: ProjectManager::new(),
+            force_full_redraw: false,
         };
 
         // Load default plugins
@@ -156,7 +165,7 @@ impl App {
             debug_state: DebugState::new(),
             debug_view: DebugView::new(),
             content_modified: false,
-            plugins: Default::default(),
+            plugins: PluginManager::new(),
             layout: UILayout::default(Rect::default()),
             help_registry: Arc::new(
                 HelpRegistry::load_from(HelpRegistry::default_docs_path()).unwrap_or_else(|e| {
@@ -168,6 +177,8 @@ impl App {
             language: LanguageManager::new(),
             modal_stack: vec![],
             theme_manager,
+            project_manager: ProjectManager::new(),
+            force_full_redraw: false,
         };
 
         // Load default plugins
@@ -204,6 +215,10 @@ impl App {
                 Box::new(SearchReplacePlugin::new()),
             ),
             ("github_auth_plugin", Box::new(GithubAuthPlugin::new())),
+            (
+                "project_explorer_plugin",
+                Box::new(ProjectExplorerPlugin::new()),
+            ),
         ];
 
         // Only load enabled plugins
@@ -284,6 +299,12 @@ impl App {
         let mut last_cursor_toggle = Instant::now();
 
         while self.running {
+            // Check if app needs to force a full redraw (e.g. after use of other external terminal app)
+            if self.force_full_redraw {
+                terminal.clear()?;
+                self.force_full_redraw = false;
+            }
+
             // Only draw if needed (lazy redraw)
             if !self.config.performance.lazy_redraw || needs_redraw {
                 terminal.draw(|frame| self.render_ui(frame))?;
