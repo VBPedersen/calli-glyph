@@ -2,12 +2,12 @@
 //! picker, built-in browser or an external tool, per
 //! `config.project.file_picker`.
 
-use std::path::PathBuf;
 use crate::core::app::App;
 use crate::errors::plugin_error::PluginError;
 use crate::plugins::plugin_registry::{Plugin, PluginCommand, PluginMetadata};
 use crate::project::open_file_picker;
 use ratatui::Frame;
+use std::path::PathBuf;
 
 pub struct ProjectExplorerPlugin;
 
@@ -112,7 +112,6 @@ fn handle_cd(app: &mut App, args: Vec<String>) -> Result<(), PluginError> {
     Ok(())
 }
 
-
 #[cfg(test)]
 mod unit_project_explorer_plugin_tests {
     use super::*;
@@ -147,7 +146,11 @@ mod unit_project_explorer_plugin_tests {
         let metadata = plugin.metadata();
         assert_eq!(metadata.commands.len(), 2);
 
-        let explore = metadata.commands.iter().find(|c| c.name == "explore").unwrap();
+        let explore = metadata
+            .commands
+            .iter()
+            .find(|c| c.name == "explore")
+            .unwrap();
         assert!(explore.aliases.contains(&"files".to_string()));
 
         let cd = metadata.commands.iter().find(|c| c.name == "cd").unwrap();
@@ -228,7 +231,10 @@ mod unit_project_explorer_plugin_tests {
     fn explore_in_builtin_mode_pushes_a_modal() {
         with_isolated_config_dir(|| {
             let mut app = App::default();
-            assert_eq!(app.config.project.file_picker.mode, crate::config::project::PickerMode::Builtin);
+            assert_eq!(
+                app.config.project.file_picker.mode,
+                crate::config::project::PickerMode::Builtin
+            );
             let before = app.modal_stack.len();
 
             handle_explore(&mut app, vec![]).unwrap();
@@ -237,4 +243,3 @@ mod unit_project_explorer_plugin_tests {
         });
     }
 }
-

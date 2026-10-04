@@ -115,7 +115,6 @@ mod unit_manager_tests {
         assert!(manager.root.is_none());
     }
 
-
     #[test]
     fn set_root_from_path_walks_up_to_find_git_marker() {
         let dir = tempfile::tempdir().unwrap();

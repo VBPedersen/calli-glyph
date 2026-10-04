@@ -156,7 +156,6 @@ impl App {
             other => (other, None),
         };
 
-
         let themes_dir = Config::get_config_base_dir()
             .map(|p| p.join("themes"))
             .unwrap_or_else(|_| PathBuf::from("themes"));
@@ -198,10 +197,9 @@ impl App {
         match explicit_root {
             Some(dir) => app.project_manager.set_root(dir),
             None => {
-                let start = app
-                    .file_path
-                    .clone()
-                    .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+                let start = app.file_path.clone().unwrap_or_else(|| {
+                    std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+                });
                 app.project_manager.set_root_from_path(&start);
             }
         }

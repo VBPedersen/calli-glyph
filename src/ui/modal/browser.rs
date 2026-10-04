@@ -4,9 +4,9 @@
 //! "builtin"` (the default), and is always available as a fallback even
 //! when an external picker is configured, in case it isn't installed.
 
-use crate::project::tree::{FileNode, VisibleRow};
 use crate::core::app::App;
 use crate::input::actions::{InputAction, ModalAction};
+use crate::project::tree::{FileNode, VisibleRow};
 use crate::ui::modal::{Modal, ModalResponse};
 use crate::ui::ui::centered_rect;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -265,8 +265,6 @@ impl FileBrowserModal {
     }
 }
 
-
-
 #[cfg(test)]
 mod unit_browser_tests {
     use super::*;
@@ -390,9 +388,15 @@ mod unit_browser_tests {
         // root, src, main.rs (src's child), Cargo.toml (root's other
         // child, a sibling of src, so it still sorts after src's whole
         // subtree) — so the bottom row is Cargo.toml, not main.rs.
-        assert!(modal.cursor > before_expand_bottom, "expanding should reveal more rows below");
+        assert!(
+            modal.cursor > before_expand_bottom,
+            "expanding should reveal more rows below"
+        );
         assert_eq!(modal.rows[modal.cursor].name, "Cargo.toml");
-        assert!(modal.rows.iter().any(|r| r.name == "main.rs"), "main.rs should be visible somewhere");
+        assert!(
+            modal.rows.iter().any(|r| r.name == "main.rs"),
+            "main.rs should be visible somewhere"
+        );
     }
 
     #[test]
@@ -415,7 +419,11 @@ mod unit_browser_tests {
         make_tree(dir.path());
         let mut modal = FileBrowserModal::new(dir.path().to_path_buf());
 
-        let file_row_idx = modal.rows.iter().position(|r| r.name == "Cargo.toml").unwrap();
+        let file_row_idx = modal
+            .rows
+            .iter()
+            .position(|r| r.name == "Cargo.toml")
+            .unwrap();
         modal.cursor = file_row_idx;
         let row_count_before = modal.rows.len();
         modal.expand_selected();
@@ -470,7 +478,11 @@ mod unit_browser_tests {
             let mut modal = FileBrowserModal::new(dir.path().to_path_buf());
             let mut app = App::default();
 
-            let file_idx = modal.rows.iter().position(|r| r.name == "Cargo.toml").unwrap();
+            let file_idx = modal
+                .rows
+                .iter()
+                .position(|r| r.name == "Cargo.toml")
+                .unwrap();
             modal.cursor = file_idx;
             let root_path_before = modal.root.path.clone();
 

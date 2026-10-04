@@ -1,5 +1,5 @@
-pub mod lang_modal;
 pub mod browser;
+pub mod lang_modal;
 
 use crate::core::app::App;
 use crate::input::actions::InputAction;
