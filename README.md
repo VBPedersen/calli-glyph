@@ -48,7 +48,7 @@ cd calli-glyph
 Build and run
 ```bash
 cargo build --release
-./target/release/calli-glyph <filename>
+./target/release/cglyph <filename>
 ```
 I suggest adding the application to ones PATH to run simplify running
 
@@ -57,12 +57,12 @@ I suggest adding the application to ones PATH to run simplify running
 
 Start the editor with a file:
 ```bash
-calli-glyph notes.txt
+cglyph notes.txt
 ```
 
 Furter information can be found with running help command
 ```bash
-calli-glyph -h
+cglyph -h
 ```
 
 🗂️Project layout
