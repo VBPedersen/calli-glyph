@@ -3,7 +3,7 @@ use crate::input::actions::{Direction, InputAction, PopupAction};
 use crate::ui::popups::popup::{Popup, PopupResult, PopupType};
 use ratatui::layout::Direction::Vertical;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Color, Style};
+use ratatui::style::Style;
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 use ratatui::Frame;

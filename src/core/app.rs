@@ -598,42 +598,73 @@ impl App {
         let state = self.pending_states.pop_front().unwrap();
 
         // Only check state if confirmed, since these functionalities should only execute when confirmed
-        if confirmed {
-            match state {
-                PendingState::Saving(path) => {
+        match state {
+            PendingState::Saving(path) => {
+                if confirmed {
                     //Should only execute if confirmed (clicked yes)
-                    match self.save_to_path(&*path.clone()) {
-                        Ok(()) => {
-                            self.close_popup();
-                        }
-                        Err(e) => {
-                            let popup = Box::new(ErrorPopup::new(
-                                "Failed to save file",
-                                AppError::InternalError(e.to_string()),
-                            ));
-                            self.open_popup(popup);
-                        }
+                    if let Err(e) = self.save_to_path(&*path.clone()) {
+                        // On error, cancel subsequent pending states (like opening the next file)
+                        self.pending_states.clear();
+                        let popup = Box::new(ErrorPopup::new(
+                            "Failed to save file",
+                            AppError::InternalError(e.to_string()),
+                        ));
+                        self.open_popup(popup);
+                        self.popup_result = PopupResult::None;
+                        return;
                     }
                 }
-                PendingState::ConfigEdit { on_confirm } => {
-                    //Should only execute if confirmed (clicked yes)
+
+                // If saved successfully or user clicked No (don't save),
+                // continue processing remaining pending states (e.g. OpenFile)
+                self.close_popup();
+                self.popup_result = PopupResult::None;
+
+                if !self.pending_states.is_empty() {
+                    // Directly execute next state now that saving choice is settled
+                    if let Some(next_state) = self.pending_states.pop_front() {
+                        self.execute_pending_state(next_state);
+                    }
+                }
+            }
+            PendingState::ConfigEdit { on_confirm } => {
+                //Should only execute if confirmed (clicked yes)
+                if confirmed {
                     on_confirm(self);
+                }
+                self.popup_result = PopupResult::None;
+                self.close_popup();
+            }
+            PendingState::Quitting => {
+                if confirmed {
+                    self.quit();
+                } else {
+                    self.popup_result = PopupResult::None;
                     self.close_popup();
                 }
-                PendingState::Quitting => self.quit(),
-                PendingState::OpenFile { path, jump_to_line } => {
-                    log_info!("Opening file: {}", path.to_string_lossy());
-                    self.load_file_into_editor(&path, jump_to_line);
-                    self.close_popup();
-                }
-                _ => {}
+            }
+            PendingState::OpenFile { path, jump_to_line } => {
+                log_info!("Opening file: {}", path.to_string_lossy());
+                self.load_file_into_editor(&path, jump_to_line);
+                self.popup_result = PopupResult::None;
+                self.close_popup();
+            }
+            _ => {
+                self.popup_result = PopupResult::None;
+                self.close_popup();
             }
         }
-        self.popup_result = PopupResult::None;
-        self.close_popup();
-        // Check again if there's more to do (like Quitting after Saving)
-        if !self.pending_states.is_empty() {
-            self.handle_confirmation_popup_response();
+    }
+
+    /// Helper method to execute follow-up pending states directly without requiring popup_result
+    fn execute_pending_state(&mut self, state: PendingState) {
+        match state {
+            PendingState::OpenFile { path, jump_to_line } => {
+                log_info!("Opening file: {}", path.to_string_lossy());
+                self.load_file_into_editor(&path, jump_to_line);
+            }
+            PendingState::Quitting => self.quit(),
+            _ => {}
         }
     }
 

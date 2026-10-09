@@ -316,7 +316,7 @@ mod unit_tree_tests {
     fn flatten_visible_includes_expanded_but_not_collapsed_subdirs() {
         let dir = tempdir().unwrap();
         make_tree(dir.path());
-        let mut root = FileNode::new_root(dir.path().to_path_buf());
+        let root = FileNode::new_root(dir.path().to_path_buf());
 
         // root expanded (default) but a_dir is not -> a_dir's child should be absent
         let mut rows = vec![];
