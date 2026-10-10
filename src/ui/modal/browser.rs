@@ -140,6 +140,21 @@ impl FileBrowserModal {
         app.project_manager.set_root(row.path);
     }
 
+    /// Goes back up a step to the parent of the current browser root,
+    /// if a parent directory exists. Updates both the browser view and
+    /// `app.project_manager.root`.
+    fn cd_up(&mut self, app: &mut App) {
+        if let Some(parent) = self.root.path.parent() {
+            let parent_path = parent.to_path_buf();
+            self.root = FileNode::new_root(parent_path.clone());
+            self.cursor = 0;
+            self.scroll = 0;
+            self.rebuild_rows();
+            app.project_manager.set_root(parent_path);
+        }
+    }
+
+
     /// Enter on a directory toggles expand; on a file, opens it and
     /// closes the browser.
     fn confirm_selected(&mut self, app: &mut App) -> ModalResponse {
@@ -174,6 +189,7 @@ impl Modal for FileBrowserModal {
             ModalAction::Action('l') => self.expand_selected(),
             ModalAction::Action('h') => self.collapse_selected(),
             ModalAction::Action('r') => self.enter_as_root(app),
+            ModalAction::Action('u') => self.cd_up(app),
             ModalAction::Action('g') => self.jump_to_top(),
             ModalAction::Action('b') => self.jump_to_bottom(),
             _ => {}
@@ -202,7 +218,7 @@ impl Modal for FileBrowserModal {
         self.render_rows(frame, ui, chunks[0]);
 
         let hint = Paragraph::new(
-            "↑↓/jk: move  l/→: expand  h/←: collapse/up  r: enter as root  Enter: open  g/b: top/bottom  Esc: close",
+            "↑↓/jk: move  l/→: expand  h/←: collapse/up  r: enter as root u: cd up Enter: open  g/b: top/bottom  Esc: close",
         )
         .style(Style::default().fg(ui.hint_text()));
         frame.render_widget(hint, chunks[1]);
@@ -528,6 +544,54 @@ mod unit_browser_tests {
             modal.enter_as_root(&mut app);
 
             assert_eq!(app.project_manager.root, Some(src_path));
+        });
+    }
+
+    #[test]
+    fn cd_up_on_directory_reroots_to_parent() {
+        with_isolated_config_dir(|| {
+            let dir = tempdir().unwrap();
+            make_tree(dir.path());
+
+            // Start the browser rooted inside a subdirectory ("src")
+            let src_path = dir.path().join("src");
+            let mut modal = FileBrowserModal::new(src_path.clone());
+            let mut app = App::default();
+
+            assert_eq!(modal.root.path, src_path);
+
+            // Call cd_up to go back to the parent directory
+            modal.cd_up(&mut app);
+
+            let expected_parent = dir.path().canonicalize().unwrap();
+            let actual_root = modal.root.path.canonicalize().unwrap();
+
+            assert_eq!(actual_root, expected_parent);
+            assert_eq!(modal.cursor, 0);
+            assert_eq!(
+                app.project_manager.root.as_ref().map(|p| p.canonicalize().unwrap()),
+                Some(expected_parent.clone())
+            );
+        });
+    }
+
+    #[test]
+    fn cd_up_refreshes_rows_to_show_parent_contents() {
+        with_isolated_config_dir(|| {
+            let dir = tempdir().unwrap();
+            make_tree(dir.path());
+
+            let src_path = dir.path().join("src");
+            let mut modal = FileBrowserModal::new(src_path.clone());
+            let mut app = App::default();
+
+            // While inside "src", Cargo.toml (which is in the parent root) shouldn't be visible
+            assert!(!modal.rows.iter().any(|r| r.name == "Cargo.toml"));
+
+            modal.cd_up(&mut app);
+
+            // After cd_up, the browser is back at the parent root, so Cargo.toml should be visible again
+            assert!(modal.rows.iter().any(|r| r.name == "Cargo.toml"));
         });
     }
 }
