@@ -154,7 +154,6 @@ impl FileBrowserModal {
         }
     }
 
-
     /// Enter on a directory toggles expand; on a file, opens it and
     /// closes the browser.
     fn confirm_selected(&mut self, app: &mut App) -> ModalResponse {
@@ -569,7 +568,10 @@ mod unit_browser_tests {
             assert_eq!(actual_root, expected_parent);
             assert_eq!(modal.cursor, 0);
             assert_eq!(
-                app.project_manager.root.as_ref().map(|p| p.canonicalize().unwrap()),
+                app.project_manager
+                    .root
+                    .as_ref()
+                    .map(|p| p.canonicalize().unwrap()),
                 Some(expected_parent.clone())
             );
         });
