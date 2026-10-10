@@ -9,12 +9,14 @@ mod keymaps; //Keybinding config
 pub mod lsp;
 mod performance; //Performance settings
 pub mod plugins;
+pub mod project;
 pub mod syntax;
 mod ui;
 //UI settings //Default configurations
 
 use crate::config::keymaps::RuntimeKeymaps;
 use crate::config::plugins::PluginsConfig;
+use crate::config::project::ProjectConfig;
 pub(crate) use crate::config::syntax::SyntaxConfig;
 use crate::errors::config_errors::ConfigError;
 pub use editor::EditorConfig;
@@ -43,6 +45,7 @@ pub struct Config {
     pub plugins: PluginsConfig,
     pub lsp: LspConfig,
     pub syntax: SyntaxConfig,
+    pub project: ProjectConfig,
 
     // Runtime keymaps (not serialized)
     #[serde(skip)]
@@ -416,6 +419,7 @@ impl Default for Config {
             runtime_keymaps,
             lsp: LspConfig::default(),
             syntax: SyntaxConfig::default(),
+            project: ProjectConfig::default(),
         }
     }
 }

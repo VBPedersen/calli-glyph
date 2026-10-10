@@ -14,8 +14,10 @@ use crate::language::lsp::LspMessage;
 use crate::language::manager::LanguageManager;
 use crate::plugins::github_auth_plugin::GithubAuthPlugin;
 use crate::plugins::plugin_registry::{Plugin, PluginManager};
+use crate::plugins::project_explorer_plugin::ProjectExplorerPlugin;
 use crate::plugins::search_replace_plugin::SearchReplacePlugin;
 use crate::plugins::theme_picker_plugin::ThemePickerPlugin;
+use crate::project::ProjectManager;
 use crate::theme::ThemeManager;
 use crate::ui::debug::DebugView;
 use crate::ui::layout::UILayout;
@@ -59,6 +61,11 @@ pub struct App {
     pub install_manager: InstallManager,
     pub modal_stack: Vec<Box<dyn Modal>>,
     pub theme_manager: ThemeManager,
+    pub project_manager: ProjectManager,
+    /// Set true after resuming from a suspended terminal (external picker).
+    /// ratatui's diff buffer doesn't know the physical screen changed while
+    /// suspended, so the next draw needs a forced full redraw.
+    pub force_full_redraw: bool,
 }
 
 pub type OpCallback = Box<dyn FnOnce(&mut App)>;
@@ -124,6 +131,8 @@ impl Default for App {
             install_manager: InstallManager::new(),
             modal_stack: vec![],
             theme_manager,
+            project_manager: ProjectManager::new(),
+            force_full_redraw: false,
         };
 
         // Load default plugins
@@ -137,6 +146,16 @@ impl App {
     /// Construct a new instance of [`App`].
     pub fn new(config: Config, launch_config: AppLaunchConfig) -> Self {
         let editor_config_arc = Arc::new(config.editor.clone());
+
+        // A directory passed at launch (`cglyph some/folder`) is a
+        // project root, not a file to open: File::open + read_to_string
+        // on a directory fails, and the existing error path there is a
+        // hard panic. Split that case off before it ever reaches file_path.
+        let (file_path, explicit_root) = match launch_config.file_path {
+            Some(path) if path.is_dir() => (None, Some(path)),
+            other => (other, None),
+        };
+
         let themes_dir = Config::get_config_base_dir()
             .map(|p| p.join("themes"))
             .unwrap_or_else(|_| PathBuf::from("themes"));
@@ -149,14 +168,14 @@ impl App {
             command_line: CommandLine::new(),
             cursor_visible: true,
             terminal_height: 0,
-            file_path: launch_config.file_path,
+            file_path,
             popup: None,
             popup_result: PopupResult::None,
             pending_states: VecDeque::new(),
             debug_state: DebugState::new(),
             debug_view: DebugView::new(),
             content_modified: false,
-            plugins: Default::default(),
+            plugins: PluginManager::new(),
             layout: UILayout::default(Rect::default()),
             help_registry: Arc::new(
                 HelpRegistry::load_from(HelpRegistry::default_docs_path()).unwrap_or_else(|e| {
@@ -168,7 +187,22 @@ impl App {
             language: LanguageManager::new(),
             modal_stack: vec![],
             theme_manager,
+            project_manager: ProjectManager::new(),
+            force_full_redraw: false,
         };
+
+        // Explicit directory launch: no walk-up.
+        // Otherwise, auto-detect from whatever file
+        // (if any) was opened, same algorithm LSP's workspace-root uses.
+        match explicit_root {
+            Some(dir) => app.project_manager.set_root(dir),
+            None => {
+                let start = app.file_path.clone().unwrap_or_else(|| {
+                    std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+                });
+                app.project_manager.set_root_from_path(&start);
+            }
+        }
 
         // Load default plugins
         app.load_plugins_from_config();
@@ -204,6 +238,10 @@ impl App {
                 Box::new(SearchReplacePlugin::new()),
             ),
             ("github_auth_plugin", Box::new(GithubAuthPlugin::new())),
+            (
+                "project_explorer_plugin",
+                Box::new(ProjectExplorerPlugin::new()),
+            ),
         ];
 
         // Only load enabled plugins
@@ -284,6 +322,12 @@ impl App {
         let mut last_cursor_toggle = Instant::now();
 
         while self.running {
+            // Check if app needs to force a full redraw (e.g. after use of other external terminal app)
+            if self.force_full_redraw {
+                terminal.clear()?;
+                self.force_full_redraw = false;
+            }
+
             // Only draw if needed (lazy redraw)
             if !self.config.performance.lazy_redraw || needs_redraw {
                 terminal.draw(|frame| self.render_ui(frame))?;
@@ -554,42 +598,73 @@ impl App {
         let state = self.pending_states.pop_front().unwrap();
 
         // Only check state if confirmed, since these functionalities should only execute when confirmed
-        if confirmed {
-            match state {
-                PendingState::Saving(path) => {
+        match state {
+            PendingState::Saving(path) => {
+                if confirmed {
                     //Should only execute if confirmed (clicked yes)
-                    match self.save_to_path(&*path.clone()) {
-                        Ok(()) => {
-                            self.close_popup();
-                        }
-                        Err(e) => {
-                            let popup = Box::new(ErrorPopup::new(
-                                "Failed to save file",
-                                AppError::InternalError(e.to_string()),
-                            ));
-                            self.open_popup(popup);
-                        }
+                    if let Err(e) = self.save_to_path(&*path.clone()) {
+                        // On error, cancel subsequent pending states (like opening the next file)
+                        self.pending_states.clear();
+                        let popup = Box::new(ErrorPopup::new(
+                            "Failed to save file",
+                            AppError::InternalError(e.to_string()),
+                        ));
+                        self.open_popup(popup);
+                        self.popup_result = PopupResult::None;
+                        return;
                     }
                 }
-                PendingState::ConfigEdit { on_confirm } => {
-                    //Should only execute if confirmed (clicked yes)
+
+                // If saved successfully or user clicked No (don't save),
+                // continue processing remaining pending states (e.g. OpenFile)
+                self.close_popup();
+                self.popup_result = PopupResult::None;
+
+                if !self.pending_states.is_empty() {
+                    // Directly execute next state now that saving choice is settled
+                    if let Some(next_state) = self.pending_states.pop_front() {
+                        self.execute_pending_state(next_state);
+                    }
+                }
+            }
+            PendingState::ConfigEdit { on_confirm } => {
+                //Should only execute if confirmed (clicked yes)
+                if confirmed {
                     on_confirm(self);
+                }
+                self.popup_result = PopupResult::None;
+                self.close_popup();
+            }
+            PendingState::Quitting => {
+                if confirmed {
+                    self.quit();
+                } else {
+                    self.popup_result = PopupResult::None;
                     self.close_popup();
                 }
-                PendingState::Quitting => self.quit(),
-                PendingState::OpenFile { path, jump_to_line } => {
-                    log_info!("Opening file: {}", path.to_string_lossy());
-                    self.load_file_into_editor(&path, jump_to_line);
-                    self.close_popup();
-                }
-                _ => {}
+            }
+            PendingState::OpenFile { path, jump_to_line } => {
+                log_info!("Opening file: {}", path.to_string_lossy());
+                self.load_file_into_editor(&path, jump_to_line);
+                self.popup_result = PopupResult::None;
+                self.close_popup();
+            }
+            _ => {
+                self.popup_result = PopupResult::None;
+                self.close_popup();
             }
         }
-        self.popup_result = PopupResult::None;
-        self.close_popup();
-        // Check again if there's more to do (like Quitting after Saving)
-        if !self.pending_states.is_empty() {
-            self.handle_confirmation_popup_response();
+    }
+
+    /// Helper method to execute follow-up pending states directly without requiring popup_result
+    fn execute_pending_state(&mut self, state: PendingState) {
+        match state {
+            PendingState::OpenFile { path, jump_to_line } => {
+                log_info!("Opening file: {}", path.to_string_lossy());
+                self.load_file_into_editor(&path, jump_to_line);
+            }
+            PendingState::Quitting => self.quit(),
+            _ => {}
         }
     }
 

@@ -1,3 +1,4 @@
+pub mod browser;
 pub mod lang_modal;
 
 use crate::core::app::App;
