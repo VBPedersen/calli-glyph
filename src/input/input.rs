@@ -189,6 +189,15 @@ fn on_key_event(app: &mut App, key: KeyEvent) {
             }
             _ => Some(InputAction::NoOp),
         },
+        ActiveArea::Welcome => {
+            // Let the globally-bound toggle/quit keys through first (keymap lookup),
+            // otherwise treat keys like a modal.
+            keymaps
+                .get_editor_action(key.modifiers, key.code)
+                .cloned()
+                .filter(|a| matches!(a, InputAction::ToggleActiveArea | InputAction::QUIT))
+                .or_else(|| Some(map_modal_key(key)))
+        }
     };
     /* app.debug_state
     .log(LogLevel::Trace, format!("Action: {:?}", action));*/

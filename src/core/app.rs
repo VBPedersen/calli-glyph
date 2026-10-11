@@ -1,6 +1,6 @@
 use super::command_line::{command, command_executor, CommandLine};
 use super::editor::Editor;
-use crate::app_config::AppLaunchConfig;
+use crate::app_config::{AppLaunchConfig, LaunchTarget};
 use crate::config::Config;
 use crate::core::debug::DebugState;
 use crate::core::help_registry::HelpRegistry;
@@ -37,6 +37,8 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use crate::ui::popups::help_popup::HelpPopup;
+use crate::ui::welcome::{WelcomeAction, WelcomeScreen};
 
 pub struct App {
     /// Is the application running?
@@ -62,6 +64,7 @@ pub struct App {
     pub modal_stack: Vec<Box<dyn Modal>>,
     pub theme_manager: ThemeManager,
     pub project_manager: ProjectManager,
+    pub welcome: Option<WelcomeScreen>,
     /// Set true after resuming from a suspended terminal (external picker).
     /// ratatui's diff buffer doesn't know the physical screen changed while
     /// suspended, so the next draw needs a forced full redraw.
@@ -94,6 +97,7 @@ pub enum ActiveArea {
     CommandLine,
     Popup,
     DebugConsole,
+    Welcome
 }
 
 impl Default for App {
@@ -132,6 +136,7 @@ impl Default for App {
             modal_stack: vec![],
             theme_manager,
             project_manager: ProjectManager::new(),
+            welcome: None,
             force_full_redraw: false,
         };
 
@@ -150,10 +155,18 @@ impl App {
         // A directory passed at launch (`cglyph some/folder`) is a
         // project root, not a file to open: File::open + read_to_string
         // on a directory fails, and the existing error path there is a
-        // hard panic. Split that case off before it ever reaches file_path.
-        let (file_path, explicit_root) = match launch_config.file_path {
-            Some(path) if path.is_dir() => (None, Some(path)),
-            other => (other, None),
+        // hard panic. Match on target to avoid
+        let (file_path, welcome) = match &launch_config.target {
+            LaunchTarget::Empty => (None, Some(WelcomeScreen::empty())),
+            LaunchTarget::File(p) => (Some(p.clone()), None),
+            LaunchTarget::Dir(d) => (None, Some(WelcomeScreen::for_folder(d.clone()))),
+        };
+
+        // Set active area
+        let active_area = if welcome.is_some() {
+            ActiveArea::Welcome
+        } else {
+            ActiveArea::Editor
         };
 
         let themes_dir = Config::get_config_base_dir()
@@ -163,7 +176,7 @@ impl App {
         let mut app = App {
             running: Default::default(),
             config,
-            active_area: Default::default(),
+            active_area,
             editor: Editor::new(editor_config_arc),
             command_line: CommandLine::new(),
             cursor_visible: true,
@@ -188,20 +201,22 @@ impl App {
             modal_stack: vec![],
             theme_manager,
             project_manager: ProjectManager::new(),
+            welcome,
             force_full_redraw: false,
         };
 
         // Explicit directory launch: no walk-up.
         // Otherwise, auto-detect from whatever file
         // (if any) was opened, same algorithm LSP's workspace-root uses.
-        match explicit_root {
-            Some(dir) => app.project_manager.set_root(dir),
-            None => {
-                let start = app.file_path.clone().unwrap_or_else(|| {
-                    std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
-                });
-                app.project_manager.set_root_from_path(&start);
-            }
+        match &launch_config.target {
+            // Literal root: the user named this directory on purpose.
+            LaunchTarget::Dir(d) => app.project_manager.set_root(d.clone()),
+            // File: set_root_from_path.
+            LaunchTarget::File(p) => {
+                let start = app.file_path.clone().unwrap_or_else(|| { std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")) });
+                app.project_manager.set_root_from_path(p)
+            },
+            LaunchTarget::Empty => {}
         }
 
         // Load default plugins
@@ -308,7 +323,6 @@ impl App {
     pub fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
         //SETUP
         self.running = true;
-        self.active_area = ActiveArea::Editor;
         let mut last_auto_save = Instant::now();
         let mut needs_redraw = true;
 
@@ -515,8 +529,55 @@ impl App {
             ActiveArea::DebugConsole => {
                 self.handle_debug_input_action(action);
             }
+            ActiveArea::Welcome => {
+                // Take the action out first so no &mut App borrow overlaps the screen's.
+                let act = self.welcome.as_mut().and_then(|w| w.handle_input(action));
+                if let Some(a) = act {
+                    self.dispatch_welcome_action(a);
+                }
+            }
         }
     }
+
+    /// Helper function to determine which active area should populate the current home area
+    fn home_area(&self) -> ActiveArea {
+        if self.welcome.is_some() { ActiveArea::Welcome } else { ActiveArea::Editor }
+    }
+
+    /// Match a welcome action to a specific action to be taken
+    fn dispatch_welcome_action(&mut self, a: WelcomeAction) {
+        match a {
+            WelcomeAction::NewFile => self.dismiss_welcome(),
+            WelcomeAction::OpenFilePicker => {
+                self.dismiss_welcome();
+                crate::project::open_file_picker(self)
+            },
+            WelcomeAction::OpenPath(p) => self.open_file(p, None),
+            WelcomeAction::EnterDir(d) => {
+                self.project_manager.set_root(d.clone());
+                self.welcome = Some(WelcomeScreen::for_folder(d));
+            }
+            WelcomeAction::CommandLine => self.toggle_active_area(),
+            WelcomeAction::Settings => { /* TODO: config-edit entry */ }
+            WelcomeAction::Help => {
+                let registry = Arc::clone(&self.help_registry);
+                let popup = HelpPopup::browse(registry);
+                self.open_popup(Box::new(popup));
+            }
+            WelcomeAction::Quit => self.quit(),
+            WelcomeAction::Dismiss => self.dismiss_welcome()
+        }
+    }
+
+    /// Dismisses the welcome screen and sets active area to editor
+    fn dismiss_welcome(&mut self) {
+        self.welcome = None;
+        if self.active_area == ActiveArea::Welcome {
+            self.active_area = ActiveArea::Editor;
+        }
+    }
+
+
 
     ///function to check for app related input actions,
     /// i.e. input action that should result in app related functionality,
@@ -565,11 +626,9 @@ impl App {
     ///toggles the active area of the app, between editor and command line
     pub(crate) fn toggle_active_area(&mut self) {
         match self.active_area {
-            ActiveArea::Editor => {
-                self.active_area = ActiveArea::CommandLine;
-            }
+            ActiveArea::Editor | ActiveArea::Welcome => self.active_area = ActiveArea::CommandLine,
             ActiveArea::CommandLine => {
-                self.active_area = ActiveArea::Editor;
+                self.active_area = self.home_area();
             }
 
             _ => {}
@@ -690,7 +749,7 @@ impl App {
 
     pub fn close_popup(&mut self) {
         self.popup = None;
-        self.active_area = ActiveArea::Editor; // Go back to editor
+        self.active_area = self.home_area();
     }
 
     //Basic Commands

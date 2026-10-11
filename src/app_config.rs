@@ -4,9 +4,35 @@ use crate::errors::error::AppError;
 use std::fs;
 use std::path::PathBuf;
 use std::result::Result;
+use crate::core::debug::log;
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum LaunchTarget {
+    Empty,
+    File(PathBuf),
+    Dir(PathBuf),
+}
+
+impl LaunchTarget {
+    pub fn from_path(path: Option<PathBuf>) -> Self {
+        match path {
+            None => Self::Empty,
+            // Existing directories only. A nonexistent path stays a File,
+            // so create-on-open behavior can be applied.
+            Some(p) if p.is_dir() => {
+                log_info!("App launched with dir as argument");
+                Self::Dir(p.canonicalize().unwrap_or(p))
+            },
+            Some(p) => {
+                log_info!("App launched with file as argument");
+                Self::File(p)
+            },
+        }
+    }
+}
 
 pub struct AppLaunchConfig {
-    pub file_path: Option<PathBuf>,
+    pub target: LaunchTarget,
     pub reset_config: bool,
 }
 
@@ -30,7 +56,7 @@ impl AppLaunchConfig {
         }
 
         if args.file_path.is_some() {
-            temp_app_launch_config.file_path = args.file_path;
+            temp_app_launch_config.target = LaunchTarget::from_path(args.file_path);
         }
 
         //return finalised launch config
@@ -41,7 +67,7 @@ impl AppLaunchConfig {
 impl Default for AppLaunchConfig {
     fn default() -> Self {
         Self {
-            file_path: None,
+            target: LaunchTarget::Empty,
             reset_config: false,
         }
     }

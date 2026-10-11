@@ -198,6 +198,15 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
         ),
         content_area,
     );
+
+    // Welcome view replaces the editor area (line numbers included, since
+    // editor_area covers both). Drawn after the editor so it covers it.
+    if let Some(welcome) = &app.welcome {
+        frame.render_widget(ratatui::widgets::Clear, editor_area);
+        welcome.render(frame, &theme, editor_area);
+    }
+
+
     // Render command line
     frame.render_widget(command_line(command_input, &theme), command_area);
 
