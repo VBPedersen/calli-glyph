@@ -206,7 +206,6 @@ fn render_editor_ui(frame: &mut Frame, app: &mut App) {
         welcome.render(frame, &theme, editor_area);
     }
 
-
     // Render command line
     frame.render_widget(command_line(command_input, &theme), command_area);
 

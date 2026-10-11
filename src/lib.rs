@@ -18,6 +18,7 @@
 //! * [`language`]: Management of language related logic, i.e. tree-sitter and LSP logic
 //! * [`theme`]: Management of theme for use in UI.
 //! * [`project`]: Management of project related logic, e.g. file picker and project overview.
+//! * [`menu`]: App menu logic, e.g. menu registry.
 
 //expose modules
 #[macro_use]
@@ -41,3 +42,5 @@ pub mod language;
 pub mod theme;
 
 pub mod project;
+
+pub mod menu;

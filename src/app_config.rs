@@ -1,10 +1,10 @@
 use crate::args::AppLaunchArgs;
 use crate::config::Config;
+use crate::core::debug::log;
 use crate::errors::error::AppError;
 use std::fs;
 use std::path::PathBuf;
 use std::result::Result;
-use crate::core::debug::log;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LaunchTarget {
@@ -22,11 +22,11 @@ impl LaunchTarget {
             Some(p) if p.is_dir() => {
                 log_info!("App launched with dir as argument");
                 Self::Dir(p.canonicalize().unwrap_or(p))
-            },
+            }
             Some(p) => {
                 log_info!("App launched with file as argument");
                 Self::File(p)
-            },
+            }
         }
     }
 }

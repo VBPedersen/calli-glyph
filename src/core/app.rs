@@ -12,7 +12,9 @@ use crate::input::input::handle_input;
 use crate::language::install::InstallManager;
 use crate::language::lsp::LspMessage;
 use crate::language::manager::LanguageManager;
+use crate::menu::MenuRegistry;
 use crate::plugins::github_auth_plugin::GithubAuthPlugin;
+use crate::plugins::menu_plugin::MenuPlugin;
 use crate::plugins::plugin_registry::{Plugin, PluginManager};
 use crate::plugins::project_explorer_plugin::ProjectExplorerPlugin;
 use crate::plugins::search_replace_plugin::SearchReplacePlugin;
@@ -21,11 +23,14 @@ use crate::project::ProjectManager;
 use crate::theme::ThemeManager;
 use crate::ui::debug::DebugView;
 use crate::ui::layout::UILayout;
+use crate::ui::modal::main_menu::MainMenuModal;
 use crate::ui::modal::Modal;
 use crate::ui::popups::confirmation_popup::ConfirmationPopup;
 use crate::ui::popups::error_popup::ErrorPopup;
+use crate::ui::popups::help_popup::HelpPopup;
 use crate::ui::popups::popup::{Popup, PopupResult, PopupType};
 use crate::ui::ui::ui;
+use crate::ui::welcome::{WelcomeAction, WelcomeScreen};
 use color_eyre::Result;
 use crossterm::event;
 use ratatui::layout::Rect;
@@ -37,8 +42,6 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use crate::ui::popups::help_popup::HelpPopup;
-use crate::ui::welcome::{WelcomeAction, WelcomeScreen};
 
 pub struct App {
     /// Is the application running?
@@ -65,6 +68,7 @@ pub struct App {
     pub theme_manager: ThemeManager,
     pub project_manager: ProjectManager,
     pub welcome: Option<WelcomeScreen>,
+    pub menu: MenuRegistry,
     /// Set true after resuming from a suspended terminal (external picker).
     /// ratatui's diff buffer doesn't know the physical screen changed while
     /// suspended, so the next draw needs a forced full redraw.
@@ -97,7 +101,7 @@ pub enum ActiveArea {
     CommandLine,
     Popup,
     DebugConsole,
-    Welcome
+    Welcome,
 }
 
 impl Default for App {
@@ -137,6 +141,7 @@ impl Default for App {
             theme_manager,
             project_manager: ProjectManager::new(),
             welcome: None,
+            menu: MenuRegistry::new(),
             force_full_redraw: false,
         };
 
@@ -202,6 +207,7 @@ impl App {
             theme_manager,
             project_manager: ProjectManager::new(),
             welcome,
+            menu: MenuRegistry::new(),
             force_full_redraw: false,
         };
 
@@ -213,14 +219,17 @@ impl App {
             LaunchTarget::Dir(d) => app.project_manager.set_root(d.clone()),
             // File: set_root_from_path.
             LaunchTarget::File(p) => {
-                let start = app.file_path.clone().unwrap_or_else(|| { std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")) });
+                let start = app.file_path.clone().unwrap_or_else(|| {
+                    std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+                });
                 app.project_manager.set_root_from_path(p)
-            },
+            }
             LaunchTarget::Empty => {}
         }
 
         // Load default plugins
         app.load_plugins_from_config();
+        crate::menu::register_builtin_entries(&mut app.menu);
         app
     }
 
@@ -257,6 +266,7 @@ impl App {
                 "project_explorer_plugin",
                 Box::new(ProjectExplorerPlugin::new()),
             ),
+            ("menu_plugin", Box::new(MenuPlugin::new())),
         ];
 
         // Only load enabled plugins
@@ -541,7 +551,11 @@ impl App {
 
     /// Helper function to determine which active area should populate the current home area
     fn home_area(&self) -> ActiveArea {
-        if self.welcome.is_some() { ActiveArea::Welcome } else { ActiveArea::Editor }
+        if self.welcome.is_some() {
+            ActiveArea::Welcome
+        } else {
+            ActiveArea::Editor
+        }
     }
 
     /// Match a welcome action to a specific action to be taken
@@ -551,12 +565,13 @@ impl App {
             WelcomeAction::OpenFilePicker => {
                 self.dismiss_welcome();
                 crate::project::open_file_picker(self)
-            },
+            }
             WelcomeAction::OpenPath(p) => self.open_file(p, None),
             WelcomeAction::EnterDir(d) => {
                 self.project_manager.set_root(d.clone());
                 self.welcome = Some(WelcomeScreen::for_folder(d));
             }
+            WelcomeAction::Menu => self.open_main_menu(),
             WelcomeAction::CommandLine => self.toggle_active_area(),
             WelcomeAction::Settings => { /* TODO: config-edit entry */ }
             WelcomeAction::Help => {
@@ -565,7 +580,7 @@ impl App {
                 self.open_popup(Box::new(popup));
             }
             WelcomeAction::Quit => self.quit(),
-            WelcomeAction::Dismiss => self.dismiss_welcome()
+            WelcomeAction::Dismiss => self.dismiss_welcome(),
         }
     }
 
@@ -577,7 +592,11 @@ impl App {
         }
     }
 
-
+    /// Opens the main menu modal
+    pub fn open_main_menu(&mut self) {
+        let modal = MainMenuModal::new(&self.menu, &self.plugins);
+        self.modal_stack.push(Box::new(modal));
+    }
 
     ///function to check for app related input actions,
     /// i.e. input action that should result in app related functionality,

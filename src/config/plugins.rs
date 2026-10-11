@@ -19,6 +19,7 @@ impl Default for PluginsConfig {
                 "search_replace_plugin".to_string(),   // search and replace plugin
                 "github_auth_plugin".to_string(), // github auth plugin for token setting and clearing for lang installer
                 "project_explorer_plugin".to_string(), // project / file picker/explorer plugin
+                "menu_plugin".to_string(),        // main menu opener plugin
             ],
             keybindings: HashMap::new(),
         }

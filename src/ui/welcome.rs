@@ -1,31 +1,65 @@
-use std::path::PathBuf;
-use clap::Parser;
-use ratatui::Frame;
 use crate::input::actions::{InputAction, ModalAction};
 use crate::project::FileNode;
 use crate::theme::UiTheme;
+use clap::Parser;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
+use ratatui::Frame;
+use std::path::PathBuf;
 
 const MAX_FILES_SHOWN: usize = 12;
 const CONTENT_WIDTH: u16 = 56;
-
 
 const GLYPH_ROWS: usize = 6;
 const GLYPH_WIDTH: u16 = 42;
 const GLYPH_LETTERS: [[&str; GLYPH_ROWS]; 5] = [
     // G
-    [" ██████╗ ", "██╔════╝ ", "██║  ███╗", "██║   ██║", "╚██████╔╝", " ╚═════╝ "],
+    [
+        " ██████╗ ",
+        "██╔════╝ ",
+        "██║  ███╗",
+        "██║   ██║",
+        "╚██████╔╝",
+        " ╚═════╝ ",
+    ],
     // L
-    ["██╗     ", "██║     ", "██║     ", "██║     ", "███████╗", "╚══════╝"],
+    [
+        "██╗     ",
+        "██║     ",
+        "██║     ",
+        "██║     ",
+        "███████╗",
+        "╚══════╝",
+    ],
     // Y
-    ["██╗   ██╗", "╚██╗ ██╔╝", " ╚████╔╝ ", "  ╚██╔╝  ", "   ██║   ", "   ╚═╝   "],
+    [
+        "██╗   ██╗",
+        "╚██╗ ██╔╝",
+        " ╚████╔╝ ",
+        "  ╚██╔╝  ",
+        "   ██║   ",
+        "   ╚═╝   ",
+    ],
     // P
-    ["██████╗ ", "██╔══██╗", "██████╔╝", "██╔═══╝ ", "██║     ", "╚═╝     "],
+    [
+        "██████╗ ",
+        "██╔══██╗",
+        "██████╔╝",
+        "██╔═══╝ ",
+        "██║     ",
+        "╚═╝     ",
+    ],
     // H
-    ["██╗  ██╗", "██║  ██║", "███████║", "██╔══██║", "██║  ██║", "╚═╝  ╚═╝"],
+    [
+        "██╗  ██╗",
+        "██║  ██║",
+        "███████║",
+        "██╔══██║",
+        "██║  ██║",
+        "╚═╝  ╚═╝",
+    ],
 ];
 
 #[derive(Clone)]
@@ -34,16 +68,19 @@ pub enum WelcomeAction {
     OpenFilePicker,
     OpenPath(PathBuf),
     EnterDir(PathBuf),
+    Menu,
     CommandLine,
     Settings,
     Help,
     Quit,
-    Dismiss
+    Dismiss,
 }
 
-
 #[derive(Debug, Clone, Copy, PartialEq)]
-enum Section { Actions, Files }
+enum Section {
+    Actions,
+    Files,
+}
 
 struct Entry {
     section: Section,
@@ -84,8 +121,16 @@ impl WelcomeScreen {
         };
         let mut entries = vec![
             act('n', "New file", WelcomeAction::NewFile),
-            act('o', if folder.is_some() { "Browse project files" } else { "Open file…" },
-                WelcomeAction::OpenFilePicker),
+            act(
+                'o',
+                if folder.is_some() {
+                    "Browse project files"
+                } else {
+                    "Open file…"
+                },
+                WelcomeAction::OpenFilePicker,
+            ),
+            act('m', "Menu", WelcomeAction::Menu),
             act('c', "Command line", WelcomeAction::CommandLine),
             act('s', "Settings", WelcomeAction::Settings),
             act('h', "Help", WelcomeAction::Help),
@@ -114,12 +159,20 @@ impl WelcomeScreen {
                 });
             }
         }
-        Self { title, subtitle, entries, hidden_files, cursor: 0 }
+        Self {
+            title,
+            subtitle,
+            entries,
+            hidden_files,
+            cursor: 0,
+        }
     }
 
     /// Pure state transition: returns an action for App to dispatch.
     pub fn handle_input(&mut self, action: InputAction) -> Option<WelcomeAction> {
-        let InputAction::Modal(m) = action else { return None };
+        let InputAction::Modal(m) = action else {
+            return None;
+        };
         match m {
             ModalAction::ScrollUp => self.cursor = self.cursor.saturating_sub(1),
             ModalAction::ScrollDown => {
@@ -129,7 +182,11 @@ impl WelcomeScreen {
             }
             ModalAction::Confirm => return self.entries.get(self.cursor).map(|e| e.action.clone()),
             ModalAction::Action(c) => {
-                return self.entries.iter().find(|e| e.key == Some(c)).map(|e| e.action.clone());
+                return self
+                    .entries
+                    .iter()
+                    .find(|e| e.key == Some(c))
+                    .map(|e| e.action.clone());
             }
             _ => {}
         }
@@ -141,29 +198,51 @@ impl WelcomeScreen {
         let mut body: Vec<Line> = vec![
             Line::from(Span::styled(
                 &self.title,
-                Style::default().fg(ui.foreground()).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(ui.foreground())
+                    .add_modifier(Modifier::BOLD),
             ))
-                .alignment(Alignment::Center),
-            Line::from(Span::styled(&self.subtitle, Style::default().fg(ui.hint_text())))
-                .alignment(Alignment::Center),
+            .alignment(Alignment::Center),
+            Line::from(Span::styled(
+                &self.subtitle,
+                Style::default().fg(ui.hint_text()),
+            ))
+            .alignment(Alignment::Center),
             Line::raw(""),
         ];
-
 
         let mut last_section = None;
         for (i, e) in self.entries.iter().enumerate() {
             if last_section != Some(e.section) {
-                if last_section.is_some() { body.push(Line::raw("")); }
-                let header = match e.section { Section::Actions => "Start", Section::Files => "Files" };
-                body.push(Line::from(Span::styled(header, Style::default().fg(ui.hint_text()))));
+                if last_section.is_some() {
+                    body.push(Line::raw(""));
+                }
+                let header = match e.section {
+                    Section::Actions => "Start",
+                    Section::Files => "Files",
+                };
+                body.push(Line::from(Span::styled(
+                    header,
+                    Style::default().fg(ui.hint_text()),
+                )));
                 last_section = Some(e.section);
             }
-            let key = e.key.map(|k| format!("[{k}] ")).unwrap_or_else(|| "    ".into());
+            let key = e
+                .key
+                .map(|k| format!("[{k}] "))
+                .unwrap_or_else(|| "    ".into());
             let marker = if e.is_dir { "▸ " } else { "" };
-            let name_color = if e.is_dir { ui.accent_blue() } else { ui.foreground() };
+            let name_color = if e.is_dir {
+                ui.accent_blue()
+            } else {
+                ui.foreground()
+            };
             let mut line = Line::from(vec![
                 Span::styled(format!("  {key}"), Style::default().fg(ui.hint_text())),
-                Span::styled(format!("{marker}{}", e.label), Style::default().fg(name_color)),
+                Span::styled(
+                    format!("{marker}{}", e.label),
+                    Style::default().fg(name_color),
+                ),
             ]);
             if i == self.cursor {
                 line = line.style(ui.list_highlight_style().add_modifier(Modifier::BOLD));
@@ -178,8 +257,8 @@ impl WelcomeScreen {
         }
 
         // Big logo only if it fits: logo rows + "calli" line + spacer + body
-        let big = area.width >= GLYPH_WIDTH + 2
-            && area.height as usize >= body.len() + GLYPH_ROWS + 3;
+        let big =
+            area.width >= GLYPH_WIDTH + 2 && area.height as usize >= body.len() + GLYPH_ROWS + 3;
 
         let mut lines = logo_lines(ui, big);
         lines.push(Line::raw(""));
@@ -202,8 +281,8 @@ fn glyph_palette(ui: &UiTheme) -> [Color; 5] {
     [
         ui.accent_cyan(),
         ui.accent_blue(),
+        ui.accent_red(),
         ui.accent_magenta(),
-        ui.accent_green(),
         ui.accent_yellow(),
     ]
 }
@@ -215,23 +294,32 @@ fn logo_lines(ui: &UiTheme, big: bool) -> Vec<Line<'static>> {
         // Compact fallback for small terminals
         return vec![Line::from(vec![
             Span::styled("calli", Style::default().fg(ui.foreground())),
-            Span::styled("GLYPH", Style::default().fg(palette[0]).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                "GLYPH",
+                Style::default().fg(palette[0]).add_modifier(Modifier::BOLD),
+            ),
         ])
-            .alignment(Alignment::Center)];
+        .alignment(Alignment::Center)];
     }
 
     let shadow = Style::default().fg(ui.hint_text());
     let mut lines = vec![Line::from(Span::styled(
         "c  a  l  l  i",
-        Style::default().fg(ui.foreground()).add_modifier(Modifier::BOLD),
+        Style::default()
+            .fg(ui.foreground())
+            .add_modifier(Modifier::BOLD),
     ))
-        .alignment(Alignment::Center)];
+    .alignment(Alignment::Center)];
 
     for row in 0..GLYPH_ROWS {
         let mut spans = Vec::new();
         for (letter, color) in GLYPH_LETTERS.iter().zip(palette) {
             for ch in letter[row].chars() {
-                let style = if ch == '█' { Style::default().fg(color) } else { shadow };
+                let style = if ch == '█' {
+                    Style::default().fg(color)
+                } else {
+                    shadow
+                };
                 spans.push(Span::styled(ch.to_string(), style));
             }
         }
