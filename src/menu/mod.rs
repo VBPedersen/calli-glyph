@@ -101,8 +101,24 @@ pub fn register_builtin_entries(menu: &mut MenuRegistry) {
         MenuEntry::command("Project", "Browse files", "Open the file picker", "explore")
             .with_key('f'),
     );
-    menu.register(MenuEntry::command("Appearance", "Theme picker", "Switch the color theme", "theme").with_key('t'));
-    menu.register(MenuEntry::command("Language", "Language installer", "Install LSP servers", "lang").with_key('i'));
+    menu.register(
+        MenuEntry::command(
+            "Appearance",
+            "Theme picker",
+            "Switch the color theme",
+            "theme",
+        )
+        .with_key('t'),
+    );
+    menu.register(
+        MenuEntry::command(
+            "Language",
+            "Language installer",
+            "Install LSP servers",
+            "lang",
+        )
+        .with_key('i'),
+    );
     // TODO: register debugger, via a Callback or its command
     // TODO: register settings
 }

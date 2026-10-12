@@ -3,13 +3,13 @@ use crate::input::actions::{InputAction, ModalAction};
 use crate::menu::{MenuAction, MenuEntry, MenuRegistry};
 use crate::plugins::plugin_registry::PluginManager;
 use crate::ui::modal::{Modal, ModalResponse};
+use crate::ui::popups::error_popup::ErrorPopup;
 use crate::ui::ui::centered_rect;
+use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::style::{Modifier, Style};
+use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use ratatui::Frame;
-use ratatui::layout::{Constraint, Direction, Layout};
-use ratatui::text::{Line, Span};
-use crate::ui::popups::error_popup::ErrorPopup;
 
 pub struct MainMenuModal {
     entries: Vec<MenuEntry>,
@@ -50,7 +50,6 @@ impl MainMenuModal {
             scroll: 0,
         }
     }
-
 
     fn current(&self) -> Vec<&MenuEntry> {
         match self.categories.get(self.tab) {
@@ -123,7 +122,6 @@ impl Modal for MainMenuModal {
             _ => {}
         }
         ModalResponse::Consumed
-
     }
 
     fn render(&mut self, frame: &mut Frame, app: &App) {
@@ -223,7 +221,6 @@ impl Modal for MainMenuModal {
         );
     }
 }
-
 
 #[cfg(test)]
 mod unit_main_menu_tests {
