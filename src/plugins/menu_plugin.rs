@@ -1,6 +1,6 @@
 use crate::core::app::App;
 use crate::errors::plugin_error::PluginError;
-use crate::plugins::plugin_registry::{Plugin, PluginCommand, PluginMetadata};
+use crate::plugins::plugin_registry::{KeyContext, Plugin, PluginCommand, PluginKeybinding, PluginMetadata};
 use ratatui::Frame;
 
 pub struct MenuPlugin;
@@ -25,7 +25,11 @@ impl Plugin for MenuPlugin {
                 aliases: vec![],
                 handler: handle_menu,
             }],
-            keybinds: vec![],
+            keybinds: vec![PluginKeybinding{
+                key: "Ctrl+M".to_string(),
+                command: "menu".to_string(),
+                context: KeyContext::Editor,
+            }],
         }
     }
 
