@@ -1,6 +1,7 @@
 pub mod browser;
 pub mod lang_modal;
 pub mod main_menu;
+pub mod settings;
 
 use crate::core::app::App;
 use crate::input::actions::InputAction;

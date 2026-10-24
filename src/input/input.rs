@@ -67,23 +67,39 @@ fn try_activate_plugin_with_key(app: &mut App, key: KeyEvent) -> bool {
     // Convert raw KeyEvent to keybinding string (e.g., "Ctrl+t")
     let key_str = key_event_to_keybinding_string(key);
     // Check each plugin's keybindings
-    if let Some(plugin_name) = app.plugins.find_plugin_by_keybinding(&key_str) {
-        log_info!(
-            "Activating plugin '{}' with keybinding '{}'",
-            plugin_name,
-            key_str
-        );
+    let Some(plugin_name) = app.plugins.find_plugin_by_keybinding(&key_str) else {
+        return false;
+    };
+
+    log_info!(
+        "Activating plugin '{}' with keybinding '{}'",
+        plugin_name,
+        key_str
+    );
+
+    // Check if plugin to active should take focus (i.e. consumes input)
+    let takes_focus = app
+        .plugins
+        .plugins
+        .get(&plugin_name)
+        .map(|p| p.takes_focus())
+        .unwrap_or(true);
+
+    if takes_focus {
         app.plugins.activate_plugin(&plugin_name);
 
         // Execute the plugin's command
         if let Some(command_name) = app.plugins.get_keybinding_command(&plugin_name, &key_str) {
             let _ = app.execute_plugin_command(&command_name, vec![]);
         }
-
-        return true;
+    } else if let Some(command) = app.plugins.command_for_keybinding(&plugin_name, &key_str) {
+        // command-only plugin: just run the command, never activate
+        if let Err(e) = app.execute_plugin_command(&command, vec![]) {
+            log_warn!("Keybinding command '{}' failed: {}", command, e);
+        }
     }
 
-    false
+    true
 }
 
 /// Convert KeyEvent to keybinding string format
@@ -235,6 +251,8 @@ fn map_modal_key(key: KeyEvent) -> InputAction {
         (KeyModifiers::NONE, KeyCode::Enter) => ModalAction::Confirm,
         (KeyModifiers::NONE, KeyCode::Esc) => ModalAction::Close,
         (KeyModifiers::NONE, KeyCode::Char(c)) => ModalAction::Action(c),
+        (KeyModifiers::NONE, KeyCode::Left) => ModalAction::Action('h'),
+        (KeyModifiers::NONE, KeyCode::Right) => ModalAction::Action('l'),
         _ => ModalAction::Action('\0'),
     })
 }

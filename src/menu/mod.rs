@@ -98,19 +98,6 @@ fn categories_of(entries: &[MenuEntry]) -> Vec<String> {
 /// Built-in entries. Fill the TODOs with your real command names/callbacks.
 pub fn register_builtin_entries(menu: &mut MenuRegistry) {
     menu.register(
-        MenuEntry::command("Project", "Browse files", "Open the file picker", "explore")
-            .with_key('f'),
-    );
-    menu.register(
-        MenuEntry::command(
-            "Appearance",
-            "Theme picker",
-            "Switch the color theme",
-            "theme",
-        )
-        .with_key('t'),
-    );
-    menu.register(
         MenuEntry::command(
             "Language",
             "Language installer",
@@ -118,6 +105,15 @@ pub fn register_builtin_entries(menu: &mut MenuRegistry) {
             "lang",
         )
         .with_key('i'),
+    );
+    menu.register(
+        MenuEntry::callback("Settings", "Settings", "Change editor options (saved to config)",
+                            |app| app.open_settings())
+            .with_key('s'),
+    );
+    menu.register(
+        MenuEntry::callback("App", "Quit", "Exit calli-glyph", |app| app.request_quit())
+            .with_key('q'),
     );
     // TODO: register debugger, via a Callback or its command
     // TODO: register settings

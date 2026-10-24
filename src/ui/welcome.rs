@@ -1,7 +1,6 @@
 use crate::input::actions::{InputAction, ModalAction};
 use crate::project::FileNode;
 use crate::theme::UiTheme;
-use clap::Parser;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};

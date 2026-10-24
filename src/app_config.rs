@@ -1,6 +1,5 @@
 use crate::args::AppLaunchArgs;
 use crate::config::Config;
-use crate::core::debug::log;
 use crate::errors::error::AppError;
 use std::fs;
 use std::path::PathBuf;

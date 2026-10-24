@@ -42,6 +42,7 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use crate::ui::modal::settings::SettingsModal;
 
 pub struct App {
     /// Is the application running?
@@ -219,17 +220,15 @@ impl App {
             LaunchTarget::Dir(d) => app.project_manager.set_root(d.clone()),
             // File: set_root_from_path.
             LaunchTarget::File(p) => {
-                let start = app.file_path.clone().unwrap_or_else(|| {
-                    std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
-                });
                 app.project_manager.set_root_from_path(p)
             }
             LaunchTarget::Empty => {}
         }
 
+        crate::menu::register_builtin_entries(&mut app.menu);
+
         // Load default plugins
         app.load_plugins_from_config();
-        crate::menu::register_builtin_entries(&mut app.menu);
         app
     }
 
@@ -307,6 +306,11 @@ impl App {
                     .command_registry_mut()
                     .register_command(alias, move |app, args| handler(app, args));
             }
+        }
+
+        // registers plugin entries in menu
+        for entry in plugin.menu_entries() {
+            self.menu.register(entry);
         }
 
         self.plugins.insert_plugin(name, plugin);
@@ -573,7 +577,7 @@ impl App {
             }
             WelcomeAction::Menu => self.open_main_menu(),
             WelcomeAction::CommandLine => self.toggle_active_area(),
-            WelcomeAction::Settings => { /* TODO: config-edit entry */ }
+            WelcomeAction::Settings => self.open_settings(),
             WelcomeAction::Help => {
                 let registry = Arc::clone(&self.help_registry);
                 let popup = HelpPopup::browse(registry);
@@ -596,6 +600,18 @@ impl App {
     pub fn open_main_menu(&mut self) {
         let modal = MainMenuModal::new(&self.menu, &self.plugins);
         self.modal_stack.push(Box::new(modal));
+    }
+
+    /// Opens the settings modal
+    pub fn open_settings(&mut self) {
+        self.modal_stack.push(Box::new(SettingsModal::new()));
+    }
+
+    /// Re-reads config.toml and refreshes everything that caches a copy of it.
+    pub fn reload_config(&mut self) {
+        self.config = Config::load();
+        self.editor.editor_config = Arc::new(self.config.editor.clone());
+        self.plugins.apply_config(&self.config.plugins);
     }
 
     ///function to check for app related input actions,
@@ -776,6 +792,16 @@ impl App {
     /// Set running == false, to quit the application.
     pub(crate) fn quit(&mut self) {
         self.running = false;
+    }
+
+    /// Request quit goes through the confirmation flow to avoid silently dropping unsaved changes
+    pub fn request_quit(&mut self) {
+        if self.content_modified {
+            self.pending_states.push_back(PendingState::Quitting);
+            self.open_popup(Box::new(ConfirmationPopup::new("Quit without saving?")));
+        } else {
+            self.quit();
+        }
     }
 
     ///saves contents to file at path

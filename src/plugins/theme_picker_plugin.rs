@@ -9,6 +9,7 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, List, ListItem, ListState};
 use ratatui::Frame;
+use crate::menu::MenuEntry;
 
 pub struct ThemePickerPlugin {
     available_themes: Vec<String>, // available themes seen as array of theme names
@@ -173,6 +174,13 @@ impl Plugin for ThemePickerPlugin {
                 context: KeyContext::Editor,
             }],
         }
+    }
+
+    fn takes_focus(&self) -> bool { false }
+
+    fn menu_entries(&self) -> Vec<MenuEntry> {
+        vec![MenuEntry::command("Appearance", "Theme picker", "Switch the color theme", "theme")
+            .with_key('t')]
     }
 
     fn init(&mut self, app: &mut App) -> Result<(), PluginError> {

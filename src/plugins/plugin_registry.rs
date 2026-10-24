@@ -7,6 +7,7 @@ use crossterm::event::KeyEvent;
 use ratatui::Frame;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use crate::menu::MenuEntry;
 //PLUGIN METADATA
 
 /// Metadata of the plugin
@@ -63,6 +64,17 @@ pub trait Plugin: Send {
 
     /// Cleanup
     fn shutdown(&mut self, app: &mut App) {}
+
+    /// Whether activating this plugin via keybinding routes all input to it.
+    /// Command-only plugins (no UI of their own) return false.
+    fn takes_focus(&self) -> bool {
+        true
+    }
+
+    /// Entries this plugin contributes to the main menu.
+    fn menu_entries(&self) -> Vec<MenuEntry> {
+        Vec::new()
+    }
 }
 
 // Command Handler registry
@@ -266,6 +278,30 @@ impl PluginManager {
         }
 
         None
+    }
+
+    /// The command bound to `key_str` for this plugin (config override first,
+    /// then the plugin's default). Unlike `get_keybinding_command`, this maps
+    /// key -> command.
+    pub fn command_for_keybinding(&self, plugin_name: &str, key_str: &str) -> Option<String> {
+        if let Some(cfg) = &self.plugin_config {
+            for (k, binding) in &cfg.keybindings {
+                if binding == key_str {
+                    if let Some((p, cmd)) = k.split_once('.') {
+                        if p == plugin_name {
+                            return Some(cmd.to_string());
+                        }
+                    }
+                }
+            }
+        }
+        self.plugins
+            .get(plugin_name)?
+            .metadata()
+            .keybinds
+            .into_iter()
+            .find(|kb| kb.key == key_str)
+            .map(|kb| kb.command)
     }
 
     /// Find plugin by keybinding in keybinding map

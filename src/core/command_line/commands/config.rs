@@ -15,7 +15,6 @@ enum ConfigSubcommand {
     Edit,
     Show,
     Validate,
-    Set { key: String, value: String },
     InvalidCommandArgument { name: String, args: Vec<String> },
 }
 
@@ -31,21 +30,6 @@ fn parse_to_subcommand(args: Vec<String>) -> ConfigSubcommand {
         "edit" => ConfigSubcommand::Edit,
         "show" => ConfigSubcommand::Show,
         "validate" => ConfigSubcommand::Validate,
-        "set" => {
-            //since set requires key and value (2 args), just check args length,
-            // if not long enough = invalid
-            if args.len() >= 3 {
-                ConfigSubcommand::Set {
-                    key: String::from(args[1].clone()),
-                    value: String::from(args[2].clone()),
-                }
-            } else {
-                ConfigSubcommand::InvalidCommandArgument {
-                    name: "Arguments for Set command invalid".to_string(),
-                    args,
-                }
-            }
-        }
         _ => ConfigSubcommand::InvalidCommandArgument {
             name: "Argument for base config command unrecognized".to_string(),
             args,
@@ -66,7 +50,6 @@ pub fn config_command(
         ConfigSubcommand::Edit => edit_config_command(app),
         ConfigSubcommand::Show => show_config_command(app),
         ConfigSubcommand::Validate => validate_config_command(app),
-        ConfigSubcommand::Set { key, value } => set_config_command(app, key, value),
         ConfigSubcommand::InvalidCommandArgument { name, args } => {
             Err(CommandError::InvalidArguments {
                 command: format!("InvalidArguments: {}", name),
@@ -230,20 +213,6 @@ pub fn validate_config_command(app: &mut App) -> Result<(), CommandError> {
     Ok(())
 }
 
-pub fn set_config_command(app: &mut App, key: String, value: String) -> Result<(), CommandError> {
-    match app.config.reload() {
-        Ok(_) => {
-            //TODO
-            // set specific key of config temporarily in app memory to value
-            // Consider only specific fields not keymaps, like tick rate, tab width so on
-            Ok(())
-        }
-        Err(e) => Err(CommandError::ExecutionFailed(format!(
-            "Failed to set config key value: {}",
-            e
-        ))),
-    }
-}
 
 // --- Unit Tests ---
 #[cfg(test)]

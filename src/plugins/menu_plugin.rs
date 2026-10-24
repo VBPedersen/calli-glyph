@@ -21,18 +21,32 @@ impl Plugin for MenuPlugin {
     fn metadata(&self) -> PluginMetadata {
         PluginMetadata {
             name: "menu_plugin".to_string(),
-            commands: vec![PluginCommand {
-                name: "menu".to_string(),
-                description: "Open the main menu".to_string(),
-                aliases: vec![],
-                handler: handle_menu,
-            }],
+            commands: vec![
+                PluginCommand {
+                    name: "menu".to_string(),
+                    description: "Open the main menu".to_string(),
+                    aliases: vec![],
+                    handler: handle_menu,
+                },
+                PluginCommand {
+                    name: "settings".to_string(),
+                    description: "Open the settings".to_string(),
+                    aliases: vec![],
+                    handler: handle_settings,
+                },
+            ],
+
             keybinds: vec![PluginKeybinding {
                 key: "Ctrl+M".to_string(),
                 command: "menu".to_string(),
                 context: KeyContext::Editor,
             }],
         }
+    }
+
+    /// This is a command only plugin activation so no taking of focus
+    fn takes_focus(&self) -> bool {
+        false
     }
 
     fn init(&mut self, _app: &mut App) -> Result<(), PluginError> {
@@ -48,5 +62,10 @@ impl Plugin for MenuPlugin {
 
 fn handle_menu(app: &mut App, _args: Vec<String>) -> Result<(), PluginError> {
     app.open_main_menu();
+    Ok(())
+}
+
+fn handle_settings(app: &mut App, _args: Vec<String>) -> Result<(), PluginError> {
+    app.open_settings();
     Ok(())
 }
