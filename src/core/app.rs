@@ -24,6 +24,7 @@ use crate::theme::ThemeManager;
 use crate::ui::debug::DebugView;
 use crate::ui::layout::UILayout;
 use crate::ui::modal::main_menu::MainMenuModal;
+use crate::ui::modal::settings::SettingsModal;
 use crate::ui::modal::Modal;
 use crate::ui::popups::confirmation_popup::ConfirmationPopup;
 use crate::ui::popups::error_popup::ErrorPopup;
@@ -42,7 +43,6 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use crate::ui::modal::settings::SettingsModal;
 
 pub struct App {
     /// Is the application running?
@@ -219,9 +219,7 @@ impl App {
             // Literal root: the user named this directory on purpose.
             LaunchTarget::Dir(d) => app.project_manager.set_root(d.clone()),
             // File: set_root_from_path.
-            LaunchTarget::File(p) => {
-                app.project_manager.set_root_from_path(p)
-            }
+            LaunchTarget::File(p) => app.project_manager.set_root_from_path(p),
             LaunchTarget::Empty => {}
         }
 

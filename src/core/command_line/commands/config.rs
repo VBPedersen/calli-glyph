@@ -213,7 +213,6 @@ pub fn validate_config_command(app: &mut App) -> Result<(), CommandError> {
     Ok(())
 }
 
-
 // --- Unit Tests ---
 #[cfg(test)]
 mod tests {

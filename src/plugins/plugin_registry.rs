@@ -3,11 +3,11 @@
 use crate::config::plugins::PluginsConfig;
 use crate::core::app::App;
 use crate::errors::plugin_error::PluginError;
+use crate::menu::MenuEntry;
 use crossterm::event::KeyEvent;
 use ratatui::Frame;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use crate::menu::MenuEntry;
 //PLUGIN METADATA
 
 /// Metadata of the plugin

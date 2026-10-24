@@ -10,9 +10,9 @@ pub mod lsp;
 mod performance; //Performance settings
 pub mod plugins;
 pub mod project;
+pub mod settings;
 pub mod syntax;
 mod ui;
-pub mod settings;
 //UI settings //Default configurations
 
 use crate::config::keymaps::RuntimeKeymaps;

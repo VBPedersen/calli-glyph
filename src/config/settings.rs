@@ -1,10 +1,10 @@
 //! Curated, user-editable settings: definitions plus reading/writing config.toml.
 
-use std::{fs, io};
-use std::path::Path;
 use crate::config::Config;
-use toml_edit::{DocumentMut, TableLike};
 use crate::errors::error::AppError;
+use std::path::Path;
+use std::{fs, io};
+use toml_edit::{DocumentMut, TableLike};
 
 pub enum SettingKind {
     Bool,
@@ -218,7 +218,9 @@ mod unit_settings_tests {
         let path = dir.path().join("config.toml");
         std::fs::write(&path, "[editor]\ntab_width = 2\n").unwrap();
         write_setting(&path, "editor.tab_width", None).unwrap();
-        assert!(!std::fs::read_to_string(&path).unwrap().contains("tab_width"));
+        assert!(!std::fs::read_to_string(&path)
+            .unwrap()
+            .contains("tab_width"));
     }
 
     #[test]

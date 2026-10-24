@@ -107,9 +107,13 @@ pub fn register_builtin_entries(menu: &mut MenuRegistry) {
         .with_key('i'),
     );
     menu.register(
-        MenuEntry::callback("Settings", "Settings", "Change editor options (saved to config)",
-                            |app| app.open_settings())
-            .with_key('s'),
+        MenuEntry::callback(
+            "Settings",
+            "Settings",
+            "Change editor options (saved to config)",
+            |app| app.open_settings(),
+        )
+        .with_key('s'),
     );
     menu.register(
         MenuEntry::callback("App", "Quit", "Exit calli-glyph", |app| app.request_quit())

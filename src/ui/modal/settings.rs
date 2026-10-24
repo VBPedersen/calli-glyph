@@ -1,15 +1,15 @@
-use ratatui::Frame;
-use ratatui::layout::{Constraint, Direction, Layout};
-use ratatui::style::{Modifier, Style};
-use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Clear, Paragraph};
-use crate::config::{settings, Config};
 use crate::config::settings::{Apply, SettingDef, SETTINGS};
+use crate::config::{settings, Config};
 use crate::core::app::App;
 use crate::errors::error::AppError;
 use crate::input::actions::{InputAction, ModalAction};
 use crate::ui::modal::{Modal, ModalResponse};
 use crate::ui::ui::centered_rect;
+use ratatui::layout::{Constraint, Direction, Layout};
+use ratatui::style::{Modifier, Style};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{Block, Borders, Clear, Paragraph};
+use ratatui::Frame;
 
 pub struct SettingsModal {
     categories: Vec<&'static str>,
@@ -62,8 +62,12 @@ impl SettingsModal {
 
     /// Adjusts the value of the row item selected in direction dir
     fn adjust(&mut self, app: &mut App, dir: i64) {
-        let Some(def) = self.rows().get(self.cursor).copied() else { return };
-        let Some(root) = settings::snapshot(&app.config) else { return };
+        let Some(def) = self.rows().get(self.cursor).copied() else {
+            return;
+        };
+        let Some(root) = settings::snapshot(&app.config) else {
+            return;
+        };
         let Some(cur) = settings::lookup(&root, def.key) else {
             self.message = Some(format!("✗ '{}' not found in config", def.key));
             return;
@@ -82,7 +86,9 @@ impl SettingsModal {
 
     /// commits a change to write via settings::write_setting and conclude on result whether succeeded and whether a restart is needed
     fn commit(&mut self, app: &mut App, def: &'static SettingDef, value: Option<toml_edit::Value>) {
-        let result = Config::get_config_path().map_err(|e| AppError::from(e)).and_then(|p| settings::write_setting(&p, def.key, value));
+        let result = Config::get_config_path()
+            .map_err(|e| AppError::from(e))
+            .and_then(|p| settings::write_setting(&p, def.key, value));
         match result {
             Ok(()) => {
                 app.reload_config();
@@ -98,7 +104,9 @@ impl SettingsModal {
 
 impl Modal for SettingsModal {
     fn handle_input(&mut self, action: InputAction, app: &mut App) -> ModalResponse {
-        let InputAction::Modal(m) = action else { return ModalResponse::Consumed };
+        let InputAction::Modal(m) = action else {
+            return ModalResponse::Consumed;
+        };
         match m {
             ModalAction::Close => return ModalResponse::Close,
             ModalAction::ScrollUp => self.move_cursor(-1),
@@ -202,7 +210,8 @@ impl Modal for SettingsModal {
 
         if let Some(def) = rows.get(self.cursor) {
             frame.render_widget(
-                Paragraph::new(format!("  {}", def.description)).style(Style::default().fg(ui.hint_text())),
+                Paragraph::new(format!("  {}", def.description))
+                    .style(Style::default().fg(ui.hint_text())),
                 chunks[3],
             );
         }
