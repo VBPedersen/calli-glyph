@@ -12,6 +12,8 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Clear, Paragraph, Wrap};
 use ratatui::Frame;
 use std::cmp::{min, PartialEq};
+use crate::menu::MenuEntry;
+
 // TODO
 //  Add multi line search and replace, toggle for case sensitivity and matching with only exact words
 //  Enter should replace current, and  shift enter to replace all
@@ -513,6 +515,20 @@ impl Plugin for SearchReplacePlugin {
     fn init(&mut self, _app: &mut App) -> Result<(), PluginError> {
         Ok(())
     }
+
+
+    fn takes_focus(&self) -> bool { false }
+
+    fn menu_entries(&self) -> Vec<MenuEntry> {
+        vec![MenuEntry::command(
+            "Files",
+            "Search & Replace",
+            "Search and replace characters in current file",
+            "search",
+        )
+            .with_key('s')]
+    }
+
 
     fn handle_key_event(&mut self, app: &mut App, key: KeyEvent) -> bool {
         match (key.modifiers, key.code) {
