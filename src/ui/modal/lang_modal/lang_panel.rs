@@ -806,6 +806,7 @@ impl Modal for LangPanel {
 
                 _ => {}
             },
+            _ => {}
         }
 
         ModalResponse::Consumed

@@ -2,7 +2,7 @@ use super::actions::*;
 use crate::core::app::ActiveArea;
 use crate::core::app::App;
 use crate::input::actions::EditorAction;
-use crate::ui::modal::ModalResponse;
+use crate::ui::modal::{ModalInputMode, ModalResponse};
 use color_eyre::eyre::Result;
 use crossterm::event;
 use crossterm::event::{
@@ -16,14 +16,21 @@ pub(crate) fn handle_input(app: &mut App) -> Result<()> {
         Event::Key(key) if key.kind == KeyEventKind::Press => {
             // Check Modal stack for active modal that wants to consume input
             if !app.modal_stack.is_empty() {
-                let action = map_modal_key(key);
-
-                if let Some(mut modal) = app.modal_stack.pop() {
-                    match modal.handle_input(action, app) {
-                        ModalResponse::Consumed => app.modal_stack.push(modal),
-                        ModalResponse::Close => {} // since already popped, close does nothing
+                if let Some(mode) = app.modal_stack.last().map(|m| m.input_mode()) {
+                    let action = match mode {
+                        ModalInputMode::Normal => map_modal_key(key),
+                        ModalInputMode::Text => map_text_key(key),
+                        ModalInputMode::CaptureKey => map_capture_key(key),
+                    };
+                    if let Some(mut modal) = app.modal_stack.pop() {
+                        match modal.handle_input(action, app) {
+                            ModalResponse::Consumed => app.modal_stack.push(modal),
+                            ModalResponse::Close => {} // since already popped, close does nothing
+                        }
                     }
+                    return Ok(());
                 }
+
                 return Ok(());
             }
 
@@ -236,8 +243,9 @@ fn on_scroll_events(app: &mut App, mouse_event: MouseEvent) {
     }
 }
 
-/// Maps a KeyEvent to a modal action, done centralized instead of in each modal,
-/// to ensure similar base behaviour acroos the app
+/// Maps a KeyEvent to a modal action, specifically for modals with ModalInputMode::Normal
+///done centralized instead of in each modal,
+/// to ensure similar base behavior across the app
 fn map_modal_key(key: KeyEvent) -> InputAction {
     InputAction::Modal(match (key.modifiers, key.code) {
         (KeyModifiers::NONE, KeyCode::Char('j')) | (KeyModifiers::NONE, KeyCode::Down) => {
@@ -254,5 +262,28 @@ fn map_modal_key(key: KeyEvent) -> InputAction {
         (KeyModifiers::NONE, KeyCode::Left) => ModalAction::Action('h'),
         (KeyModifiers::NONE, KeyCode::Right) => ModalAction::Action('l'),
         _ => ModalAction::Action('\0'),
+    })
+}
+
+/// Maps a KeyEvent to a modal action, specifically for modals with ModalInputMode::Text
+fn map_text_key(key: KeyEvent) -> InputAction {
+    InputAction::Modal(match (key.modifiers, key.code) {
+        (_, KeyCode::Enter) => ModalAction::Confirm,
+        (_, KeyCode::Esc) => ModalAction::Close,
+        (_, KeyCode::Backspace) => ModalAction::Backspace,
+        (KeyModifiers::NONE, KeyCode::Tab) => ModalAction::NextTab,
+        // SHIFT allowed: uppercase letters and symbols
+        (m, KeyCode::Char(c)) if m == KeyModifiers::NONE || m == KeyModifiers::SHIFT => {
+            ModalAction::Text(c)
+        }
+        _ => ModalAction::Action('\0'),
+    })
+}
+
+/// Maps a KeyEvent to a modal action, specifically for modals with ModalInputMode::CaptureKey
+fn map_capture_key(key: KeyEvent) -> InputAction {
+    InputAction::Modal(match (key.modifiers, key.code) {
+        (KeyModifiers::NONE, KeyCode::Esc) => ModalAction::Close, // Esc cancels
+        (m, code) => ModalAction::Key(code, m),
     })
 }
