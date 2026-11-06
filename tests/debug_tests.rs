@@ -625,10 +625,10 @@ mod debug_view_tests {
         assert_eq!(view.active_tab, DebugTab::Overview);
 
         view.next_tab();
-        assert_eq!(view.active_tab, DebugTab::Logs);
+        assert_eq!(view.active_tab, DebugTab::State);
 
         view.next_tab();
-        assert_eq!(view.active_tab, DebugTab::Clipboard);
+        assert_eq!(view.active_tab, DebugTab::Logs);
     }
 
     #[test]
@@ -640,7 +640,7 @@ mod debug_view_tests {
         assert_eq!(view.active_tab, DebugTab::Logs);
 
         view.prev_tab();
-        assert_eq!(view.active_tab, DebugTab::Overview);
+        assert_eq!(view.active_tab, DebugTab::State);
     }
 
     #[test]
@@ -649,6 +649,7 @@ mod debug_view_tests {
         assert_eq!(view.active_tab, DebugTab::Overview);
 
         // Cycle through all tabs
+        view.next_tab(); // State
         view.next_tab(); // Logs
         view.next_tab(); // Clipboard
         view.next_tab(); // History

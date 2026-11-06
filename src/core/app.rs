@@ -95,6 +95,23 @@ pub enum PendingState {
     },
 }
 
+/// Pending state descriptions for use in debugger and logs
+impl PendingState {
+    pub fn describe(&self) -> String {
+        match self {
+            PendingState::None => "None".into(),
+            PendingState::Saving(p) => format!("Save {}", p.display()),
+            PendingState::Quitting => "Quit (needs confirm)".into(),
+            PendingState::QuittingAbsolute => "Quit (forced)".into(),
+            PendingState::ConfigEdit { .. } => "Config edit (callback on confirm)".into(),
+            PendingState::OpenFile { path, jump_to_line } => match jump_to_line {
+                Some(l) => format!("Open {} at line {}", path.display(), l + 1),
+                None => format!("Open {}", path.display()),
+            },
+        }
+    }
+}
+
 #[derive(PartialEq, Debug, Default, Copy, Clone)]
 pub enum ActiveArea {
     #[default]
@@ -689,6 +706,12 @@ impl App {
         // Consume, and since we already checked if front is some, we can safely unwrap
         let state = self.pending_states.pop_front().unwrap();
 
+        log_info!(
+            "[Pending] resolving '{}' (confirmed={})",
+            state.describe(),
+            confirmed
+        );
+
         // Only check state if confirmed, since these functionalities should only execute when confirmed
         match state {
             PendingState::Saving(path) => {
@@ -845,6 +868,14 @@ impl App {
                 path: path.clone(),
                 jump_to_line,
             });
+
+            log_info!(
+                "[Pending] queued: {:?}",
+                self.pending_states
+                    .iter()
+                    .map(|s| s.describe())
+                    .collect::<Vec<_>>()
+            );
 
             // If there is a current file path, save it first.
             if let Some(current_path) = self.file_path.clone() {

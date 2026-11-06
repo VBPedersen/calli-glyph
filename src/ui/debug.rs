@@ -10,7 +10,7 @@ use crate::core::app::App;
 use crate::core::debug::LogEntry;
 use crate::ui::debug_console::{
     action_history, clipboard_view, log_viewer, logs_list, overview, performance_viewer,
-    snapshot_viewer, snapshots_list,
+    snapshot_viewer, snapshots_list, state_view,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -23,6 +23,7 @@ pub enum DebugTab {
     Snapshots,
     Performance,
     SnapshotViewer,
+    State,
 }
 
 ///Defines view of debug console
@@ -117,7 +118,8 @@ impl DebugView {
 
     pub fn next_tab(&mut self) {
         self.active_tab = match self.active_tab {
-            DebugTab::Overview => DebugTab::Logs,
+            DebugTab::Overview => DebugTab::State,
+            DebugTab::State => DebugTab::Logs,
             DebugTab::Logs => DebugTab::Clipboard,
             DebugTab::Clipboard => DebugTab::History,
             DebugTab::History => DebugTab::Snapshots,
@@ -131,7 +133,8 @@ impl DebugView {
     pub fn prev_tab(&mut self) {
         self.active_tab = match self.active_tab {
             DebugTab::Overview => DebugTab::Performance,
-            DebugTab::Logs => DebugTab::Overview,
+            DebugTab::State => DebugTab::Overview,
+            DebugTab::Logs => DebugTab::State,
             DebugTab::Clipboard => DebugTab::Logs,
             DebugTab::History => DebugTab::Clipboard,
             DebugTab::Snapshots => DebugTab::History,
@@ -176,6 +179,7 @@ pub fn render_debug_panel(frame: &mut Frame, app: &mut App, area: Rect) {
 
     match app.debug_view.active_tab {
         DebugTab::Overview => overview::render_overview(frame, app, chunks[1]),
+        DebugTab::State => state_view::render_state(frame, app, chunks[1]),
         DebugTab::Logs => logs_list::render_logs(frame, &mut app.debug_view, chunks[1]),
         DebugTab::LogViewer => log_viewer::render_log_viewer(frame, app, chunks[1]),
         DebugTab::Clipboard => clipboard_view::render_clipboard(frame, app, chunks[1]),
@@ -191,6 +195,7 @@ pub fn render_debug_panel(frame: &mut Frame, app: &mut App, area: Rect) {
 fn render_tabs(frame: &mut Frame, area: Rect, view: &DebugView) {
     let titles = vec![
         "Overview",
+        "State",
         "Logs",
         "Clipboard",
         "History",
@@ -199,11 +204,12 @@ fn render_tabs(frame: &mut Frame, area: Rect, view: &DebugView) {
     ];
     let selected = match view.active_tab {
         DebugTab::Overview => 0,
-        DebugTab::Logs => 1,
-        DebugTab::Clipboard => 2,
-        DebugTab::History => 3,
-        DebugTab::Snapshots => 4,
-        DebugTab::Performance => 5,
+        DebugTab::State => 1,
+        DebugTab::Logs => 2,
+        DebugTab::Clipboard => 3,
+        DebugTab::History => 4,
+        DebugTab::Snapshots => 5,
+        DebugTab::Performance => 6,
         _ => {
             return;
         } //ignore other tabs

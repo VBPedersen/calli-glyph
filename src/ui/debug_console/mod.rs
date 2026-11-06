@@ -6,3 +6,4 @@ pub mod overview;
 pub mod performance_viewer;
 pub mod snapshot_viewer;
 pub mod snapshots_list;
+pub mod state_view;
