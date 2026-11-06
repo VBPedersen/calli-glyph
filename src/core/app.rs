@@ -925,6 +925,8 @@ impl App {
             self.editor.jump_to_line(line);
         }
 
+        self.dismiss_welcome(); // dismisses the welcome screen if active
+
         log_info!("[App] Opened file: {}", path.display());
     }
 
