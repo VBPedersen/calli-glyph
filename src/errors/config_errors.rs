@@ -8,6 +8,12 @@ pub enum ConfigError {
     #[error("Failed to parse config: {0}")]
     ParseError(#[from] toml::de::Error),
 
+    #[error("{0} is not a table")]
+    NotATableError(String),
+
+    #[error("Failed to modify config: {0}")]
+    EditError(String),
+
     #[error("Failed to serialize config: {0}")]
     SerializeError(#[from] toml::ser::Error),
 

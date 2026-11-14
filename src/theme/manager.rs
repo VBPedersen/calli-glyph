@@ -18,6 +18,11 @@ pub struct ThemeManager {
 }
 
 impl ThemeManager {
+    /// Returns themes dir path
+    pub fn themes_dir(&self) -> &Path {
+        &self.themes_dir
+    }
+
     /// Builds the manager: seeds the embedded fallbacks, writes them to
     /// `themes_dir` on first launch if nothing's there yet (so a user has
     /// something to copy and edit, same convention as grammar lang
@@ -93,6 +98,47 @@ impl ThemeManager {
     pub fn rescan(&mut self) {
         scan_dir(&self.themes_dir, &mut self.themes);
     }
+
+    /// Shipped source text for the built-in themes. None for user themes.
+    pub fn builtin_source(name: &str) -> Option<&'static str> {
+        match name {
+            "dark" => Some(EMBEDDED_DARK),
+            "light" => Some(EMBEDDED_LIGHT),
+            "dracula" => Some(EMBEDDED_DRACULA),
+            _ => None,
+        }
+    }
+
+    /// Is the specific theme name a builtin theme
+    pub fn is_builtin(name: &str) -> bool {
+        Self::builtin_source(name).is_some()
+    }
+
+    /// On-disk path for `name`. A built-in whose file was deleted gets its
+    /// shipped text written back first.
+    pub fn ensure_theme_file(&self, name: &str) -> Result<PathBuf, String> {
+        let path = self.themes_dir.join(format!("{name}.toml"));
+        if path.exists() {
+            return Ok(path);
+        }
+        let src = Self::builtin_source(name)
+            .ok_or_else(|| format!("theme file for '{name}' not found"))?;
+        std::fs::create_dir_all(&self.themes_dir).map_err(|e| e.to_string())?;
+        std::fs::write(&path, src).map_err(|e| e.to_string())?;
+        Ok(path)
+    }
+
+    /// Restores a built-in theme's file to its shipped contents and reloads it.
+    pub fn reset_builtin(&mut self, name: &str) -> Result<(), String> {
+        let src = Self::builtin_source(name)
+            .ok_or_else(|| format!("'{name}' is not a built-in theme"))?;
+        std::fs::create_dir_all(&self.themes_dir).map_err(|e| e.to_string())?;
+        std::fs::write(self.themes_dir.join(format!("{name}.toml")), src)
+            .map_err(|e| e.to_string())?;
+        self.rescan();
+        Ok(())
+    }
+
 }
 
 fn ensure_default_themes_written(dir: &Path) {
@@ -248,5 +294,35 @@ mod unit_manager_tests {
         let mut sorted = names.clone();
         sorted.sort_unstable();
         assert_eq!(names, sorted);
+    }
+
+    #[test]
+    fn reset_builtin_restores_shipped_file() {
+        let dir = tempdir().unwrap();
+        let themes_dir = dir.path().join("themes");
+        let mut manager = ThemeManager::new(themes_dir.clone(), "dark");
+        std::fs::write(themes_dir.join("dark.toml"), "[meta]\nname = \"Edited\"\n").unwrap();
+        manager.rescan();
+        assert_eq!(manager.get("dark").unwrap().meta.name, "Edited");
+
+        manager.reset_builtin("dark").unwrap();
+        assert_eq!(manager.get("dark").unwrap().meta.name, "Dark");
+    }
+
+    #[test]
+    fn reset_builtin_rejects_user_themes() {
+        let dir = tempdir().unwrap();
+        let mut manager = ThemeManager::new(dir.path().join("themes"), "dark");
+        assert!(manager.reset_builtin("custom").is_err());
+    }
+
+    #[test]
+    fn ensure_theme_file_rewrites_a_deleted_builtin() {
+        let dir = tempdir().unwrap();
+        let themes_dir = dir.path().join("themes");
+        let manager = ThemeManager::new(themes_dir.clone(), "dark");
+        std::fs::remove_file(themes_dir.join("light.toml")).unwrap();
+        assert!(manager.ensure_theme_file("light").unwrap().exists());
+        assert!(manager.ensure_theme_file("nope").is_err());
     }
 }

@@ -1,5 +1,6 @@
 use super::command_line::{command, command_executor, CommandLine};
 use super::editor::Editor;
+use crate::config::settings;
 use crate::app_config::{AppLaunchConfig, LaunchTarget};
 use crate::config::Config;
 use crate::core::debug::DebugState;
@@ -43,6 +44,8 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use crate::ui::modal::theme_editor::ThemeEditorModal;
+use crate::ui::modal::themes::ThemesModal;
 
 pub struct App {
     /// Is the application running?
@@ -981,6 +984,61 @@ impl App {
             Ok(false)
         }
     }
+
+    // THEME
+
+    /// Re-pushes the active theme's syntax colors into the language manager.
+    /// UI colors need nothing: render reads the theme every frame.
+    pub fn refresh_syntax_theme(&mut self) {
+        if let Some(path) = self.file_path.clone() {
+            let syntax_theme = self.theme_manager.active().syntax.clone();
+            self.language.activate_for_file(&path, Some(syntax_theme), &self.config.lsp, &self.config.syntax);
+        }
+    }
+
+    /// Makes `name` the active theme and persists the choice (comments in config.toml preserved).
+    pub fn apply_theme(&mut self, name: &str) -> Result<(), String> {
+        self.theme_manager.set_active(name)?;
+        self.config.ui.theme = name.to_string();
+        let saved = Config::get_config_path()
+            .and_then(|p| settings::write_setting(&p, "ui.theme", Some(name.into())));
+        match saved {
+            Ok(()) => log_info!("[Theme] Active theme '{}' saved", name),
+            Err(e) => log_warn!("[Theme] Could not save theme choice: {}", e),
+        }
+        self.refresh_syntax_theme();
+        Ok(())
+    }
+
+    pub fn open_theme_browser(&mut self) {
+        let modal = ThemesModal::new(self);
+        self.modal_stack.push(Box::new(modal));
+    }
+
+    pub fn open_theme_browser_naming(&mut self) {
+        let modal = ThemesModal::new(self).start_naming();
+        self.modal_stack.push(Box::new(modal));
+    }
+
+    /// `previous_active` is restored if the editor is closed without `a` (use theme).
+    pub fn open_theme_editor(&mut self, name: &str, previous_active: String) {
+        match self.theme_manager.ensure_theme_file(name) {
+            Ok(path) => {
+                let _ = self.theme_manager.set_active(name); // live preview, not persisted
+                self.modal_stack.push(Box::new(ThemeEditorModal::new(name.to_string(), path, previous_active)));
+            }
+            Err(e) => self.open_popup(Box::new(ErrorPopup::new(
+                "Cannot edit theme",
+                AppError::InternalError(e),
+            ))),
+        }
+    }
+
+    pub fn open_theme_editor_for_active(&mut self) {
+        let name = self.theme_manager.active_name().to_string();
+        self.open_theme_editor(&name, name.clone());
+    }
+
 }
 
 //████████╗███████╗███████╗████████╗███████╗

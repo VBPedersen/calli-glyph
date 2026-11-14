@@ -1,10 +1,9 @@
 //! Curated, user-editable settings: definitions plus reading/writing config.toml.
 
-use crate::config::Config;
-use crate::errors::error::AppError;
 use std::path::Path;
 use std::{fs, io};
 use toml_edit::{DocumentMut, TableLike};
+use crate::errors::config_errors::ConfigError;
 
 pub enum SettingKind {
     Bool,
@@ -82,9 +81,9 @@ pub fn categories() -> Vec<&'static str> {
 
 // Reading
 
-/// Effective config as a toml value tree (user overrides + defaults).
-pub fn snapshot(config: &Config) -> Option<toml::Value> {
-    toml::Value::try_from(config).ok()
+/// Generic snapshot, effective config as a toml value tree (user overrides + defaults).
+pub fn snapshot<T: serde::Serialize>(value: &T) -> Option<toml::Value> {
+    toml::Value::try_from(value).ok()
 }
 
 pub fn lookup<'a>(root: &'a toml::Value, key: &str) -> Option<&'a toml::Value> {
@@ -128,26 +127,26 @@ pub fn write_setting(
     path: &Path,
     key: &str,
     value: Option<toml_edit::Value>,
-) -> Result<(), AppError> {
+) -> Result<(), ConfigError> {
     let text = match fs::read_to_string(path) {
         Ok(t) => t,
         Err(e) if e.kind() == io::ErrorKind::NotFound => String::new(),
         Err(e) => return Err(e.into()),
     };
     let mut doc: DocumentMut = text.parse().map_err(|e| {
-        AppError::InternalError(format!("config.toml has a syntax error, fix it first: {e}"))
+        ConfigError::EditError(format!("config.toml has a syntax error, fix it first: {e}"))
     })?;
 
     let mut parts: Vec<&str> = key.split('.').collect();
     let leaf = parts
         .pop()
-        .ok_or_else(|| AppError::InternalError("empty setting key".into()))?;
+        .ok_or_else(|| ConfigError::MissingField("empty setting key".into()))?;
 
     let mut table: &mut dyn TableLike = doc.as_table_mut();
     for part in parts {
         let item = table.entry(part).or_insert(toml_edit::table());
         table = item.as_table_like_mut().ok_or_else(|| {
-            AppError::InternalError(format!("'{part}' in config.toml is not a table"))
+            ConfigError::NotATableError(format!("'{part}' in config.toml"))
         })?;
     }
     match value {

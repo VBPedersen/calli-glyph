@@ -87,8 +87,11 @@ impl SettingsModal {
     /// commits a change to write via settings::write_setting and conclude on result whether succeeded and whether a restart is needed
     fn commit(&mut self, app: &mut App, def: &'static SettingDef, value: Option<toml_edit::Value>) {
         let result = Config::get_config_path()
-            .map_err(|e| AppError::from(e))
-            .and_then(|p| settings::write_setting(&p, def.key, value));
+            .map_err(AppError::from)
+            .and_then(|p| {
+                settings::write_setting(&p, def.key, value)
+                    .map_err(AppError::from)
+            });
         match result {
             Ok(()) => {
                 app.reload_config();
