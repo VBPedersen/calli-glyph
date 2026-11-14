@@ -138,7 +138,6 @@ impl ThemeManager {
         self.rescan();
         Ok(())
     }
-
 }
 
 fn ensure_default_themes_written(dir: &Path) {

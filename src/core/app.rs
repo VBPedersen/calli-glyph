@@ -1,7 +1,7 @@
 use super::command_line::{command, command_executor, CommandLine};
 use super::editor::Editor;
-use crate::config::settings;
 use crate::app_config::{AppLaunchConfig, LaunchTarget};
+use crate::config::settings;
 use crate::config::Config;
 use crate::core::debug::DebugState;
 use crate::core::help_registry::HelpRegistry;
@@ -26,6 +26,8 @@ use crate::ui::debug::DebugView;
 use crate::ui::layout::UILayout;
 use crate::ui::modal::main_menu::MainMenuModal;
 use crate::ui::modal::settings::SettingsModal;
+use crate::ui::modal::theme_editor::ThemeEditorModal;
+use crate::ui::modal::themes::ThemesModal;
 use crate::ui::modal::Modal;
 use crate::ui::popups::confirmation_popup::ConfirmationPopup;
 use crate::ui::popups::error_popup::ErrorPopup;
@@ -44,8 +46,6 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use crate::ui::modal::theme_editor::ThemeEditorModal;
-use crate::ui::modal::themes::ThemesModal;
 
 pub struct App {
     /// Is the application running?
@@ -992,7 +992,12 @@ impl App {
     pub fn refresh_syntax_theme(&mut self) {
         if let Some(path) = self.file_path.clone() {
             let syntax_theme = self.theme_manager.active().syntax.clone();
-            self.language.activate_for_file(&path, Some(syntax_theme), &self.config.lsp, &self.config.syntax);
+            self.language.activate_for_file(
+                &path,
+                Some(syntax_theme),
+                &self.config.lsp,
+                &self.config.syntax,
+            );
         }
     }
 
@@ -1025,7 +1030,11 @@ impl App {
         match self.theme_manager.ensure_theme_file(name) {
             Ok(path) => {
                 let _ = self.theme_manager.set_active(name); // live preview, not persisted
-                self.modal_stack.push(Box::new(ThemeEditorModal::new(name.to_string(), path, previous_active)));
+                self.modal_stack.push(Box::new(ThemeEditorModal::new(
+                    name.to_string(),
+                    path,
+                    previous_active,
+                )));
             }
             Err(e) => self.open_popup(Box::new(ErrorPopup::new(
                 "Cannot edit theme",
@@ -1038,7 +1047,6 @@ impl App {
         let name = self.theme_manager.active_name().to_string();
         self.open_theme_editor(&name, name.clone());
     }
-
 }
 
 //████████╗███████╗███████╗████████╗███████╗

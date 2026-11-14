@@ -4,6 +4,7 @@ use crate::core::app::App;
 use crate::input::actions::{InputAction, ModalAction};
 use crate::theme::color::parse_color;
 use crate::theme::ThemeManager;
+use crate::ui::modal::components::text_field::TextField;
 use crate::ui::modal::{Modal, ModalInputMode, ModalResponse};
 use crate::ui::ui::centered_rect;
 use ratatui::layout::{Constraint, Direction, Layout};
@@ -12,7 +13,6 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use ratatui::Frame;
 use std::path::PathBuf;
-use crate::ui::modal::components::text_field::TextField;
 
 pub struct ThemeEditorModal {
     name: String,
@@ -120,16 +120,24 @@ impl ThemeEditorModal {
     }
 
     fn adjust(&mut self, app: &mut App, dir: i64) {
-        let Some(row) = self.current_row() else { return };
-        let RowKind::Setting(kind) = &row.kind else { return };
-        let Some(cur) = self.resolved(app, row.key) else { return };
+        let Some(row) = self.current_row() else {
+            return;
+        };
+        let RowKind::Setting(kind) = &row.kind else {
+            return;
+        };
+        let Some(cur) = self.resolved(app, row.key) else {
+            return;
+        };
         if let Some(new) = settings::step_value(kind, &cur, dir) {
             self.write(app, row.key, Some(new));
         }
     }
 
     fn revert(&mut self, app: &mut App) {
-        let Some(row) = self.current_row() else { return };
+        let Some(row) = self.current_row() else {
+            return;
+        };
         let value = settings::lookup(&self.original, row.key).and_then(to_edit_value);
         self.write(app, row.key, value);
     }
@@ -153,12 +161,20 @@ impl ThemeEditorModal {
 
 impl Modal for ThemeEditorModal {
     fn input_mode(&self) -> ModalInputMode {
-        if self.editing.is_some() { ModalInputMode::Text } else { ModalInputMode::Normal }
+        if self.editing.is_some() {
+            ModalInputMode::Text
+        } else {
+            ModalInputMode::Normal
+        }
     }
-    fn debug_name(&self) -> &'static str { "ThemeEditor" }
+    fn debug_name(&self) -> &'static str {
+        "ThemeEditor"
+    }
 
     fn handle_input(&mut self, action: InputAction, app: &mut App) -> ModalResponse {
-        let InputAction::Modal(m) = action else { return ModalResponse::Consumed };
+        let InputAction::Modal(m) = action else {
+            return ModalResponse::Consumed;
+        };
 
         // Typing a color value
         if let Some(mut field) = self.editing.take() {
@@ -173,8 +189,9 @@ impl Modal for ThemeEditorModal {
                             }
                         }
                         _ => {
-                            self.message =
-                                Some("✗ not a color: use #rrggbb, #rgb or a name like 'red'".into());
+                            self.message = Some(
+                                "✗ not a color: use #rrggbb, #rgb or a name like 'red'".into(),
+                            );
                             self.editing = Some(field);
                         }
                     }
@@ -228,8 +245,10 @@ impl Modal for ThemeEditorModal {
                     self.message = Some("Only built-in themes can be reset".into());
                 } else if !self.confirm_reset {
                     self.confirm_reset = true;
-                    self.message =
-                        Some(format!("Press R again to restore the shipped '{}' theme", self.name));
+                    self.message = Some(format!(
+                        "Press R again to restore the shipped '{}' theme",
+                        self.name
+                    ));
                 } else {
                     self.confirm_reset = false;
                     match app.theme_manager.reset_builtin(&self.name) {
@@ -252,7 +271,11 @@ impl Modal for ThemeEditorModal {
         let area = centered_rect(66, 80, frame.area());
         frame.render_widget(Clear, area);
 
-        let tag = if ThemeManager::is_builtin(&self.name) { " (built-in)" } else { "" };
+        let tag = if ThemeManager::is_builtin(&self.name) {
+            " (built-in)"
+        } else {
+            ""
+        };
         let block = Block::default()
             .title(format!(" Theme: {}{tag} ", self.name))
             .borders(Borders::ALL)
@@ -296,7 +319,10 @@ impl Modal for ThemeEditorModal {
             }
         }
 
-        let snap = app.theme_manager.get(&self.name).and_then(settings::snapshot);
+        let snap = app
+            .theme_manager
+            .get(&self.name)
+            .and_then(settings::snapshot);
         let width = chunks[2].width as usize;
         let rows = self.rows();
         let lines: Vec<Line> = rows
@@ -305,7 +331,10 @@ impl Modal for ThemeEditorModal {
             .skip(self.scroll)
             .take(visible)
             .map(|(i, row)| {
-                let value = snap.as_ref().and_then(|s| settings::lookup(s, row.key)).map(settings::display);
+                let value = snap
+                    .as_ref()
+                    .and_then(|s| settings::lookup(s, row.key))
+                    .map(settings::display);
                 let (text, swatch) = match (&row.kind, value) {
                     (RowKind::Color { .. }, Some(v)) => {
                         let c = parse_color(&v);
@@ -316,7 +345,9 @@ impl Modal for ThemeEditorModal {
                     (RowKind::Setting(_), None) => ("—".to_string(), None),
                 };
                 let label = format!("  {}", row.label);
-                let used = label.chars().count() + text.chars().count() + if swatch.is_some() { 3 } else { 0 };
+                let used = label.chars().count()
+                    + text.chars().count()
+                    + if swatch.is_some() { 3 } else { 0 };
                 let mut spans = vec![
                     Span::raw(label),
                     Span::raw(" ".repeat(width.saturating_sub(used + 1))),

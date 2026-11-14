@@ -1,9 +1,9 @@
 //! Curated, user-editable settings: definitions plus reading/writing config.toml.
 
+use crate::errors::config_errors::ConfigError;
 use std::path::Path;
 use std::{fs, io};
 use toml_edit::{DocumentMut, TableLike};
-use crate::errors::config_errors::ConfigError;
 
 pub enum SettingKind {
     Bool,
@@ -145,9 +145,9 @@ pub fn write_setting(
     let mut table: &mut dyn TableLike = doc.as_table_mut();
     for part in parts {
         let item = table.entry(part).or_insert(toml_edit::table());
-        table = item.as_table_like_mut().ok_or_else(|| {
-            ConfigError::NotATableError(format!("'{part}' in config.toml"))
-        })?;
+        table = item
+            .as_table_like_mut()
+            .ok_or_else(|| ConfigError::NotATableError(format!("'{part}' in config.toml")))?;
     }
     match value {
         Some(v) => {

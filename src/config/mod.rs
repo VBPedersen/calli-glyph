@@ -12,8 +12,8 @@ pub mod plugins;
 pub mod project;
 pub mod settings;
 pub mod syntax;
-mod ui;
 pub mod theme_edit;
+mod ui;
 //UI settings //Default configurations
 
 use crate::config::keymaps::RuntimeKeymaps;

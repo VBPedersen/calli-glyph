@@ -2,12 +2,17 @@ use crate::config::settings::{write_setting, SettingKind};
 use crate::errors::error::AppError;
 use crate::theme::color::parse_color;
 use ratatui::style::Color;
-use std::{fs, path::{Path, PathBuf}};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 use toml_edit::DocumentMut;
 
 pub enum RowKind {
     /// `optional` colors have no default: unset is a valid state.
-    Color { optional: bool },
+    Color {
+        optional: bool,
+    },
     Setting(SettingKind),
 }
 
@@ -19,13 +24,33 @@ pub struct Row {
 }
 
 const fn color(group: &'static str, key: &'static str, label: &'static str) -> Row {
-    Row { group, key, label, kind: RowKind::Color { optional: false } }
+    Row {
+        group,
+        key,
+        label,
+        kind: RowKind::Color { optional: false },
+    }
 }
 const fn optional_color(group: &'static str, key: &'static str, label: &'static str) -> Row {
-    Row { group, key, label, kind: RowKind::Color { optional: true } }
+    Row {
+        group,
+        key,
+        label,
+        kind: RowKind::Color { optional: true },
+    }
 }
-const fn setting(group: &'static str, key: &'static str, label: &'static str, kind: SettingKind) -> Row {
-    Row { group, key, label, kind: RowKind::Setting(kind) }
+const fn setting(
+    group: &'static str,
+    key: &'static str,
+    label: &'static str,
+    kind: SettingKind,
+) -> Row {
+    Row {
+        group,
+        key,
+        label,
+        kind: RowKind::Setting(kind),
+    }
 }
 
 pub const ROWS: &[Row] = &[
@@ -43,7 +68,11 @@ pub const ROWS: &[Row] = &[
     color("Bars", "ui.colors.list_highlight_bg", "List highlight bg"),
     color("Bars", "ui.colors.list_highlight_fg", "List highlight fg"),
     color("Bars", "ui.colors.line_number", "Line number"),
-    color("Bars", "ui.colors.line_number_current", "Current line number"),
+    color(
+        "Bars",
+        "ui.colors.line_number_current",
+        "Current line number",
+    ),
     color("Bars", "ui.colors.current_line_bg", "Current line"),
     color("Status", "ui.colors.error", "Error"),
     color("Status", "ui.colors.warning", "Warning"),
@@ -64,7 +93,11 @@ pub const ROWS: &[Row] = &[
     optional_color("Popups", "ui.components.popup_bg", "Popup background"),
     optional_color("Popups", "ui.components.popup_fg", "Popup text"),
     optional_color("Popups", "ui.components.popup_border", "Popup border"),
-    optional_color("Popups", "ui.components.debug_console_bg", "Debug console bg"),
+    optional_color(
+        "Popups",
+        "ui.components.debug_console_bg",
+        "Debug console bg",
+    ),
     color("Syntax", "syntax.defaults.fg", "Default text"),
     color("Syntax", "syntax.tokens.keyword.fg", "Keyword"),
     color("Syntax", "syntax.tokens.string.fg", "String"),
@@ -78,16 +111,41 @@ pub const ROWS: &[Row] = &[
     color("Syntax", "syntax.tokens.parameter.fg", "Parameter"),
     color("Syntax", "syntax.tokens.constant.fg", "Constant"),
     color("Syntax", "syntax.tokens.operator.fg", "Operator"),
-    setting("Layout", "layout.border_style", "Border style",
-            SettingKind::Choice(&["plain", "rounded", "double", "thick"])),
-    setting("Layout", "layout.line_number_style", "Line numbers",
-            SettingKind::Choice(&["absolute", "relative", "both"])),
-    setting("Layout", "layout.status_bar_position", "Status bar",
-            SettingKind::Choice(&["top", "bottom"])),
-    setting("Layout", "layout.popup_padding", "Popup padding",
-            SettingKind::Int { min: 0, max: 4, step: 1 }),
+    setting(
+        "Layout",
+        "layout.border_style",
+        "Border style",
+        SettingKind::Choice(&["plain", "rounded", "double", "thick"]),
+    ),
+    setting(
+        "Layout",
+        "layout.line_number_style",
+        "Line numbers",
+        SettingKind::Choice(&["absolute", "relative", "both"]),
+    ),
+    setting(
+        "Layout",
+        "layout.status_bar_position",
+        "Status bar",
+        SettingKind::Choice(&["top", "bottom"]),
+    ),
+    setting(
+        "Layout",
+        "layout.popup_padding",
+        "Popup padding",
+        SettingKind::Int {
+            min: 0,
+            max: 4,
+            step: 1,
+        },
+    ),
     setting("Layout", "layout.scrollbar", "Scrollbar", SettingKind::Bool),
-    setting("Layout", "meta.dark", "Dark theme (hint)", SettingKind::Bool),
+    setting(
+        "Layout",
+        "meta.dark",
+        "Dark theme (hint)",
+        SettingKind::Bool,
+    ),
 ];
 
 /// Group names in order of first appearance (used as tabs).
@@ -103,9 +161,11 @@ pub fn groups() -> Vec<&'static str> {
 
 /// Validates then writes one color into a theme file (comments preserved).
 pub fn set_color(theme_path: &Path, key: &str, input: &str) -> Result<(), AppError> {
-    let hex = normalize_hex(input)
-        .ok_or_else(|| AppError::InternalError(format!("'{input}' is not a hex color (#rrggbb)")))?;
-    Ok(write_setting(theme_path, key, Some(hex.into())).map_err(|e| AppError::InternalError(e.to_string()))?)
+    let hex = normalize_hex(input).ok_or_else(|| {
+        AppError::InternalError(format!("'{input}' is not a hex color (#rrggbb)"))
+    })?;
+    Ok(write_setting(theme_path, key, Some(hex.into()))
+        .map_err(|e| AppError::InternalError(e.to_string()))?)
 }
 
 /// "#abc", "abc", "#AABBCC" -> Some([r,g,b]).
@@ -147,7 +207,11 @@ pub fn slug(name: &str) -> Option<String> {
         .chars()
         .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
         .collect();
-    let s = s.split('-').filter(|p| !p.is_empty()).collect::<Vec<_>>().join("-");
+    let s = s
+        .split('-')
+        .filter(|p| !p.is_empty())
+        .collect::<Vec<_>>()
+        .join("-");
     (!s.is_empty()).then_some(s)
 }
 
@@ -157,7 +221,9 @@ pub fn duplicate_theme(src: &Path, dest_dir: &Path, new_name: &str) -> Result<Pa
         .ok_or_else(|| AppError::InternalError("theme name needs letters or digits".into()))?;
     let dest = dest_dir.join(format!("{slug}.toml"));
     if dest.exists() {
-        return Err(AppError::InternalError(format!("theme '{slug}' already exists")));
+        return Err(AppError::InternalError(format!(
+            "theme '{slug}' already exists"
+        )));
     }
     let mut doc: DocumentMut = fs::read_to_string(src)?
         .parse()
@@ -179,7 +245,11 @@ mod unit_theme_edit_tests {
         let snap = toml::Value::try_from(&crate::theme::Theme::embedded_dark()).unwrap();
         for r in ROWS {
             if !matches!(r.kind, RowKind::Color { optional: true }) {
-                assert!(lookup(&snap, r.key).is_some(), "row key not found: {}", r.key);
+                assert!(
+                    lookup(&snap, r.key).is_some(),
+                    "row key not found: {}",
+                    r.key
+                );
             }
         }
     }
@@ -216,7 +286,9 @@ mod unit_theme_edit_tests {
 
         let dest = duplicate_theme(&src, &out_dir, "My Theme!").unwrap();
         assert_eq!(dest.file_name().unwrap(), "my-theme.toml");
-        assert!(std::fs::read_to_string(&dest).unwrap().contains("My Theme!"));
+        assert!(std::fs::read_to_string(&dest)
+            .unwrap()
+            .contains("My Theme!"));
         assert!(duplicate_theme(&src, &out_dir, "My Theme!").is_err());
     }
 
@@ -243,7 +315,11 @@ mod unit_theme_edit_tests {
     fn set_color_writes_inline_syntax_table_and_keeps_other_fields() {
         let dir = tempfile::tempdir().unwrap();
         let p = dir.path().join("t.toml");
-        std::fs::write(&p, "[syntax.tokens]\nkeyword = { fg = \"#569cd6\", bold = true }\n").unwrap();
+        std::fs::write(
+            &p,
+            "[syntax.tokens]\nkeyword = { fg = \"#569cd6\", bold = true }\n",
+        )
+        .unwrap();
         set_color(&p, "syntax.tokens.keyword.fg", "#fff").unwrap();
         let out = std::fs::read_to_string(&p).unwrap();
         assert!(out.contains("#ffffff"));

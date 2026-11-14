@@ -2,6 +2,7 @@ use crate::config::theme_edit;
 use crate::core::app::App;
 use crate::input::actions::{InputAction, ModalAction};
 use crate::theme::ThemeManager;
+use crate::ui::modal::components::text_field::TextField;
 use crate::ui::modal::{Modal, ModalInputMode, ModalResponse};
 use crate::ui::ui::centered_rect;
 use ratatui::layout::{Constraint, Direction, Layout};
@@ -9,7 +10,6 @@ use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use ratatui::Frame;
-use crate::ui::modal::components::text_field::TextField;
 
 pub struct ThemesModal {
     names: Vec<String>,
@@ -23,10 +23,22 @@ pub struct ThemesModal {
 
 impl ThemesModal {
     pub fn new(app: &App) -> Self {
-        let names: Vec<String> = app.theme_manager.names().into_iter().map(String::from).collect();
+        let names: Vec<String> = app
+            .theme_manager
+            .names()
+            .into_iter()
+            .map(String::from)
+            .collect();
         let original = app.theme_manager.active_name().to_string();
         let cursor = names.iter().position(|n| *n == original).unwrap_or(0);
-        Self { names, cursor, scroll: 0, original, naming: None, message: None }
+        Self {
+            names,
+            cursor,
+            scroll: 0,
+            original,
+            naming: None,
+            message: None,
+        }
     }
 
     pub fn start_naming(mut self) -> Self {
@@ -42,7 +54,8 @@ impl ThemesModal {
         if self.names.is_empty() {
             return;
         }
-        self.cursor = (self.cursor as isize + delta).clamp(0, self.names.len() as isize - 1) as usize;
+        self.cursor =
+            (self.cursor as isize + delta).clamp(0, self.names.len() as isize - 1) as usize;
         self.message = None;
         if let Some(n) = self.selected() {
             let _ = app.theme_manager.set_active(n); // preview only
@@ -51,7 +64,10 @@ impl ThemesModal {
 
     /// Copies the selected theme to a new user theme; returns its name.
     fn create(&self, app: &mut App, name: &str) -> Result<String, String> {
-        let src_name = self.selected().cloned().ok_or_else(|| "no theme selected".to_string())?;
+        let src_name = self
+            .selected()
+            .cloned()
+            .ok_or_else(|| "no theme selected".to_string())?;
         let src = app.theme_manager.ensure_theme_file(&src_name)?;
         let dir = app.theme_manager.themes_dir().to_path_buf();
         let dest = theme_edit::duplicate_theme(&src, &dir, name).map_err(|e| e.to_string())?;
@@ -65,7 +81,9 @@ impl ThemesModal {
 
 impl Modal for ThemesModal {
     fn handle_input(&mut self, action: InputAction, app: &mut App) -> ModalResponse {
-        let InputAction::Modal(m) = action else { return ModalResponse::Consumed };
+        let InputAction::Modal(m) = action else {
+            return ModalResponse::Consumed;
+        };
 
         if let Some(mut field) = self.naming.take() {
             match m {
@@ -130,7 +148,11 @@ impl Modal for ThemesModal {
 
         let chunks = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Min(1), Constraint::Length(1), Constraint::Length(1)])
+            .constraints([
+                Constraint::Min(1),
+                Constraint::Length(1),
+                Constraint::Length(1),
+            ])
             .split(inner);
 
         let visible = chunks[0].height as usize;
@@ -152,8 +174,16 @@ impl Modal for ThemesModal {
             .take(visible)
             .map(|(i, n)| {
                 let marker = if *n == self.original { "● " } else { "  " };
-                let display = app.theme_manager.get(n).map(|t| t.meta.name.clone()).unwrap_or_default();
-                let tag = if ThemeManager::is_builtin(n) { " · built-in" } else { "" };
+                let display = app
+                    .theme_manager
+                    .get(n)
+                    .map(|t| t.meta.name.clone())
+                    .unwrap_or_default();
+                let tag = if ThemeManager::is_builtin(n) {
+                    " · built-in"
+                } else {
+                    ""
+                };
                 let mut line = Line::from(vec![
                     Span::raw(format!("{marker}{n}")),
                     Span::styled(format!("  {display}{tag}"), dim),
@@ -172,7 +202,10 @@ impl Modal for ThemesModal {
                 Span::styled(f.value().to_string(), Style::default().fg(ui.accent_blue())),
                 Span::styled("█", Style::default().fg(ui.accent_blue())),
             ]),
-            (None, Some(m)) => Line::from(Span::styled(m.clone(), Style::default().fg(ui.accent_blue()))),
+            (None, Some(m)) => Line::from(Span::styled(
+                m.clone(),
+                Style::default().fg(ui.accent_blue()),
+            )),
             _ => Line::raw(""),
         };
         frame.render_widget(Paragraph::new(status), chunks[1]);
@@ -186,8 +219,14 @@ impl Modal for ThemesModal {
     }
 
     fn input_mode(&self) -> ModalInputMode {
-        if self.naming.is_some() { ModalInputMode::Text } else { ModalInputMode::Normal }
+        if self.naming.is_some() {
+            ModalInputMode::Text
+        } else {
+            ModalInputMode::Normal
+        }
     }
 
-    fn debug_name(&self) -> &'static str { "Themes" }
+    fn debug_name(&self) -> &'static str {
+        "Themes"
+    }
 }

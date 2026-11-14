@@ -4,8 +4,8 @@ pub mod github_token;
 pub mod lang_modal;
 pub mod main_menu;
 pub mod settings;
-pub mod themes;
 pub mod theme_editor;
+pub mod themes;
 
 use crate::core::app::App;
 use crate::input::actions::InputAction;

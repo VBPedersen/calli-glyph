@@ -4,7 +4,7 @@ use crate::menu::MenuEntry;
 use crate::plugins::plugin_registry::{
     KeyContext, Plugin, PluginCommand, PluginKeybinding, PluginMetadata,
 };
-use crossterm::event::{KeyEvent};
+use crossterm::event::KeyEvent;
 use ratatui::Frame;
 
 pub struct ThemePickerPlugin {
@@ -46,12 +46,17 @@ impl Plugin for ThemePickerPlugin {
         }
     }
 
-    fn init(&mut self, _app: &mut App) -> Result<(), PluginError> { Ok(()) }
+    fn init(&mut self, _app: &mut App) -> Result<(), PluginError> {
+        Ok(())
+    }
 
+    fn handle_key_event(&mut self, _app: &mut App, _key: KeyEvent) -> bool {
+        false
+    }
 
-    fn handle_key_event(&mut self, _app: &mut App, _key: KeyEvent) -> bool { false }
-
-    fn render(&self, _frame: &mut Frame, _app: &App) -> bool { false }
+    fn render(&self, _frame: &mut Frame, _app: &App) -> bool {
+        false
+    }
 
     fn shutdown(&mut self, app: &mut App) {}
 
@@ -61,17 +66,27 @@ impl Plugin for ThemePickerPlugin {
 
     fn menu_entries(&self) -> Vec<MenuEntry> {
         vec![
-            MenuEntry::command("Appearance", "Themes",
-                               "Browse, preview and apply themes", "theme")
-                .with_key('t'),
-            MenuEntry::callback("Appearance", "Edit current theme",
-                                "Change the colors and layout of the active theme",
-                                |app| app.open_theme_editor_for_active())
-                .with_key('e'),
-            MenuEntry::callback("Appearance", "New theme",
-                                "Create a new theme as a copy of the active one",
-                                |app| app.open_theme_browser_naming())
-                .with_key('n'),
+            MenuEntry::command(
+                "Appearance",
+                "Themes",
+                "Browse, preview and apply themes",
+                "theme",
+            )
+            .with_key('t'),
+            MenuEntry::callback(
+                "Appearance",
+                "Edit current theme",
+                "Change the colors and layout of the active theme",
+                |app| app.open_theme_editor_for_active(),
+            )
+            .with_key('e'),
+            MenuEntry::callback(
+                "Appearance",
+                "New theme",
+                "Create a new theme as a copy of the active one",
+                |app| app.open_theme_browser_naming(),
+            )
+            .with_key('n'),
         ]
     }
 }
