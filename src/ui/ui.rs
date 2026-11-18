@@ -14,6 +14,7 @@ use ratatui::{
     Frame,
 };
 use std::default::Default;
+use std::ops::Range;
 use std::path::PathBuf;
 use std::vec;
 
@@ -527,198 +528,203 @@ fn handle_editor_content<'a>(
     selection_end: Option<CursorPosition>,
     editor_width: usize,
     app: &mut App,
-    syntax_highlights: &[Vec<(std::ops::Range<usize>, Style)>],
+    syntax_highlights: &[Vec<(Range<usize>, Style)>],
     theme: &UiTheme,
 ) -> Text<'a> {
-    let editor_vec: Vec<String> = vec
-        .into_iter()
-        .map(|s| {
-            // If show whitespaces render white space " " as "·"
-            let with_tabs = handle_tab_rendering(s, app.config.editor.tab_width);
-            if app.config.editor.show_whitespace {
-                with_tabs.replace(" ", "·")
-            } else {
-                with_tabs
-            }
-        })
-        .collect();
+    let tab_width = app.config.editor.tab_width as usize;
+    let show_ws = app.config.editor.show_whitespace;
+    let wrap = app.config.editor.wrap_lines;
+    let visual_x = app.editor.visual_cursor_x;
+    let cursor_y = app.editor.cursor.y.max(0) as usize;
+    let selection = match (selection_start, selection_end) {
+        (Some(s), Some(e)) => Some((s, e)),
+        _ => None,
+    };
+    let selection_style = theme.selection_style().add_modifier(Modifier::BOLD);
 
     let mut editor_text: Text = Text::default();
+    for (i, src) in vec.iter().enumerate() {
+        let tokens = syntax_highlights
+            .get(i)
+            .map(|t| t.as_slice())
+            .unwrap_or(&[]);
+        let line_chars = src.chars().count();
+        let sel = selection.and_then(|(s, e)| selection_on_line(i, line_chars, s, e));
 
-    if selection_start.is_some() {
-        // Selection active, skip syntax higlight, selection takes priority
-        editor_text = highlight_text(editor_vec.clone(), selection_start, selection_end, theme);
-    } else {
-        for (i, s) in editor_vec.into_iter().enumerate() {
-            let visual_x = app.editor.visual_cursor_x;
+        let mut chars = render_line(src, tokens, sel, tab_width, show_ws, selection_style);
 
-            // Line wrapping and horizontal scroll
-            let line: Line = if app.config.editor.wrap_lines {
-                // Simple wrap TODO make actual wrapping solution that is intelligent
-                let spans = syntax_highlights.get(i);
-                match spans {
-                    Some(token_spans) if !token_spans.is_empty() => {
-                        Line::from(build_highlighted_spans(&s, token_spans))
-                    }
-                    _ => Line::from(s),
+        // Selected empty lines get a visible placeholder cell
+        if src.is_empty() {
+            if let Some((s, e)) = selection {
+                if i > s.y && i <= e.y {
+                    chars.push((' ', selection_style));
                 }
-            } else if i == app.editor.cursor.y as usize && visual_x > editor_width as i16 {
-                // Horizontal scroll for current line, no syntax highlight on scrolled line (TODO maybe)
-                let start_idx = (visual_x - editor_width as i16).max(0) as usize;
-                Line::from(
-                    get_copy_of_editor_content_at_line_between_cursor_editor_width(s, start_idx),
-                )
-            } else {
-                // Normal line, apply syntax highlighting if available
-                let spans = syntax_highlights.get(i);
-                match spans {
-                    Some(token_spans) if !token_spans.is_empty() => {
-                        Line::from(build_highlighted_spans(&s, token_spans))
-                    }
-                    _ => Line::from(s),
-                }
-            };
-
-            editor_text.push_line(line);
+            }
         }
-    }
 
+        // Horizontal scroll of the cursor line (colors and selection are kept)
+        if !wrap && i == cursor_y && visual_x > editor_width as i16 {
+            let skip = (visual_x - editor_width as i16).max(0) as usize;
+            chars.drain(..skip.min(chars.len()));
+        }
+
+        editor_text.push_line(Line::from(to_spans(&chars)));
+    }
     editor_text
 }
 
-///gets a copy of the text content at specific line and range of editor content
-fn get_copy_of_editor_content_at_line_between_cursor_editor_width(
-    s: String,
-    start: usize,
-) -> String {
-    let mut line_chars_vec: Vec<char> = s.chars().collect();
-    line_chars_vec.drain(start..).collect()
+/// Selected char range [start, end) on line `i`, or None.
+fn selection_on_line(
+    i: usize,
+    line_chars: usize,
+    start: CursorPosition,
+    end: CursorPosition,
+) -> Option<(usize, usize)> {
+    if i < start.y || i > end.y {
+        return None;
+    }
+    let s = if i == start.y { start.x } else { 0 };
+    let e = if i == end.y { end.x } else { line_chars };
+    let (s, e) = (s.min(line_chars), e.min(line_chars));
+    (s < e).then_some((s, e))
 }
 
-///manipulates how the editor content \t character is rendered visually
-fn handle_tab_rendering(s: String, tab_width: u16) -> String {
-    let mut temp_string: Vec<char> = s.chars().collect();
-
-    let mut i = 0;
-
-    while i < temp_string.len() {
-        if temp_string[i] == '\t' {
-            let spaces_needed = tab_width as usize - ((i as i16) as usize % tab_width as usize);
-
-            temp_string.remove(i);
-            temp_string.splice(i..i, std::iter::repeat(' ').take(spaces_needed));
-
-            i += spaces_needed - 1; // Adjust index for added spaces
+/// Maps syntax byte ranges onto per-char styles of the source line.
+fn char_styles(src: &str, tokens: &[(Range<usize>, Style)]) -> Vec<Style> {
+    let offsets: Vec<usize> = src.char_indices().map(|(b, _)| b).collect();
+    let mut styles = vec![Style::default(); offsets.len()];
+    for (range, style) in tokens {
+        let s = offsets.partition_point(|&o| o < range.start);
+        let e = offsets.partition_point(|&o| o < range.end);
+        for st in styles.iter_mut().take(e).skip(s) {
+            *st = *style; // later (inner) tokens win
         }
-        i += 1;
     }
-
-    temp_string.into_iter().collect()
+    styles
 }
 
-//TEXT HIGHLIGTHING
+/// One display line as (char, style): syntax + selection overlay, then tab
+/// expansion and whitespace dots applied per char so styles stay attached.
+fn render_line(
+    src: &str,
+    tokens: &[(Range<usize>, Style)],
+    selected: Option<(usize, usize)>,
+    tab_width: usize,
+    show_whitespace: bool,
+    selection_style: Style,
+) -> Vec<(char, Style)> {
+    let tab_width = tab_width.max(1);
+    let styles = char_styles(src, tokens);
+    let blank = if show_whitespace { '·' } else { ' ' };
+    let mut out = Vec::with_capacity(src.len());
+    let mut col = 0usize;
 
-//TODO error when shift selecting up into å æ ø multi byte chars
-/// Function to highlight selected text by processing whole content, and returning styled
-fn highlight_text<'a>(
-    text: Vec<String>,
-    start: Option<CursorPosition>,
-    end: Option<CursorPosition>,
-    theme: &UiTheme,
-) -> Text<'a> {
-    let mut highlighted_lines = Vec::new();
-
-    // Safety check for None options, and to safely unwrap beneath
-    if start.is_none() || end.is_none() {
-        return Text::from(
-            text.iter()
-                .map(|s| Line::from(s.clone()))
-                .collect::<Vec<_>>(),
-        );
-    }
-
-    let start = start.unwrap();
-    let end = end.unwrap();
-
-    for (i, line) in text.iter().enumerate() {
-        let mut spans = Vec::new();
-
-        if i < start.y || i > end.y {
-            spans.push(Span::raw(line.clone())); // No selection on this line
-        } else {
-            let start_col = if i == start.y { start.x } else { 0 };
-            let end_col = if i == end.y { end.x } else { line.len() };
-
-            // Ensure selection is within valid bounds
-            let start_col = start_col.min(line.len());
-            let end_col = end_col.min(line.len());
-
-            spans.push(Span::raw(line[..start_col].to_string())); // Before selectiona
-
-            let selected_style = theme.selection_style().add_modifier(Modifier::BOLD);
-
-            if line.is_empty() && i > start.y && i <= end.y {
-                // add highlights for empty lines with added visual placeholder " "
-                spans.push(Span::styled(" ", selected_style));
-            } else {
-                spans.push(Span::styled(
-                    line[start_col..end_col].to_string(), // Highlighted text
-                    selected_style,
-                ));
+    for (i, ch) in src.chars().enumerate() {
+        let mut style = styles[i];
+        if let Some((s, e)) = selected {
+            if i >= s && i < e {
+                style = style.patch(selection_style);
             }
-
-            spans.push(Span::raw(line[end_col..].to_string())); // After selection
         }
-
-        highlighted_lines.push(Line::from(spans));
+        match ch {
+            '\t' => {
+                let n = tab_width - col % tab_width;
+                out.extend(std::iter::repeat((blank, style)).take(n));
+                col += n;
+            }
+            ' ' => {
+                out.push((blank, style));
+                col += 1;
+            }
+            c => {
+                out.push((c, style));
+                col += 1;
+            }
+        }
     }
-
-    Text::from(highlighted_lines)
+    out
 }
 
-/// Given a display line and its pre-computed (local_byte_range, Style) pairs,
-/// build a Vec of Spans that covers the entire line — unstyled text fills the
-/// gaps between tokens.
-///
-/// Preconditions (guaranteed by LanguageManager::highlighted_lines):
-///   - ranges are within 0..line.len()
-///   - start < end for every range
-///   - ranges are sorted by start (tree-sitter walk is left-to-right)
-fn build_highlighted_spans<'a>(
-    line: &str,
-    token_spans: &[(std::ops::Range<usize>, Style)],
-) -> Vec<Span<'a>> {
-    let mut spans: Vec<Span<'a>> = Vec::new();
-    let mut cursor = 0usize;
-
-    for (range, style) in token_spans {
-        let start = range.start.min(line.len());
-        let end = range.end.min(line.len());
-
-        if start > cursor {
-            // Gap before this token = plain unstyled text
-            spans.push(Span::raw(line[cursor..start].to_string()));
+/// Groups consecutive chars with the same style into spans.
+fn to_spans<'a>(chars: &[(char, Style)]) -> Vec<Span<'a>> {
+    let mut spans = Vec::new();
+    let mut buf = String::new();
+    let mut cur: Option<Style> = None;
+    for &(c, st) in chars {
+        if cur != Some(st) {
+            if let Some(s) = cur {
+                spans.push(Span::styled(std::mem::take(&mut buf), s));
+            }
+            cur = Some(st);
         }
-
-        if start < end {
-            spans.push(Span::styled(line[start..end].to_string(), *style));
-        }
-
-        if end > cursor {
-            cursor = end;
-        }
+        buf.push(c);
     }
-
-    // Trailing unstyled text after the last token
-    if cursor < line.len() {
-        spans.push(Span::raw(line[cursor..].to_string()));
+    if let Some(s) = cur {
+        spans.push(Span::styled(buf, s));
     }
-
-    // If nothing was produced,
-    // fall back to a single raw span so the line is never blank.
-    if spans.is_empty() {
-        spans.push(Span::raw(line.to_string()));
-    }
-
     spans
+}
+
+#[cfg(test)]
+mod unit_render_line_tests {
+    use super::*;
+    use ratatui::style::Color;
+
+    fn red() -> Style {
+        Style::default().fg(Color::Red)
+    }
+    fn sel() -> Style {
+        Style::default().bg(Color::Blue)
+    }
+
+    #[test]
+    fn syntax_color_survives_under_selection() {
+        // "let x": `let` (bytes 0..3) is red; select chars 1..5
+        let out = render_line("let x", &[(0..3, red())], Some((1, 5)), 4, false, sel());
+        assert_eq!(out[0].1, red()); // unselected keyword keeps color
+        assert_eq!(out[1].1, red().patch(sel())); // selected keyword: color + bg
+        assert_eq!(out[3].1, sel()); // selected plain text: bg only
+    }
+
+    #[test]
+    fn multibyte_chars_use_char_indices_for_selection_and_bytes_for_tokens() {
+        // "åb=1": 'å' is 2 bytes. Token on `b` (bytes 2..3), select chars 1..2 (just `b`)
+        let out = render_line("åb=1", &[(2..3, red())], Some((1, 2)), 4, false, sel());
+        assert_eq!(out[0], ('å', Style::default()));
+        assert_eq!(out[1], ('b', red().patch(sel())));
+        assert_eq!(out[2].1, Style::default());
+    }
+
+    #[test]
+    fn tabs_expand_to_the_next_stop_and_inherit_selection() {
+        let out = render_line("a\tb", &[], Some((1, 2)), 4, false, sel());
+        assert_eq!(out.len(), 5); // a + 3 spaces + b
+        assert!(out[1..4].iter().all(|(c, s)| *c == ' ' && *s == sel()));
+        assert_eq!(out[4].0, 'b');
+    }
+
+    #[test]
+    fn whitespace_dots_do_not_shift_token_alignment() {
+        // token on `x` (bytes 2..3) in "a x"; dots must not misalign it
+        let out = render_line("a x", &[(2..3, red())], None, 4, true, sel());
+        assert_eq!(out[1].0, '·');
+        assert_eq!(out[2], ('x', red()));
+    }
+
+    #[test]
+    fn selection_on_line_cases() {
+        let (s, e) = (CursorPosition { x: 2, y: 1 }, CursorPosition { x: 3, y: 3 });
+        assert_eq!(selection_on_line(0, 10, s, e), None);
+        assert_eq!(selection_on_line(1, 10, s, e), Some((2, 10)));
+        assert_eq!(selection_on_line(2, 10, s, e), Some((0, 10)));
+        assert_eq!(selection_on_line(3, 10, s, e), Some((0, 3)));
+        assert_eq!(selection_on_line(3, 2, s, e), Some((0, 2))); // clamped
+    }
+
+    #[test]
+    fn to_spans_groups_equal_styles() {
+        let spans = to_spans(&[('a', red()), ('b', red()), ('c', Style::default())]);
+        assert_eq!(spans.len(), 2);
+        assert_eq!(spans[0].content, "ab");
+    }
 }
