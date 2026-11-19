@@ -110,7 +110,7 @@ fn try_activate_plugin_with_key(app: &mut App, key: KeyEvent) -> bool {
 }
 
 /// Convert KeyEvent to keybinding string format
-fn key_event_to_keybinding_string(key: KeyEvent) -> String {
+pub(crate) fn key_event_to_keybinding_string(key: KeyEvent) -> String {
     let mut result = String::new();
 
     if key.modifiers.contains(KeyModifiers::CONTROL) {
@@ -258,6 +258,7 @@ fn map_modal_key(key: KeyEvent) -> InputAction {
         (KeyModifiers::SHIFT, KeyCode::BackTab) => ModalAction::PrevTab,
         (KeyModifiers::NONE, KeyCode::Enter) => ModalAction::Confirm,
         (KeyModifiers::NONE, KeyCode::Esc) => ModalAction::Close,
+        (KeyModifiers::SHIFT, KeyCode::Char(c)) => ModalAction::Action(c),
         (KeyModifiers::NONE, KeyCode::Char(c)) => ModalAction::Action(c),
         (KeyModifiers::NONE, KeyCode::Left) => ModalAction::Action('h'),
         (KeyModifiers::NONE, KeyCode::Right) => ModalAction::Action('l'),

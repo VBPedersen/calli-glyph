@@ -95,8 +95,11 @@ impl KeymapConfig {
             "f10" => KeyCode::F(10),
             "f11" => KeyCode::F(11),
             "f12" => KeyCode::F(12),
+            "space" => KeyCode::Char(' '),
+            "plus" => KeyCode::Char('+'),
             s if s.len() == 1 => KeyCode::Char(
-                s.chars()
+                key_part
+                    .chars()
                     .next()
                     .ok_or_else(|| ConfigError::InvalidKeymap(key_str.to_string()))?,
             ),
@@ -108,7 +111,7 @@ impl KeymapConfig {
             }
         };
 
-        Ok((modifiers, keycode))
+        Ok(normalize_key(modifiers, keycode))
     }
 
     /// Parses action names to input actions in editor context
@@ -298,7 +301,7 @@ impl RuntimeKeymaps {
     //RuntimeKeymaps functions that get InputAction related to specified hashmap with mods and key.
 
     pub fn get_editor_action(&self, mods: KeyModifiers, key: KeyCode) -> Option<&InputAction> {
-        self.editor.get(&(mods, key))
+        self.editor.get(&normalize_key(mods, key))
     }
 
     pub fn get_command_line_action(
@@ -306,10 +309,101 @@ impl RuntimeKeymaps {
         mods: KeyModifiers,
         key: KeyCode,
     ) -> Option<&InputAction> {
-        self.command_line.get(&(mods, key))
+        self.command_line.get(&normalize_key(mods, key))
     }
 
     pub fn get_debug_action(&self, mods: KeyModifiers, key: KeyCode) -> Option<&InputAction> {
-        self.debug.get(&(mods, key))
+        self.debug.get(&normalize_key(mods, key))
+    }
+}
+
+/// Canonical form for lookups.
+/// - Bare uppercase letter ("C") becomes Shift+lowercase.
+/// - With Ctrl/Alt, case is just spelling ("Ctrl+S" == "Ctrl+s"): most terminals
+///   can't tell Ctrl+S from Ctrl+Shift+S, and existing configs use both spellings.
+pub fn normalize_key(mods: KeyModifiers, code: KeyCode) -> (KeyModifiers, KeyCode) {
+    match code {
+        KeyCode::Char(c) if c.is_ascii_uppercase() => {
+            let lower = KeyCode::Char(c.to_ascii_lowercase());
+            if mods.intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) {
+                (mods, lower)
+            } else {
+                (mods | KeyModifiers::SHIFT, lower)
+            }
+        }
+        _ => (mods, code),
+    }
+}
+
+#[cfg(test)]
+mod unit_key_normalize_tests {
+    use super::*;
+
+    #[test]
+    fn shift_letter_is_distinct_from_plain_letter() {
+        assert_ne!(
+            KeymapConfig::parse_key("C").unwrap(),
+            KeymapConfig::parse_key("c").unwrap()
+        );
+        assert_eq!(
+            KeymapConfig::parse_key("C").unwrap(),
+            (KeyModifiers::SHIFT, KeyCode::Char('c'))
+        );
+    }
+
+    #[test]
+    fn uppercase_events_match_shift_bindings() {
+        let km = KeymapConfig::default().build_runtime_maps().unwrap();
+        // debug "C" = clear_snapshots; the event arrives as Char('C')
+        assert_eq!(
+            km.get_debug_action(KeyModifiers::SHIFT, KeyCode::Char('C')),
+            Some(&InputAction::Debug(DebugAction::DebugClearSnapshots))
+        );
+        assert_eq!(
+            km.get_debug_action(KeyModifiers::NONE, KeyCode::Char('c')),
+            Some(&InputAction::Debug(DebugAction::DebugClearLogs))
+        );
+    }
+
+    #[test]
+    fn space_and_plus_parse() {
+        assert_eq!(
+            KeymapConfig::parse_key("Ctrl+Space").unwrap(),
+            (KeyModifiers::CONTROL, KeyCode::Char(' '))
+        );
+        assert_eq!(
+            KeymapConfig::parse_key("Alt+Plus").unwrap(),
+            (KeyModifiers::ALT, KeyCode::Char('+'))
+        );
+    }
+
+    #[test]
+    fn ctrl_and_alt_ignore_letter_case() {
+        assert_eq!(
+            KeymapConfig::parse_key("Ctrl+S").unwrap(),
+            KeymapConfig::parse_key("Ctrl+s").unwrap()
+        );
+        assert_eq!(
+            KeymapConfig::parse_key("Alt+X").unwrap(),
+            (KeyModifiers::ALT, KeyCode::Char('x'))
+        );
+    }
+
+    #[test]
+    fn explicit_ctrl_shift_stays_distinct_from_ctrl() {
+        assert_ne!(
+            KeymapConfig::parse_key("Ctrl+Shift+s").unwrap(),
+            KeymapConfig::parse_key("Ctrl+s").unwrap()
+        );
+    }
+
+    #[test]
+    fn ctrl_uppercase_events_match_lowercase_bindings() {
+        let km = KeymapConfig::default().build_runtime_maps().unwrap();
+        // the default "Ctrl+s" binding must fire for an uppercase Ctrl event too
+        assert_eq!(
+            km.get_editor_action(KeyModifiers::CONTROL, KeyCode::Char('S')),
+            km.get_editor_action(KeyModifiers::CONTROL, KeyCode::Char('s')),
+        );
     }
 }

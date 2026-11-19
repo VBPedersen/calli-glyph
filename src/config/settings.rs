@@ -1,6 +1,7 @@
 //! Curated, user-editable settings: definitions plus reading/writing config.toml.
 
 use crate::errors::config_errors::ConfigError;
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::{fs, io};
 use toml_edit::{DocumentMut, TableLike};
@@ -118,6 +119,29 @@ pub fn step_value(kind: &SettingKind, current: &toml::Value, dir: i64) -> Option
     }
 }
 
+/// Loads a toml file document and returns as mutable
+fn load_doc(path: &Path) -> Result<DocumentMut, ConfigError> {
+    let text = match fs::read_to_string(path) {
+        Ok(t) => t,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => String::new(),
+        Err(e) => return Err(e.into()),
+    };
+    text.parse().map_err(|e| {
+        ConfigError::SyntaxError(format!("config file has a syntax error, fix it first: {e}"))
+    })
+}
+
+/// Saves a DocumentMut as toml file to path
+fn save_doc(path: &Path, doc: &DocumentMut) -> Result<(), ConfigError> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let tmp = path.with_extension("toml.tmp"); // temp + rename: no truncated config on crash
+    fs::write(&tmp, doc.to_string())?;
+    fs::rename(&tmp, path)?;
+    Ok(())
+}
+
 // Writing
 
 /// Sets (`Some`) or removes (`None`, i.e. reset to default) `key` in the toml
@@ -128,26 +152,27 @@ pub fn write_setting(
     key: &str,
     value: Option<toml_edit::Value>,
 ) -> Result<(), ConfigError> {
-    let text = match fs::read_to_string(path) {
-        Ok(t) => t,
-        Err(e) if e.kind() == io::ErrorKind::NotFound => String::new(),
-        Err(e) => return Err(e.into()),
-    };
-    let mut doc: DocumentMut = text.parse().map_err(|e| {
-        ConfigError::EditError(format!("config.toml has a syntax error, fix it first: {e}"))
-    })?;
+    let parts: Vec<&str> = key.split('.').collect();
+    write_path(path, &parts, value)
+}
 
-    let mut parts: Vec<&str> = key.split('.').collect();
-    let leaf = parts
-        .pop()
+/// Sets (Some) or removes (None) the value at `segments`, preserving comments.
+pub fn write_path(
+    path: &Path,
+    segments: &[&str],
+    value: Option<toml_edit::Value>,
+) -> Result<(), ConfigError> {
+    let mut doc = load_doc(path)?;
+    let (leaf, parents) = segments
+        .split_last()
         .ok_or_else(|| ConfigError::MissingField("empty setting key".into()))?;
 
     let mut table: &mut dyn TableLike = doc.as_table_mut();
-    for part in parts {
+    for part in parents {
         let item = table.entry(part).or_insert(toml_edit::table());
-        table = item
-            .as_table_like_mut()
-            .ok_or_else(|| ConfigError::NotATableError(format!("'{part}' in config.toml")))?;
+        table = item.as_table_like_mut().ok_or_else(|| {
+            ConfigError::NotATableError(format!("'{part}' in the config is not a table"))
+        })?;
     }
     match value {
         Some(v) => {
@@ -157,15 +182,52 @@ pub fn write_setting(
             table.remove(leaf);
         }
     }
+    save_doc(path, &doc)
+}
 
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
+/// Replaces the whole table at `segments` with `entries` (sorted for stable output).
+pub fn write_table(
+    path: &Path,
+    segments: &[&str],
+    entries: &BTreeMap<String, String>,
+) -> Result<(), ConfigError> {
+    let mut doc = load_doc(path)?;
+    let (leaf, parents) = segments
+        .split_last()
+        .ok_or_else(|| ConfigError::MissingField("empty table path".into()))?;
+
+    let mut table: &mut dyn TableLike = doc.as_table_mut();
+    for part in parents {
+        let item = table.entry(part).or_insert(toml_edit::table());
+        table = item.as_table_like_mut().ok_or_else(|| {
+            ConfigError::NotATableError(format!("'{part}' in the config is not a table"))
+        })?;
     }
-    // temp + rename so a crash mid-write can't leave a truncated config
-    let tmp = path.with_extension("toml.tmp");
-    fs::write(&tmp, doc.to_string())?;
-    fs::rename(&tmp, path)?;
-    Ok(())
+    let mut t = toml_edit::Table::new();
+    for (k, v) in entries {
+        t.insert(k, toml_edit::value(v.as_str()));
+    }
+    table.insert(leaf, toml_edit::Item::Table(t));
+    save_doc(path, &doc)
+}
+
+// Config-file wrappers. `Config::get_config_path()` returns ConfigError
+use crate::config::Config;
+
+pub fn write_config_setting(key: &str, value: Option<toml_edit::Value>) -> Result<(), ConfigError> {
+    write_setting(&Config::get_config_path()?, key, value)
+}
+pub fn write_config_path(
+    segments: &[&str],
+    value: Option<toml_edit::Value>,
+) -> Result<(), ConfigError> {
+    write_path(&Config::get_config_path()?, segments, value)
+}
+pub fn write_config_table(
+    segments: &[&str],
+    entries: &BTreeMap<String, String>,
+) -> Result<(), ConfigError> {
+    write_table(&Config::get_config_path()?, segments, entries)
 }
 
 #[cfg(test)]
@@ -229,5 +291,26 @@ mod unit_settings_tests {
         std::fs::write(&path, "[editor\nbroken").unwrap();
         assert!(write_setting(&path, "editor.tab_width", Some(4i64.into())).is_err());
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "[editor\nbroken");
+    }
+
+    #[test]
+    fn write_table_replaces_only_that_table_and_handles_dots_in_keys() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        std::fs::write(
+            &path,
+            "# keep me\n[editor]\ntab_width = 2\n[keymaps.editor]\n\"Ctrl+s\" = \"save\"\n",
+        )
+        .unwrap();
+
+        let mut entries = BTreeMap::new();
+        entries.insert("Ctrl+.".to_string(), "undo".to_string());
+        write_table(&path, &["keymaps", "editor"], &entries).unwrap();
+
+        let out = std::fs::read_to_string(&path).unwrap();
+        assert!(out.contains("# keep me"));
+        assert!(out.contains("tab_width = 2"));
+        assert!(out.contains("\"Ctrl+.\" = \"undo\""));
+        assert!(!out.contains("Ctrl+s"));
     }
 }

@@ -1,5 +1,6 @@
 pub mod browser;
 pub mod components;
+pub mod controls;
 pub mod github_token;
 pub mod lang_modal;
 pub mod main_menu;

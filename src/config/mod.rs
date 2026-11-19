@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 mod defaults;
 mod editor; //Editor settings
+pub mod keymap_edit;
 mod keymaps; //Keybinding config
 pub mod lsp;
 mod performance; //Performance settings

@@ -24,6 +24,7 @@ use crate::project::ProjectManager;
 use crate::theme::ThemeManager;
 use crate::ui::debug::DebugView;
 use crate::ui::layout::UILayout;
+use crate::ui::modal::controls::ControlsModal;
 use crate::ui::modal::main_menu::MainMenuModal;
 use crate::ui::modal::settings::SettingsModal;
 use crate::ui::modal::theme_editor::ThemeEditorModal;
@@ -625,11 +626,18 @@ impl App {
         self.modal_stack.push(Box::new(SettingsModal::new()));
     }
 
-    /// Re-reads config.toml and refreshes everything that caches a copy of it.
-    pub fn reload_config(&mut self) {
-        self.config = Config::load();
+    /// Opens the controls modal
+    pub fn open_controls(&mut self) {
+        let modal = ControlsModal::new(self);
+        self.modal_stack.push(Box::new(modal));
+    }
+
+    /// Re-reads config.toml. On failure the current config is kept.
+    pub fn reload_config(&mut self) -> Result<(), String> {
+        self.config.reload().map_err(|e| format!("{e:?}"))?;
         self.editor.editor_config = Arc::new(self.config.editor.clone());
         self.plugins.apply_config(&self.config.plugins);
+        Ok(())
     }
 
     ///function to check for app related input actions,
@@ -1005,9 +1013,7 @@ impl App {
     pub fn apply_theme(&mut self, name: &str) -> Result<(), String> {
         self.theme_manager.set_active(name)?;
         self.config.ui.theme = name.to_string();
-        let saved = Config::get_config_path()
-            .and_then(|p| settings::write_setting(&p, "ui.theme", Some(name.into())));
-        match saved {
+        match settings::write_config_setting("ui.theme", Some(name.into())) {
             Ok(()) => log_info!("[Theme] Active theme '{}' saved", name),
             Err(e) => log_warn!("[Theme] Could not save theme choice: {}", e),
         }

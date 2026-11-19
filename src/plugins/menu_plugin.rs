@@ -34,6 +34,15 @@ impl Plugin for MenuPlugin {
                     aliases: vec![],
                     handler: handle_settings,
                 },
+                PluginCommand {
+                    name: "controls".to_string(),
+                    description: "Edit keyboard shortcuts".to_string(),
+                    aliases: vec!["keys".to_string()],
+                    handler: |app, _args| {
+                        app.open_controls();
+                        Ok(())
+                    },
+                },
             ],
 
             keybinds: vec![PluginKeybinding {
@@ -44,18 +53,18 @@ impl Plugin for MenuPlugin {
         }
     }
 
-    /// This is a command only plugin activation so no taking of focus
-    fn takes_focus(&self) -> bool {
-        false
-    }
-
     fn init(&mut self, _app: &mut App) -> Result<(), PluginError> {
         Ok(())
     }
+
     fn handle_key_event(&mut self, _app: &mut App, _key: crossterm::event::KeyEvent) -> bool {
         false
     }
     fn render(&self, _frame: &mut Frame, _app: &App) -> bool {
+        false
+    }
+    /// This is a command only plugin activation so no taking of focus
+    fn takes_focus(&self) -> bool {
         false
     }
 }

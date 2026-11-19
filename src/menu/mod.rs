@@ -119,6 +119,12 @@ pub fn register_builtin_entries(menu: &mut MenuRegistry) {
         MenuEntry::callback("App", "Quit", "Exit calli-glyph", |app| app.request_quit())
             .with_key('q'),
     );
+    menu.register(
+        MenuEntry::callback("Settings", "Controls", "Rebind keyboard shortcuts", |app| {
+            app.open_controls()
+        })
+        .with_key('c'),
+    );
     // TODO: register debugger, via a Callback or its command
     // TODO: register settings
 }

@@ -8,6 +8,9 @@ pub enum ConfigError {
     #[error("Failed to parse config: {0}")]
     ParseError(#[from] toml::de::Error),
 
+    #[error("Syntax error: {0}")]
+    SyntaxError(String),
+
     #[error("{0} is not a table")]
     NotATableError(String),
 
