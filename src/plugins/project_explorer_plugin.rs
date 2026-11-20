@@ -4,6 +4,7 @@
 
 use crate::core::app::App;
 use crate::errors::plugin_error::PluginError;
+use crate::menu::MenuEntry;
 use crate::plugins::plugin_registry::{Plugin, PluginCommand, PluginMetadata};
 use crate::project::open_file_picker;
 use ratatui::Frame;
@@ -43,6 +44,17 @@ impl Plugin for ProjectExplorerPlugin {
             ],
             keybinds: vec![],
         }
+    }
+
+    fn takes_focus(&self) -> bool {
+        false
+    }
+
+    fn menu_entries(&self) -> Vec<MenuEntry> {
+        vec![
+            MenuEntry::command("Project", "Browse files", "Open the file picker", "explore")
+                .with_key('f'),
+        ]
     }
 
     fn init(&mut self, _app: &mut App) -> Result<(), PluginError> {

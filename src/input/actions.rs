@@ -1,3 +1,5 @@
+use crossterm::event::{KeyCode, KeyModifiers};
+
 /// A high-level representation of user intent in the TUI.
 /// Context agnostic base actions, extended by contextual actions depending on structure
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -83,6 +85,11 @@ pub enum ModalAction {
     Close,   // Esc
     // Generic action for modal-specific things
     Action(char), // e.g. 'r' for restart, 'f' for filter on some modals
+    // Produced only in ModalInputMode::Text
+    Text(char),
+    Backspace,
+    // Produced only in ModalInputMode::CaptureKey
+    Key(KeyCode, KeyModifiers),
 }
 
 ///direction enum to use in action enum values

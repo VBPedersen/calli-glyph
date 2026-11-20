@@ -19,6 +19,8 @@ and plugins in calli-glyph.
 | `:h`              | Alias for `:help`                                |
 | `:<cmd> help`     | Show help for a specific command, e.g. `:debug help` |
 
+The help screen is also reachable from the welcome screen (key `h`).
+
 ## Navigation
 
 | Key        | Action                              |
@@ -41,6 +43,15 @@ Press `Esc` once to clear the search, and again to close the popup.
 | Topic         | Description                                        |
 |---------------|----------------------------------------------------|
 | `editor`      | Core editing, movement, and file operations        |
+| `welcome`     | The start screen and folder view                   |
+| `menu`        | The main menu and its shortcuts                    |
+| `settings`    | Change common options from inside the editor       |
+| `controls`    | Rebind keyboard shortcuts                          |
+| `themes`      | Themes, the theme browser, and theme files         |
+| `themeeditor` | Edit theme colors and layout live                  |
+| `project`     | Project root, file picker, and external pickers    |
+| `githubtoken` | GitHub token for language grammar installs         |
+| `dialogs`     | Shared keys for menus, lists, and dialogs          |
 | `debug`       | Developer console and debug overlay                |
 | `config`      | Configuration file and available options           |
 | `plugins`     | Plugin system and management                       |

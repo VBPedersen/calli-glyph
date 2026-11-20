@@ -16,7 +16,9 @@
 
 use crate::core::app::App;
 use crate::errors::plugin_error::PluginError;
+use crate::menu::MenuEntry;
 use crate::plugins::plugin_registry::{Plugin, PluginCommand, PluginMetadata};
+use crate::ui::modal::github_token::GithubTokenModal;
 use ratatui::Frame;
 
 pub struct GithubAuthPlugin;
@@ -58,6 +60,19 @@ impl Plugin for GithubAuthPlugin {
     fn render(&self, _frame: &mut Frame, _app: &App) -> bool {
         false
     }
+
+    fn takes_focus(&self) -> bool {
+        false
+    }
+    fn menu_entries(&self) -> Vec<MenuEntry> {
+        vec![MenuEntry::command(
+            "Language",
+            "GitHub token",
+            "Set or remove the token used for grammar installs",
+            "githubtoken",
+        )
+        .with_key('g')]
+    }
 }
 
 impl Default for GithubAuthPlugin {
@@ -68,9 +83,8 @@ impl Default for GithubAuthPlugin {
 
 fn handle_githubtoken(app: &mut App, args: Vec<String>) -> Result<(), PluginError> {
     let Some(first) = args.first() else {
-        return Err(PluginError::Internal(
-            "Usage: :githubtoken <token>  or  :githubtoken clear".to_string(),
-        ));
+        app.modal_stack.push(Box::new(GithubTokenModal::new()));
+        return Ok(());
     };
 
     let token = if first.eq_ignore_ascii_case("clear") {
@@ -172,10 +186,12 @@ mod unit_github_auth_plugin_tests {
     }
 
     #[test]
-    fn missing_argument_is_an_error() {
+    fn no_argument_opens_the_dialog() {
         with_isolated_config_dir(|| {
             let mut app = App::default();
-            assert!(handle_githubtoken(&mut app, vec![]).is_err());
+            let before = app.modal_stack.len();
+            handle_githubtoken(&mut app, vec![]).unwrap();
+            assert_eq!(app.modal_stack.len(), before + 1);
         });
     }
 

@@ -5,12 +5,15 @@ use std::path::PathBuf;
 
 mod defaults;
 mod editor; //Editor settings
+pub mod keymap_edit;
 mod keymaps; //Keybinding config
 pub mod lsp;
 mod performance; //Performance settings
 pub mod plugins;
 pub mod project;
+pub mod settings;
 pub mod syntax;
+pub mod theme_edit;
 mod ui;
 //UI settings //Default configurations
 

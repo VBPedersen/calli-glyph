@@ -4,3 +4,4 @@ pub mod layout;
 pub mod modal;
 pub mod popups;
 pub mod ui;
+pub mod welcome;

@@ -1,6 +1,7 @@
 use super::command_line::{command, command_executor, CommandLine};
 use super::editor::Editor;
-use crate::app_config::AppLaunchConfig;
+use crate::app_config::{AppLaunchConfig, LaunchTarget};
+use crate::config::settings;
 use crate::config::Config;
 use crate::core::debug::DebugState;
 use crate::core::help_registry::HelpRegistry;
@@ -12,7 +13,9 @@ use crate::input::input::handle_input;
 use crate::language::install::InstallManager;
 use crate::language::lsp::LspMessage;
 use crate::language::manager::LanguageManager;
+use crate::menu::MenuRegistry;
 use crate::plugins::github_auth_plugin::GithubAuthPlugin;
+use crate::plugins::menu_plugin::MenuPlugin;
 use crate::plugins::plugin_registry::{Plugin, PluginManager};
 use crate::plugins::project_explorer_plugin::ProjectExplorerPlugin;
 use crate::plugins::search_replace_plugin::SearchReplacePlugin;
@@ -21,11 +24,18 @@ use crate::project::ProjectManager;
 use crate::theme::ThemeManager;
 use crate::ui::debug::DebugView;
 use crate::ui::layout::UILayout;
+use crate::ui::modal::controls::ControlsModal;
+use crate::ui::modal::main_menu::MainMenuModal;
+use crate::ui::modal::settings::SettingsModal;
+use crate::ui::modal::theme_editor::ThemeEditorModal;
+use crate::ui::modal::themes::ThemesModal;
 use crate::ui::modal::Modal;
 use crate::ui::popups::confirmation_popup::ConfirmationPopup;
 use crate::ui::popups::error_popup::ErrorPopup;
+use crate::ui::popups::help_popup::HelpPopup;
 use crate::ui::popups::popup::{Popup, PopupResult, PopupType};
 use crate::ui::ui::ui;
+use crate::ui::welcome::{WelcomeAction, WelcomeScreen};
 use color_eyre::Result;
 use crossterm::event;
 use ratatui::layout::Rect;
@@ -62,6 +72,8 @@ pub struct App {
     pub modal_stack: Vec<Box<dyn Modal>>,
     pub theme_manager: ThemeManager,
     pub project_manager: ProjectManager,
+    pub welcome: Option<WelcomeScreen>,
+    pub menu: MenuRegistry,
     /// Set true after resuming from a suspended terminal (external picker).
     /// ratatui's diff buffer doesn't know the physical screen changed while
     /// suspended, so the next draw needs a forced full redraw.
@@ -87,6 +99,23 @@ pub enum PendingState {
     },
 }
 
+/// Pending state descriptions for use in debugger and logs
+impl PendingState {
+    pub fn describe(&self) -> String {
+        match self {
+            PendingState::None => "None".into(),
+            PendingState::Saving(p) => format!("Save {}", p.display()),
+            PendingState::Quitting => "Quit (needs confirm)".into(),
+            PendingState::QuittingAbsolute => "Quit (forced)".into(),
+            PendingState::ConfigEdit { .. } => "Config edit (callback on confirm)".into(),
+            PendingState::OpenFile { path, jump_to_line } => match jump_to_line {
+                Some(l) => format!("Open {} at line {}", path.display(), l + 1),
+                None => format!("Open {}", path.display()),
+            },
+        }
+    }
+}
+
 #[derive(PartialEq, Debug, Default, Copy, Clone)]
 pub enum ActiveArea {
     #[default]
@@ -94,6 +123,7 @@ pub enum ActiveArea {
     CommandLine,
     Popup,
     DebugConsole,
+    Welcome,
 }
 
 impl Default for App {
@@ -132,6 +162,8 @@ impl Default for App {
             modal_stack: vec![],
             theme_manager,
             project_manager: ProjectManager::new(),
+            welcome: None,
+            menu: MenuRegistry::new(),
             force_full_redraw: false,
         };
 
@@ -150,10 +182,18 @@ impl App {
         // A directory passed at launch (`cglyph some/folder`) is a
         // project root, not a file to open: File::open + read_to_string
         // on a directory fails, and the existing error path there is a
-        // hard panic. Split that case off before it ever reaches file_path.
-        let (file_path, explicit_root) = match launch_config.file_path {
-            Some(path) if path.is_dir() => (None, Some(path)),
-            other => (other, None),
+        // hard panic. Match on target to avoid
+        let (file_path, welcome) = match &launch_config.target {
+            LaunchTarget::Empty => (None, Some(WelcomeScreen::empty())),
+            LaunchTarget::File(p) => (Some(p.clone()), None),
+            LaunchTarget::Dir(d) => (None, Some(WelcomeScreen::for_folder(d.clone()))),
+        };
+
+        // Set active area
+        let active_area = if welcome.is_some() {
+            ActiveArea::Welcome
+        } else {
+            ActiveArea::Editor
         };
 
         let themes_dir = Config::get_config_base_dir()
@@ -163,7 +203,7 @@ impl App {
         let mut app = App {
             running: Default::default(),
             config,
-            active_area: Default::default(),
+            active_area,
             editor: Editor::new(editor_config_arc),
             command_line: CommandLine::new(),
             cursor_visible: true,
@@ -188,21 +228,23 @@ impl App {
             modal_stack: vec![],
             theme_manager,
             project_manager: ProjectManager::new(),
+            welcome,
+            menu: MenuRegistry::new(),
             force_full_redraw: false,
         };
 
         // Explicit directory launch: no walk-up.
         // Otherwise, auto-detect from whatever file
         // (if any) was opened, same algorithm LSP's workspace-root uses.
-        match explicit_root {
-            Some(dir) => app.project_manager.set_root(dir),
-            None => {
-                let start = app.file_path.clone().unwrap_or_else(|| {
-                    std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
-                });
-                app.project_manager.set_root_from_path(&start);
-            }
+        match &launch_config.target {
+            // Literal root: the user named this directory on purpose.
+            LaunchTarget::Dir(d) => app.project_manager.set_root(d.clone()),
+            // File: set_root_from_path.
+            LaunchTarget::File(p) => app.project_manager.set_root_from_path(p),
+            LaunchTarget::Empty => {}
         }
+
+        crate::menu::register_builtin_entries(&mut app.menu);
 
         // Load default plugins
         app.load_plugins_from_config();
@@ -242,6 +284,7 @@ impl App {
                 "project_explorer_plugin",
                 Box::new(ProjectExplorerPlugin::new()),
             ),
+            ("menu_plugin", Box::new(MenuPlugin::new())),
         ];
 
         // Only load enabled plugins
@@ -284,6 +327,11 @@ impl App {
             }
         }
 
+        // registers plugin entries in menu
+        for entry in plugin.menu_entries() {
+            self.menu.register(entry);
+        }
+
         self.plugins.insert_plugin(name, plugin);
         Ok(())
     }
@@ -308,7 +356,6 @@ impl App {
     pub fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
         //SETUP
         self.running = true;
-        self.active_area = ActiveArea::Editor;
         let mut last_auto_save = Instant::now();
         let mut needs_redraw = true;
 
@@ -515,7 +562,82 @@ impl App {
             ActiveArea::DebugConsole => {
                 self.handle_debug_input_action(action);
             }
+            ActiveArea::Welcome => {
+                // Take the action out first so no &mut App borrow overlaps the screen's.
+                let act = self.welcome.as_mut().and_then(|w| w.handle_input(action));
+                if let Some(a) = act {
+                    self.dispatch_welcome_action(a);
+                }
+            }
         }
+    }
+
+    /// Helper function to determine which active area should populate the current home area
+    fn home_area(&self) -> ActiveArea {
+        if self.welcome.is_some() {
+            ActiveArea::Welcome
+        } else {
+            ActiveArea::Editor
+        }
+    }
+
+    /// Match a welcome action to a specific action to be taken
+    fn dispatch_welcome_action(&mut self, a: WelcomeAction) {
+        match a {
+            WelcomeAction::NewFile => self.dismiss_welcome(),
+            WelcomeAction::OpenFilePicker => {
+                self.dismiss_welcome();
+                crate::project::open_file_picker(self)
+            }
+            WelcomeAction::OpenPath(p) => self.open_file(p, None),
+            WelcomeAction::EnterDir(d) => {
+                self.project_manager.set_root(d.clone());
+                self.welcome = Some(WelcomeScreen::for_folder(d));
+            }
+            WelcomeAction::Menu => self.open_main_menu(),
+            WelcomeAction::CommandLine => self.toggle_active_area(),
+            WelcomeAction::Settings => self.open_settings(),
+            WelcomeAction::Help => {
+                let registry = Arc::clone(&self.help_registry);
+                let popup = HelpPopup::browse(registry);
+                self.open_popup(Box::new(popup));
+            }
+            WelcomeAction::Quit => self.quit(),
+            WelcomeAction::Dismiss => self.dismiss_welcome(),
+        }
+    }
+
+    /// Dismisses the welcome screen and sets active area to editor
+    fn dismiss_welcome(&mut self) {
+        self.welcome = None;
+        if self.active_area == ActiveArea::Welcome {
+            self.active_area = ActiveArea::Editor;
+        }
+    }
+
+    /// Opens the main menu modal
+    pub fn open_main_menu(&mut self) {
+        let modal = MainMenuModal::new(&self.menu, &self.plugins);
+        self.modal_stack.push(Box::new(modal));
+    }
+
+    /// Opens the settings modal
+    pub fn open_settings(&mut self) {
+        self.modal_stack.push(Box::new(SettingsModal::new()));
+    }
+
+    /// Opens the controls modal
+    pub fn open_controls(&mut self) {
+        let modal = ControlsModal::new(self);
+        self.modal_stack.push(Box::new(modal));
+    }
+
+    /// Re-reads config.toml. On failure the current config is kept.
+    pub fn reload_config(&mut self) -> Result<(), String> {
+        self.config.reload().map_err(|e| format!("{e:?}"))?;
+        self.editor.editor_config = Arc::new(self.config.editor.clone());
+        self.plugins.apply_config(&self.config.plugins);
+        Ok(())
     }
 
     ///function to check for app related input actions,
@@ -565,11 +687,9 @@ impl App {
     ///toggles the active area of the app, between editor and command line
     pub(crate) fn toggle_active_area(&mut self) {
         match self.active_area {
-            ActiveArea::Editor => {
-                self.active_area = ActiveArea::CommandLine;
-            }
+            ActiveArea::Editor | ActiveArea::Welcome => self.active_area = ActiveArea::CommandLine,
             ActiveArea::CommandLine => {
-                self.active_area = ActiveArea::Editor;
+                self.active_area = self.home_area();
             }
 
             _ => {}
@@ -596,6 +716,12 @@ impl App {
 
         // Consume, and since we already checked if front is some, we can safely unwrap
         let state = self.pending_states.pop_front().unwrap();
+
+        log_info!(
+            "[Pending] resolving '{}' (confirmed={})",
+            state.describe(),
+            confirmed
+        );
 
         // Only check state if confirmed, since these functionalities should only execute when confirmed
         match state {
@@ -690,7 +816,7 @@ impl App {
 
     pub fn close_popup(&mut self) {
         self.popup = None;
-        self.active_area = ActiveArea::Editor; // Go back to editor
+        self.active_area = self.home_area();
     }
 
     //Basic Commands
@@ -698,6 +824,16 @@ impl App {
     /// Set running == false, to quit the application.
     pub(crate) fn quit(&mut self) {
         self.running = false;
+    }
+
+    /// Request quit goes through the confirmation flow to avoid silently dropping unsaved changes
+    pub fn request_quit(&mut self) {
+        if self.content_modified {
+            self.pending_states.push_back(PendingState::Quitting);
+            self.open_popup(Box::new(ConfirmationPopup::new("Quit without saving?")));
+        } else {
+            self.quit();
+        }
     }
 
     ///saves contents to file at path
@@ -743,6 +879,14 @@ impl App {
                 path: path.clone(),
                 jump_to_line,
             });
+
+            log_info!(
+                "[Pending] queued: {:?}",
+                self.pending_states
+                    .iter()
+                    .map(|s| s.describe())
+                    .collect::<Vec<_>>()
+            );
 
             // If there is a current file path, save it first.
             if let Some(current_path) = self.file_path.clone() {
@@ -823,6 +967,8 @@ impl App {
             self.editor.jump_to_line(line);
         }
 
+        self.dismiss_welcome(); // dismisses the welcome screen if active
+
         log_info!("[App] Opened file: {}", path.display());
     }
 
@@ -845,6 +991,67 @@ impl App {
         } else {
             Ok(false)
         }
+    }
+
+    // THEME
+
+    /// Re-pushes the active theme's syntax colors into the language manager.
+    /// UI colors need nothing: render reads the theme every frame.
+    pub fn refresh_syntax_theme(&mut self) {
+        if let Some(path) = self.file_path.clone() {
+            let syntax_theme = self.theme_manager.active().syntax.clone();
+            self.language.activate_for_file(
+                &path,
+                Some(syntax_theme),
+                &self.config.lsp,
+                &self.config.syntax,
+            );
+        }
+    }
+
+    /// Makes `name` the active theme and persists the choice (comments in config.toml preserved).
+    pub fn apply_theme(&mut self, name: &str) -> Result<(), String> {
+        self.theme_manager.set_active(name)?;
+        self.config.ui.theme = name.to_string();
+        match settings::write_config_setting("ui.theme", Some(name.into())) {
+            Ok(()) => log_info!("[Theme] Active theme '{}' saved", name),
+            Err(e) => log_warn!("[Theme] Could not save theme choice: {}", e),
+        }
+        self.refresh_syntax_theme();
+        Ok(())
+    }
+
+    pub fn open_theme_browser(&mut self) {
+        let modal = ThemesModal::new(self);
+        self.modal_stack.push(Box::new(modal));
+    }
+
+    pub fn open_theme_browser_naming(&mut self) {
+        let modal = ThemesModal::new(self).start_naming();
+        self.modal_stack.push(Box::new(modal));
+    }
+
+    /// `previous_active` is restored if the editor is closed without `a` (use theme).
+    pub fn open_theme_editor(&mut self, name: &str, previous_active: String) {
+        match self.theme_manager.ensure_theme_file(name) {
+            Ok(path) => {
+                let _ = self.theme_manager.set_active(name); // live preview, not persisted
+                self.modal_stack.push(Box::new(ThemeEditorModal::new(
+                    name.to_string(),
+                    path,
+                    previous_active,
+                )));
+            }
+            Err(e) => self.open_popup(Box::new(ErrorPopup::new(
+                "Cannot edit theme",
+                AppError::InternalError(e),
+            ))),
+        }
+    }
+
+    pub fn open_theme_editor_for_active(&mut self) {
+        let name = self.theme_manager.active_name().to_string();
+        self.open_theme_editor(&name, name.clone());
     }
 }
 
