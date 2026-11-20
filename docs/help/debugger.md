@@ -97,3 +97,33 @@ Press `r` to reset the frame time window and counters.
 
 **Note:** All keybindings listed are defaults and can be remapped via your
 `.config` file. See `:help config` for details.
+
+## State Tab
+
+The **State** tab is the second tab of the debug console, right after Overview.
+It shows what the app is doing right now, in sections:
+
+| Section            | Shows                                                                  |
+|--------------------|------------------------------------------------------------------------|
+| Focus              | Active area, whether the welcome screen is up, open popup, stack of open screens, active plugin |
+| Pending states     | The queue of steps waiting on the user, in order, with `▶` on the next one |
+| Buffer             | File, modified flags, line count, content version, cursor, selection, auto-save |
+| Project & language | Project root, language id, document URI, whether the language server is running |
+| Plugins            | Loaded plugins, number of commands, number of menu entries             |
+
+### Pending states
+
+Some actions need several confirmations in a row, for example "save, then open
+another file" or "save, then quit". The steps are queued and resolved one at a
+time as you answer each prompt. The State tab lists the queue, for example:
+
+    ▶ 1. Save /home/me/project/main.rs
+      2. Open /home/me/project/lib.rs at line 12
+
+If the queue has entries but no popup or screen is waiting on you, a warning is
+shown: the queue is stale, which usually means a step was dropped. Each step
+being queued and resolved is also written to the **Logs** tab with a `[Pending]`
+prefix.
+
+Use `Tab` / `Shift+Tab` to switch tabs and the scroll keys to move through a
+long State page, same as the other tabs.
